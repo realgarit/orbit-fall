@@ -16,12 +16,14 @@ function seededRandom(seed: number): number {
 }
 
 // Generate a star at a specific grid position using seeded random
+// Stars are deterministic (same position when revisiting same grid) but appear randomized
 function generateStarAt(gridX: number, gridY: number, layer: number, index: number): { x: number; y: number; size: number; brightness: number } {
   const seed = gridX * 73856093 + gridY * 19349663 + layer * 83492791 + index * 19349669;
-  const x = gridX + seededRandom(seed) * 100; // Distribute within grid cell
-  const y = gridY + seededRandom(seed + 1) * 100;
-  const size = seededRandom(seed + 2) * 2 + 0.5;
-  const brightness = seededRandom(seed + 3) * 0.5 + 0.5;
+  // More random distribution within the entire grid cell
+  const x = gridX + seededRandom(seed) * 200; // Use full grid cell size (200px)
+  const y = gridY + seededRandom(seed + 1) * 200;
+  const size = seededRandom(seed + 2) * 1.5 + 0.3; // Smaller stars on average
+  const brightness = seededRandom(seed + 3) * 0.4 + 0.3; // Lower brightness range
   return { x, y, size, brightness };
 }
 
@@ -31,7 +33,7 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
   const lastCameraPosRef = useRef({ x: 0, y: 0 });
   const cameraVelocityRef = useRef({ vx: 0, vy: 0 }); // Track camera movement direction
   const generatedGridsRef = useRef<Set<string>[]>([]); // Track which grid cells have been generated
-  const gridSizeRef = useRef(150); // Larger grid cells for better performance
+  const gridSizeRef = useRef(200); // Larger grid cells for sparser distribution
 
   useEffect(() => {
     if (!app) return;
@@ -143,11 +145,20 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
               // Mark this grid as generated
               generatedGrids.add(key);
               
-              // Generate fewer stars per cell for better performance
-              // With larger grid cells (150x150), we need fewer stars to maintain density
-              const starsPerCell = 4; // Reduced from 8 to 4 stars per grid cell
+              // Use probabilistic star generation for sparser, more randomized distribution
+              // Each grid cell has a chance to have 0-2 stars, making it more sparse
+              const seed = gridX * 73856093 + gridY * 19349663 + layer * 83492791;
+              const starProbability = seededRandom(seed);
               
-              for (let i = 0; i < starsPerCell; i++) {
+              // Determine how many stars in this cell (0, 1, or 2) based on probability
+              let starsInCell = 0;
+              if (starProbability > 0.4) {
+                // 60% chance of having at least 1 star
+                starsInCell = starProbability > 0.75 ? 2 : 1; // 25% chance of 2 stars, 35% chance of 1 star
+              }
+              
+              // Generate stars for this cell
+              for (let i = 0; i < starsInCell; i++) {
                 const starData = generateStarAt(gridX, gridY, layer, i);
 
                 const star = new Graphics();
@@ -187,8 +198,9 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
             // Extract grid key from star key (format: "gridX,gridY_index")
             const gridKey = key.split('_')[0];
             // Check if all stars from this grid are removed
+            // Check up to 2 stars per cell (max we generate now)
             let allRemoved = true;
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < 2; i++) {
               if (starMap.has(`${gridKey}_${i}`) && !keysToRemove.includes(`${gridKey}_${i}`)) {
                 allRemoved = false;
                 break;
