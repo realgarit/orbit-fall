@@ -153,9 +153,10 @@ export function Ship({ app, cameraContainer, onStateUpdate }: ShipProps) {
       pos.x += velocity.vx * delta;
       pos.y += velocity.vy * delta;
 
-      // No boundary constraints - ship can move freely in world space
-      // But we can optionally wrap around or keep it within map bounds
-      // For now, allow free movement
+      // Boundary constraints: keep ship within map bounds (0,0) to (MAP_WIDTH, MAP_HEIGHT)
+      // 0,0 is at top-left of the invisible border
+      pos.x = Math.max(0, Math.min(MAP_WIDTH, pos.x));
+      pos.y = Math.max(0, Math.min(MAP_HEIGHT, pos.y));
 
       // Update ship position in world space
       ship.x = pos.x;
