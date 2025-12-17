@@ -3,7 +3,6 @@ import { Application, Container } from 'pixi.js';
 import { usePixiApp } from '../hooks/usePixiApp';
 import { Starfield } from './Starfield';
 import { Ship } from './Ship';
-import { HUD } from './HUD';
 import { WindowManagerProvider } from '../hooks/useWindowManager';
 import { TopBar } from './windows/TopBar';
 import { StatsWindow } from './windows/StatsWindow';
@@ -87,11 +86,12 @@ export function Game() {
           <>
             <Starfield app={app} cameraContainer={cameraContainer} />
             <Ship app={app} cameraContainer={cameraContainer} onStateUpdate={handleShipStateUpdate} />
-            <HUD position={shipPosition} velocity={shipVelocity} fps={fps} />
             <StatsWindow
               playerHealth={playerHealth}
               maxHealth={PLAYER_STATS.MAX_HEALTH}
               shipPosition={shipPosition}
+              shipVelocity={shipVelocity}
+              fps={fps}
               selectedEnemy={selectedEnemy}
               inCombat={inCombat}
             />

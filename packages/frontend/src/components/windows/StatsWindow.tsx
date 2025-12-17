@@ -1,4 +1,3 @@
-import React from 'react';
 import { Window } from './Window';
 import { useWindowManager } from '../../hooks/useWindowManager';
 
@@ -6,6 +5,8 @@ interface StatsWindowProps {
   playerHealth?: number;
   maxHealth?: number;
   shipPosition?: { x: number; y: number };
+  shipVelocity?: { vx: number; vy: number };
+  fps?: number;
   selectedEnemy?: {
     name: string;
     health?: number;
@@ -28,6 +29,8 @@ export function StatsWindow({
   playerHealth = 100,
   maxHealth = 100,
   shipPosition = { x: 0, y: 0 },
+  shipVelocity = { vx: 0, vy: 0 },
+  fps = 0,
   selectedEnemy = null,
   inCombat = false,
   windowId = 'stats-window',
@@ -35,6 +38,7 @@ export function StatsWindow({
   const { minimizeWindow, restoreWindow } = useWindowManager();
 
   const healthPercentage = maxHealth > 0 ? (playerHealth / maxHealth) * 100 : 0;
+  const speed = Math.sqrt(shipVelocity.vx * shipVelocity.vx + shipVelocity.vy * shipVelocity.vy);
 
   return (
     <Window
@@ -44,7 +48,7 @@ export function StatsWindow({
       initialX={20}
       initialY={60}
       initialWidth={280}
-      initialHeight={200}
+      initialHeight={320}
       onMinimize={minimizeWindow}
       onRestore={restoreWindow}
     >
@@ -68,6 +72,30 @@ export function StatsWindow({
           <div className="stats-label">Position</div>
           <div className="stats-value">
             X: {shipPosition.x.toFixed(1)}, Y: {shipPosition.y.toFixed(1)}
+          </div>
+        </div>
+
+        {/* Speed */}
+        <div className="stats-section">
+          <div className="stats-label">Speed</div>
+          <div className="stats-value">
+            {speed.toFixed(2)}
+          </div>
+        </div>
+
+        {/* Velocity */}
+        <div className="stats-section">
+          <div className="stats-label">Velocity</div>
+          <div className="stats-value">
+            X: {shipVelocity.vx.toFixed(2)}, Y: {shipVelocity.vy.toFixed(2)}
+          </div>
+        </div>
+
+        {/* FPS */}
+        <div className="stats-section">
+          <div className="stats-label">FPS</div>
+          <div className="stats-value">
+            {fps.toFixed(0)}
           </div>
         </div>
 
