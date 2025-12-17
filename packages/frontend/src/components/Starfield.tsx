@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Application, Graphics, Container } from 'pixi.js';
-import { STARFIELD_LAYERS, STARS_PER_LAYER } from '@shared/constants';
-import type { Star } from '@shared/types';
+import { STARFIELD_LAYERS } from '@shared/constants';
 
 interface StarfieldProps {
   app: Application;
@@ -54,15 +53,6 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
     starsRef.current = starMaps;
     containersRef.current = layers;
     generatedGridsRef.current = generatedGrids;
-
-    // Function to get grid coordinates from world coordinates
-    const getGridCoords = (worldX: number, worldY: number) => {
-      const gridSize = gridSizeRef.current;
-      return {
-        gridX: Math.floor(worldX / gridSize) * gridSize,
-        gridY: Math.floor(worldY / gridSize) * gridSize,
-      };
-    };
 
     // Function to get grid key
     const getGridKey = (gridX: number, gridY: number) => `${gridX},${gridY}`;

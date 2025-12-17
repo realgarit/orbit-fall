@@ -30,5 +30,8 @@
       "@shared/*": ["../../packages/shared/src/*"]
     }
   },
+  "references": [
+    { "path": "../shared" }
+  ],
   "include": ["src"]
 }

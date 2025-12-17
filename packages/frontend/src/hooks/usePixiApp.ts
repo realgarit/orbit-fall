@@ -56,7 +56,6 @@ export function usePixiApp(options: UsePixiAppOptions = {}) {
         appRef.current.destroy(true, {
           children: true,
           texture: true,
-          baseTexture: true,
         });
         appRef.current = null;
       }
