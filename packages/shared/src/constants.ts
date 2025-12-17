@@ -10,3 +10,8 @@ export const STARS_PER_LAYER = 100;
 export const SHIP_SPEED = 5;
 export const SHIP_ROTATION_SPEED = 0.1;
 
+// Player configuration
+export const PLAYER_STATS = {
+  MAX_HEALTH: 100,
+};
+

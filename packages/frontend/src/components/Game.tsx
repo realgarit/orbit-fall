@@ -4,7 +4,11 @@ import { usePixiApp } from '../hooks/usePixiApp';
 import { Starfield } from './Starfield';
 import { Ship } from './Ship';
 import { HUD } from './HUD';
-import { MAP_WIDTH, MAP_HEIGHT } from '@shared/constants';
+import { WindowManagerProvider } from '../hooks/useWindowManager';
+import { TopBar } from './windows/TopBar';
+import { StatsWindow } from './windows/StatsWindow';
+import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS } from '@shared/constants';
+import '../styles/windows.css';
 
 export function Game() {
   const [app, setApp] = useState<Application | null>(null);
@@ -12,6 +16,15 @@ export function Game() {
   const [shipPosition, setShipPosition] = useState({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
   const [shipVelocity, setShipVelocity] = useState({ vx: 0, vy: 0 });
   const [fps, setFps] = useState(0);
+  
+  // Game state for Stats Window
+  const [playerHealth, setPlayerHealth] = useState(PLAYER_STATS.MAX_HEALTH);
+  const [selectedEnemy, setSelectedEnemy] = useState<{
+    name: string;
+    health?: number;
+    maxHealth?: number;
+  } | null>(null);
+  const [inCombat, setInCombat] = useState(false);
   const { containerRef } = usePixiApp({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -58,24 +71,34 @@ export function Game() {
   };
 
   return (
-    <div
-      ref={containerRef}
-      style={{
-        width: '100vw',
-        height: '100vh',
-        overflow: 'hidden',
-        margin: 0,
-        padding: 0,
-      }}
-    >
-      {app && cameraContainer && (
-        <>
-          <Starfield app={app} cameraContainer={cameraContainer} />
-          <Ship app={app} cameraContainer={cameraContainer} onStateUpdate={handleShipStateUpdate} />
-          <HUD position={shipPosition} velocity={shipVelocity} fps={fps} />
-        </>
-      )}
-    </div>
+    <WindowManagerProvider>
+      <div
+        ref={containerRef}
+        style={{
+          width: '100vw',
+          height: '100vh',
+          overflow: 'hidden',
+          margin: 0,
+          padding: 0,
+        }}
+      >
+        <TopBar />
+        {app && cameraContainer && (
+          <>
+            <Starfield app={app} cameraContainer={cameraContainer} />
+            <Ship app={app} cameraContainer={cameraContainer} onStateUpdate={handleShipStateUpdate} />
+            <HUD position={shipPosition} velocity={shipVelocity} fps={fps} />
+            <StatsWindow
+              playerHealth={playerHealth}
+              maxHealth={PLAYER_STATS.MAX_HEALTH}
+              shipPosition={shipPosition}
+              selectedEnemy={selectedEnemy}
+              inCombat={inCombat}
+            />
+          </>
+        )}
+      </div>
+    </WindowManagerProvider>
   );
 }
 
