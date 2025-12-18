@@ -16,7 +16,7 @@ import { BattleWindow } from './windows/BattleWindow';
 import { MinimapWindow } from './windows/MinimapWindow';
 import { SettingsWindow } from './windows/SettingsWindow';
 import { ShipWindow } from './windows/ShipWindow';
-import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS } from '@shared/constants';
+import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS, BASE_SAFETY_ZONE } from '@shared/constants';
 import type { EnemyState } from '@shared/types';
 import '../styles/windows.css';
 
@@ -45,6 +45,25 @@ export function Game() {
   
   // Base position (top left of map)
   const basePosition = { x: 200, y: 200 };
+  
+  // Check if player is in safety zone
+  const isInSafetyZone = () => {
+    const dx = shipPosition.x - basePosition.x;
+    const dy = shipPosition.y - basePosition.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    return distance < BASE_SAFETY_ZONE.RADIUS;
+  };
+  
+  const inSafetyZone = isInSafetyZone();
+  
+  // Exit combat when entering safety zone
+  useEffect(() => {
+    if (inSafetyZone && inCombat) {
+      setInCombat(false);
+      setPlayerFiring(false);
+      // Don't clear selectedEnemyId - let player keep selection for when they leave
+    }
+  }, [inSafetyZone, inCombat]);
   
   // Double-click detection
   const lastClickTimeRef = useRef(0);
@@ -130,12 +149,14 @@ export function Game() {
         lastClickEnemyIdRef.current === enemyState.id;
       
       if (isDoubleClick) {
-        // Double-click: engage combat
-        setInCombat(true);
-        setPlayerFiring(true);
-        setSelectedEnemyId(enemyState.id);
-        if (enemyState) {
-          setEnemyState({ ...enemyState, isEngaged: true });
+        // Double-click: engage combat (but not if in safety zone)
+        if (!isInSafetyZone()) {
+          setInCombat(true);
+          setPlayerFiring(true);
+          setSelectedEnemyId(enemyState.id);
+          if (enemyState) {
+            setEnemyState({ ...enemyState, isEngaged: true });
+          }
         }
         lastClickTimeRef.current = 0; // Reset
         lastClickEnemyIdRef.current = null;
@@ -314,7 +335,28 @@ export function Game() {
                 playerFiring={playerFiring}
                 onPlayerHealthChange={setPlayerHealth}
                 onEnemyHealthChange={handleEnemyHealthChange}
+                isInSafetyZone={inSafetyZone}
               />
+            )}
+            {/* Safety Zone Message */}
+            {inSafetyZone && (
+              <div
+                style={{
+                  position: 'fixed',
+                  top: '175px', // Middle between top bar (ends ~42px) and HP bar area (~120px)
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  color: '#ffffff',
+                  fontFamily: 'monospace',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  zIndex: 1000,
+                  pointerEvents: 'none',
+                  textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
+                }}
+              >
+                Safety Zone - Combat Disabled
+              </div>
             )}
             <ShipWindow
               playerHealth={playerHealth}

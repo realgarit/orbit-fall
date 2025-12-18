@@ -15,6 +15,7 @@ interface CombatSystemProps {
   onPlayerHealthChange: (health: number) => void;
   onEnemyHealthChange: (health: number) => void;
   onLaserHit?: (laser: LaserProjectile) => void;
+  isInSafetyZone?: boolean;
 }
 
 interface LaserData {
@@ -34,6 +35,7 @@ export function CombatSystem({
   onPlayerHealthChange,
   onEnemyHealthChange,
   onLaserHit,
+  isInSafetyZone = false,
 }: CombatSystemProps) {
   const lasersRef = useRef<Map<string, LaserData>>(new Map());
   const playerLastFireTimeRef = useRef(0);
@@ -49,6 +51,7 @@ export function CombatSystem({
   const onPlayerHealthChangeRef = useRef(onPlayerHealthChange);
   const onEnemyHealthChangeRef = useRef(onEnemyHealthChange);
   const onLaserHitRef = useRef(onLaserHit);
+  const isInSafetyZoneRef = useRef(isInSafetyZone);
 
   // Update refs when props change
   useEffect(() => {
@@ -82,6 +85,10 @@ export function CombatSystem({
   useEffect(() => {
     onLaserHitRef.current = onLaserHit;
   }, [onLaserHit]);
+
+  useEffect(() => {
+    isInSafetyZoneRef.current = isInSafetyZone;
+  }, [isInSafetyZone]);
 
   // Initialize enemy fire time when combat starts
   useEffect(() => {
@@ -236,8 +243,8 @@ export function CombatSystem({
         }
       }
 
-      // Enemy firing
-      if (currentEnemyState && currentEnemyState.isEngaged) {
+      // Enemy firing (disabled in safety zone)
+      if (currentEnemyState && currentEnemyState.isEngaged && !isInSafetyZoneRef.current) {
         const timeSinceLastFire = (now - enemyLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
           createLaser(

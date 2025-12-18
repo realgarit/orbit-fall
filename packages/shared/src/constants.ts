@@ -51,3 +51,9 @@ export const HP_BAR_CONFIG = {
   BORDER_WIDTH: 1,
 };
 
+// Base safety zone configuration
+export const BASE_SAFETY_ZONE = {
+  RADIUS: 300, // pixels - safety zone radius around base
+  POSITION: { x: 200, y: 200 }, // base position
+};
+
