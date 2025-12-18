@@ -125,7 +125,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
       });
       nameText.anchor.set(0.5, 0);
       nameText.x = stateRef.current.x;
-      nameText.y = stateRef.current.y + 45; // Below ship, outside selection circle (radius 30)
+      nameText.y = stateRef.current.y + 35; // Below ship, closer to selection circle (radius 30 + gap 5 = 35)
       cameraContainer.addChild(nameText);
       nameTextRef.current = nameText;
 
@@ -203,7 +203,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         enemy.x = state.x;
         enemy.y = state.y;
         nameText.x = state.x;
-        nameText.y = state.y + 45; // Below ship, outside selection circle (radius 30)
+        nameText.y = state.y + 35; // Below ship, closer to selection circle (radius 30 + gap 5 = 35)
 
         // Update rotation:
         // - When engaged: always face the player
