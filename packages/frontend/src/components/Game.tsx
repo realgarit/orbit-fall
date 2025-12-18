@@ -244,7 +244,7 @@ export function Game() {
     };
   }, [app, shipPosition, enemyPosition, enemyState]);
 
-  // ESC key handler to clear combat state and red circle
+  // Keyboard handler for ESC and "1" key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -252,6 +252,14 @@ export function Game() {
         setPlayerFiring(false);
         setInCombat(false);
         setSelectedEnemyId(null);
+      } else if (e.key === '1' || e.key === 'Digit1') {
+        // Press "1" to engage combat with selected enemy (same as double-click)
+        if (selectedEnemyId && enemyState && enemyState.id === selectedEnemyId && !isInSafetyZone()) {
+          setInCombat(true);
+          setPlayerFiring(true);
+          setSelectedEnemyId(enemyState.id);
+          setEnemyState({ ...enemyState, isEngaged: true });
+        }
       }
     };
 
@@ -259,7 +267,7 @@ export function Game() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [enemyState]);
+  }, [selectedEnemyId, enemyState, shipPosition]);
 
   return (
     <WindowManagerProvider>
