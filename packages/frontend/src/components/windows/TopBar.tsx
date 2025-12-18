@@ -25,9 +25,24 @@ const MinimapIcon = () => (
   </svg>
 );
 
-const defaultIcons = new Map([
+// Default icon for battle window
+const BattleIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Crosshair/Target icon for battle */}
+    <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.5" fill="none" />
+    <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1" fill="none" />
+    <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" strokeWidth="1.5" />
+    <line x1="8" y1="10" x2="8" y2="14" stroke="currentColor" strokeWidth="1.5" />
+    <line x1="2" y1="8" x2="6" y2="8" stroke="currentColor" strokeWidth="1.5" />
+    <line x1="10" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="1.5" />
+    <circle cx="8" cy="8" r="1" fill="currentColor" />
+  </svg>
+);
+
+const defaultIcons = new Map<string, React.ReactNode>([
   ['stats-window', <StatsIcon key="stats-icon" />],
   ['minimap-window', <MinimapIcon key="minimap-icon" />],
+  ['battle-window', <BattleIcon key="battle-icon" />],
 ]);
 
 export function TopBar({ windowIcons = new Map() }: TopBarProps) {
