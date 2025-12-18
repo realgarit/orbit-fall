@@ -116,9 +116,10 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
       const nameText = new Text({
         text: ENEMY_STATS.DRIFTER.NAME,
         style: {
-          fontFamily: 'Arial',
+          fontFamily: 'Verdana, Arial, sans-serif',
           fontSize: 14,
-          fill: 0xff0000, // Strong standard red
+          fontWeight: 'bold',
+          fill: 0xff3333, // Bright vibrant red
           align: 'center',
         },
       });

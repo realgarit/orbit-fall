@@ -34,6 +34,7 @@ export function usePixiApp(options: UsePixiAppOptions = {}) {
       height,
       backgroundColor,
       antialias: true,
+      resolution: window.devicePixelRatio || 1,
     }).then(() => {
       if (containerRef.current) {
         const canvas = app.canvas as HTMLCanvasElement;
