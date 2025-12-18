@@ -1,3 +1,5 @@
+import { COORDINATE_SCALE } from '@shared/constants';
+
 interface HUDProps {
   position: { x: number; y: number };
   velocity: { vx: number; vy: number };
@@ -24,7 +26,7 @@ export function HUD({ position, velocity, fps }: HUDProps) {
         pointerEvents: 'none',
       }}
     >
-      <div>Coordinates: ({position.x.toFixed(1)}, {position.y.toFixed(1)})</div>
+      <div>Coordinates: ({Math.round(position.x / COORDINATE_SCALE)}, {Math.round(position.y / COORDINATE_SCALE)})</div>
       <div>Speed: {speed.toFixed(2)}</div>
       <div>Velocity: ({velocity.vx.toFixed(2)}, {velocity.vy.toFixed(2)})</div>
       <div>FPS: {fps.toFixed(0)}</div>

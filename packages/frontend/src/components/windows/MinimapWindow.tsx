@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Window } from './Window';
 import { useWindowManager } from '../../hooks/useWindowManager';
-import { MAP_WIDTH, MAP_HEIGHT } from '@shared/constants';
+import { MAP_WIDTH, MAP_HEIGHT, COORDINATE_SCALE } from '@shared/constants';
 
 interface MinimapWindowProps {
   playerPosition: { x: number; y: number };
@@ -263,7 +263,7 @@ export function MinimapWindow({
             whiteSpace: 'nowrap',
           }}
         >
-          X: {Math.round(playerPosition.x)}, Y: {Math.round(playerPosition.y)}
+          X: {Math.round(playerPosition.x / COORDINATE_SCALE)}, Y: {Math.round(playerPosition.y / COORDINATE_SCALE)}
         </div>
         <canvas
           ref={canvasRef}
