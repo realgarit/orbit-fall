@@ -92,7 +92,7 @@ export interface EnemyReward {
   experience: number;
   honor: number;
   credits: number;
-  uridium: number;
+  aetherium: number;
 }
 
 // Level Info

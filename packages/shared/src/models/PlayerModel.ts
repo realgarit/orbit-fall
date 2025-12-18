@@ -16,7 +16,7 @@ export interface PlayerModel {
   // Currency
   credits: number;
   honor: number;
-  uridium: number;
+  aetherium: number;
   
   // Ship
   shipType: string; // e.g., 'Sparrow'
@@ -58,7 +58,7 @@ export function createDefaultPlayerModel(): PlayerModel {
     experience: 0,
     credits: 0,
     honor: 0,
-    uridium: 0,
+    aetherium: 0,
     shipType: 'Sparrow',
     shipStats: {
       name: 'Sparrow',

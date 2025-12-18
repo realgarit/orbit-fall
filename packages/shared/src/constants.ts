@@ -82,7 +82,7 @@ export const ENEMY_STATS = {
       experience: 400,
       honor: 2,
       credits: 400,
-      uridium: 1,
+      aetherium: 1,
     },
   },
 };

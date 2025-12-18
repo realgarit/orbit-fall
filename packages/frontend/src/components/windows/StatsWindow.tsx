@@ -10,7 +10,7 @@ interface StatsWindowProps {
   playerExperience?: number;
   playerCredits?: number;
   playerHonor?: number;
-  playerUridium?: number;
+  playerAetherium?: number;
   windowId?: string;
 }
 
@@ -31,7 +31,7 @@ export function StatsWindow({
   playerExperience = 0,
   playerCredits = 0,
   playerHonor = 0,
-  playerUridium = 0,
+  playerAetherium = 0,
   windowId = 'stats-window',
 }: StatsWindowProps) {
   const { minimizeWindow, restoreWindow } = useWindowManager();
@@ -91,8 +91,8 @@ export function StatsWindow({
         </div>
 
         <div className="stats-section">
-          <div className="stats-label">Uridium</div>
-          <div className="stats-value">{playerUridium.toLocaleString()}</div>
+          <div className="stats-label">Aetherium</div>
+          <div className="stats-value">{playerAetherium.toLocaleString()}</div>
         </div>
 
         {/* Technical Stats */}

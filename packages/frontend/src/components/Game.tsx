@@ -47,7 +47,7 @@ export function Game() {
   const playerLevel = getLevelFromExp(playerExperience);
   const [playerCredits, setPlayerCredits] = useState(0);
   const [playerHonor, setPlayerHonor] = useState(0);
-  const [playerUridium, setPlayerUridium] = useState(0);
+  const [playerAetherium, setPlayerAetherium] = useState(0);
   
   // Update level when experience changes
   useEffect(() => {
@@ -352,77 +352,6 @@ export function Game() {
       }
       return next;
     });
-    
-      // Check if enemy died
-      if (state.health <= 0 && !deadEnemiesRef.current.has(enemyId)) {
-        // Get dead enemy's last position before removing it
-        const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
-        
-        // Award rewards
-        const reward = ENEMY_STATS.DRIFTER.REWARD;
-        setPlayerExperience((prevExp) => {
-          const newExp = prevExp + reward.experience;
-          // Check for level up
-          const newLevel = getLevelFromExp(newExp);
-          if (newLevel > playerLevel) {
-            queueMicrotask(() => addMessage(`Level up! You are now level ${newLevel}!`, 'success'));
-          }
-          return newExp;
-        });
-        setPlayerCredits((prev) => prev + reward.credits);
-        setPlayerHonor((prev) => prev + reward.honor);
-        setPlayerUridium((prev) => prev + reward.uridium);
-        
-        // Defer message to avoid updating state during render
-        queueMicrotask(() => addMessage(
-          `Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits, +${reward.honor} Honor, +${reward.uridium} Uridium`,
-          'combat'
-        ));
-        
-        // Remove position first to ensure enemyPosition prop becomes null immediately
-        setEnemyPositions((prev) => {
-          const next = new Map(prev);
-          next.delete(enemyId);
-          return next;
-        });
-        
-        setDeadEnemies((prev) => new Set(prev).add(enemyId));
-        
-        // Clear enemy's engagement state
-        setEnemies((prev) => {
-          const next = new Map(prev);
-          const enemy = next.get(enemyId);
-          if (enemy) {
-            next.set(enemyId, { ...enemy, isEngaged: false });
-          }
-          return next;
-        });
-        
-        // Clear selection and combat if this was the selected enemy
-        // Use ref to get latest selectedEnemyId value (avoids stale closure)
-        if (selectedEnemyIdRef.current === enemyId) {
-          setInCombat(false);
-          setPlayerFiring(false);
-          setPlayerFiringRocket(false);
-          inCombatRef.current = false;
-          setSelectedEnemyId(null);
-          setTargetPosition(null);
-        }
-        
-        // Clear targetPosition if it's near where the dead enemy was
-        if (deadEnemyLastPos) {
-          setTargetPosition((currentTarget) => {
-            if (!currentTarget) return null;
-            const dx = currentTarget.x - deadEnemyLastPos.x;
-            const dy = currentTarget.y - deadEnemyLastPos.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            return distance < 100 ? null : currentTarget;
-          });
-        }
-        // Schedule respawn after 3 seconds
-        const respawnTime = Date.now() + 3000;
-        enemyRespawnTimersRef.current.set(enemyId, respawnTime);
-      }
   };
 
   const handleEnemyPositionUpdate = (enemyId: string, position: { x: number; y: number }) => {
@@ -456,6 +385,9 @@ export function Game() {
         
         // Check if enemy died (health <= 0 and not already marked as dead)
         if (health <= 0 && !deadEnemiesRef.current.has(enemyId)) {
+          // Mark as dead immediately to prevent duplicate messages if called multiple times
+          deadEnemiesRef.current.add(enemyId);
+          
           // Get dead enemy's last position before removing it
           const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
           
@@ -472,11 +404,11 @@ export function Game() {
           });
           setPlayerCredits((prev) => prev + reward.credits);
           setPlayerHonor((prev) => prev + reward.honor);
-          setPlayerUridium((prev) => prev + reward.uridium);
+          setPlayerAetherium((prev) => prev + reward.aetherium);
           
           // Defer message to avoid updating state during render
           queueMicrotask(() => addMessage(
-            `Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits, +${reward.honor} Honor, +${reward.uridium} Uridium`,
+            `Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits, +${reward.honor} Honor, +${reward.aetherium} Aetherium`,
             'combat'
           ));
           
@@ -1227,7 +1159,7 @@ export function Game() {
               playerExperience={playerExperience}
               playerCredits={playerCredits}
               playerHonor={playerHonor}
-              playerUridium={playerUridium}
+              playerAetherium={playerAetherium}
             />
             <BattleWindow
               selectedEnemy={selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId) ? (() => {
