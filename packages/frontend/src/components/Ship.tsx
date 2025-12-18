@@ -6,14 +6,27 @@ interface ShipProps {
   app: Application;
   cameraContainer: Container;
   onStateUpdate?: (position: { x: number; y: number }, velocity: { vx: number; vy: number }) => void;
+  targetPosition?: { x: number; y: number } | null;
+  onTargetReached?: () => void;
 }
 
-export function Ship({ app, cameraContainer, onStateUpdate }: ShipProps) {
+export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached }: ShipProps) {
   const shipRef = useRef<Graphics | null>(null);
   const positionRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
   const isMouseDownRef = useRef(false);
   const mouseWorldPosRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
   const velocityRef = useRef({ vx: 0, vy: 0 });
+  const targetPosRef = useRef<{ x: number; y: number } | null>(null);
+  const onTargetReachedRef = useRef<(() => void) | undefined>(undefined);
+
+  // Keep refs in sync with latest props without recreating Pixi objects
+  useEffect(() => {
+    targetPosRef.current = targetPosition ?? null;
+  }, [targetPosition]);
+
+  useEffect(() => {
+    onTargetReachedRef.current = onTargetReached;
+  }, [onTargetReached]);
 
   useEffect(() => {
     if (!app) return;
@@ -92,9 +105,11 @@ export function Ship({ app, cameraContainer, onStateUpdate }: ShipProps) {
 
     const handleMouseUp = () => {
       isMouseDownRef.current = false;
-      // Stop movement when mouse is released
-      velocityRef.current.vx = 0;
-      velocityRef.current.vy = 0;
+      // Stop movement when mouse is released (unless auto-flying to minimap target)
+      if (!targetPosRef.current) {
+        velocityRef.current.vx = 0;
+        velocityRef.current.vy = 0;
+      }
     };
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -124,7 +139,9 @@ export function Ship({ app, cameraContainer, onStateUpdate }: ShipProps) {
       const pos = positionRef.current;
       const mousePos = mouseWorldPosRef.current;
       const velocity = velocityRef.current;
+      const currentTarget = targetPosRef.current;
 
+      // Priority: direct mouse control
       if (isMouseDownRef.current) {
         // Calculate direction to mouse
         const dx = mousePos.x - pos.x;
@@ -146,6 +163,32 @@ export function Ship({ app, cameraContainer, onStateUpdate }: ShipProps) {
           velocity.vx = 0;
           velocity.vy = 0;
         }
+      } else if (currentTarget) {
+        // Auto-fly to minimap target
+        const dx = currentTarget.x - pos.x;
+        const dy = currentTarget.y - pos.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Clear target when close enough (10px threshold)
+        if (distance <= 10) {
+          velocity.vx = 0;
+          velocity.vy = 0;
+          if (onTargetReachedRef.current) {
+            onTargetReachedRef.current();
+          }
+        } else if (distance > 0.1) {
+          const angle = Math.atan2(dy, dx);
+          ship.rotation = angle + Math.PI / 2;
+
+          const normalizedDx = dx / distance;
+          const normalizedDy = dy / distance;
+          velocity.vx = normalizedDx * SHIP_SPEED;
+          velocity.vy = normalizedDy * SHIP_SPEED;
+        }
+      } else {
+        // No input and no target
+        velocity.vx = 0;
+        velocity.vy = 0;
       }
 
       // Update position (ship moves infinitely in direction until mouse is released)
