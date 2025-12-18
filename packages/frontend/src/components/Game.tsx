@@ -14,6 +14,7 @@ import { StatsWindow } from './windows/StatsWindow';
 import { BattleWindow } from './windows/BattleWindow';
 import { MinimapWindow } from './windows/MinimapWindow';
 import { SettingsWindow } from './windows/SettingsWindow';
+import { ShipWindow } from './windows/ShipWindow';
 import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS } from '@shared/constants';
 import type { EnemyState } from '@shared/types';
 import '../styles/windows.css';
@@ -306,9 +307,11 @@ export function Game() {
                 onEnemyHealthChange={handleEnemyHealthChange}
               />
             )}
-            <StatsWindow
+            <ShipWindow
               playerHealth={playerHealth}
               maxHealth={PLAYER_STATS.MAX_HEALTH}
+            />
+            <StatsWindow
               shipPosition={shipPosition}
               shipVelocity={shipVelocity}
               fps={fps}

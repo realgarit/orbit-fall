@@ -246,7 +246,25 @@ export function MinimapWindow({
       onMinimize={minimizeWindow}
       onRestore={restoreWindow}
     >
-      <div style={{ padding: '12px', width: '100%', height: '100%', boxSizing: 'border-box' }}>
+      <div style={{ padding: '12px', width: '100%', height: '100%', boxSizing: 'border-box', position: 'relative' }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: '0',
+            left: '12px',
+            height: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            color: '#ffffff',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            zIndex: 10,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          X: {Math.round(playerPosition.x)}, Y: {Math.round(playerPosition.y)}
+        </div>
         <canvas
           ref={canvasRef}
           onMouseDown={handleMouseDown}

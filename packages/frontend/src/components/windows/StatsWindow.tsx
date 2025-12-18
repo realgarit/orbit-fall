@@ -2,8 +2,6 @@ import { Window } from './Window';
 import { useWindowManager } from '../../hooks/useWindowManager';
 
 interface StatsWindowProps {
-  playerHealth?: number;
-  maxHealth?: number;
   shipPosition?: { x: number; y: number };
   shipVelocity?: { vx: number; vy: number };
   fps?: number;
@@ -20,8 +18,6 @@ const StatsIcon = () => (
 );
 
 export function StatsWindow({
-  playerHealth = 100,
-  maxHealth = 100,
   shipPosition = { x: 0, y: 0 },
   shipVelocity = { vx: 0, vy: 0 },
   fps = 0,
@@ -29,7 +25,6 @@ export function StatsWindow({
 }: StatsWindowProps) {
   const { minimizeWindow, restoreWindow } = useWindowManager();
 
-  const healthPercentage = maxHealth > 0 ? (playerHealth / maxHealth) * 100 : 0;
   const speed = Math.sqrt(shipVelocity.vx * shipVelocity.vx + shipVelocity.vy * shipVelocity.vy);
 
   return (
@@ -40,33 +35,11 @@ export function StatsWindow({
       initialX={20}
       initialY={60}
       initialWidth={280}
-      initialHeight={320}
+      initialHeight={280}
       onMinimize={minimizeWindow}
       onRestore={restoreWindow}
     >
       <div className="stats-window-content">
-        {/* Player Health */}
-        <div className="stats-section">
-          <div className="stats-label">Player Health</div>
-          <div className="stats-health-bar-container">
-            <div
-              className="stats-health-bar"
-              style={{ width: `${healthPercentage}%` }}
-            />
-            <div className="stats-health-text">
-              {playerHealth.toFixed(0)} / {maxHealth}
-            </div>
-          </div>
-        </div>
-
-        {/* Ship Position */}
-        <div className="stats-section">
-          <div className="stats-label">Position</div>
-          <div className="stats-value">
-            X: {shipPosition.x.toFixed(1)}, Y: {shipPosition.y.toFixed(1)}
-          </div>
-        </div>
-
         {/* Speed */}
         <div className="stats-section">
           <div className="stats-label">Speed</div>

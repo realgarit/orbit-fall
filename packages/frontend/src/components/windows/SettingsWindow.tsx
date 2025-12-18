@@ -53,7 +53,7 @@ export function SettingsWindow({
   };
 
   const handleResetAll = () => {
-    const windowIds = ['stats-window', 'battle-window', 'minimap-window', 'settings-window'];
+    const windowIds = ['ship-window', 'stats-window', 'battle-window', 'minimap-window', 'settings-window'];
     windowIds.forEach(id => resetWindow(id));
     window.location.reload();
   };
@@ -109,6 +109,7 @@ export function SettingsWindow({
               {createButton('Reset All Windows', handleResetAll, primaryButtonStyle)}
               <div className="settings-label">Individual Windows</div>
               <div className="settings-button-grid">
+                {createButton('Ship', () => handleResetWindow('ship-window'))}
                 {createButton('Stats', () => handleResetWindow('stats-window'))}
                 {createButton('Battle', () => handleResetWindow('battle-window'))}
                 {createButton('Minimap', () => handleResetWindow('minimap-window'))}
