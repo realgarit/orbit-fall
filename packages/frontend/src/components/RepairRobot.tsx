@@ -7,13 +7,15 @@ interface RepairRobotProps {
   shipPosition: { x: number; y: number };
   onRepairComplete: () => void;
   onHealTick?: (amount: number) => void;
+  playerHealth: number;
+  maxHealth: number;
 }
 
 const REPAIR_DURATION = 3000; // 3 seconds repair time
 const ORBIT_RADIUS = 40; // Distance from ship
 const ORBIT_SPEED = 0.3; // Radians per second (very slow orbit like a mechanic)
 
-export function RepairRobot({ app, cameraContainer, shipPosition, onRepairComplete, onHealTick }: RepairRobotProps) {
+export function RepairRobot({ app, cameraContainer, shipPosition, onRepairComplete, onHealTick, playerHealth, maxHealth }: RepairRobotProps) {
   const robotRef = useRef<Graphics | null>(null);
   const sparksRef = useRef<Graphics[]>([]);
   const startTimeRef = useRef(Date.now());
@@ -22,10 +24,20 @@ export function RepairRobot({ app, cameraContainer, shipPosition, onRepairComple
   const tickerAddedRef = useRef(false);
   const tickerCallbackRef = useRef<((ticker: any) => void) | null>(null);
   const lastHealTimeRef = useRef(0);
+  const playerHealthRef = useRef(playerHealth);
+  const maxHealthRef = useRef(maxHealth);
 
   useEffect(() => {
     shipPositionRef.current = shipPosition;
   }, [shipPosition]);
+
+  useEffect(() => {
+    playerHealthRef.current = playerHealth;
+  }, [playerHealth]);
+
+  useEffect(() => {
+    maxHealthRef.current = maxHealth;
+  }, [maxHealth]);
 
   useEffect(() => {
     if (!app || !cameraContainer) return;
@@ -135,13 +147,16 @@ export function RepairRobot({ app, cameraContainer, shipPosition, onRepairComple
         const delta = ticker.deltaTime;
 
         // Heal gradually - every 200ms heal 1.33 HP (20 HP over 3 seconds)
-        if (now - lastHealTimeRef.current >= 200) {
+        // Only heal if not at max health
+        const currentHealth = playerHealthRef.current;
+        const currentMaxHealth = maxHealthRef.current;
+        if (now - lastHealTimeRef.current >= 200 && currentHealth < currentMaxHealth) {
           onHealTick?.(1.33);
           lastHealTimeRef.current = now;
         }
 
-        // Check if repair is complete
-        if (elapsed >= REPAIR_DURATION) {
+        // Check if repair is complete - repair until HP is at full health
+        if (currentHealth >= currentMaxHealth) {
           onRepairComplete();
           return;
         }
@@ -219,7 +234,7 @@ export function RepairRobot({ app, cameraContainer, shipPosition, onRepairComple
       });
       sparksRef.current = [];
     };
-  }, [app, cameraContainer, onRepairComplete]);
+  }, [app, cameraContainer, onRepairComplete, playerHealth, maxHealth]);
 
   return null;
 }

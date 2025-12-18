@@ -115,6 +115,13 @@ export function Game() {
   };
   
   const inSafetyZone = isInSafetyZone();
+
+  // Check if any enemy is engaged/aggressive
+  const hasAggressiveEnemies = () => {
+    return Array.from(enemies.values()).some(
+      (enemy) => enemy.health > 0 && enemy.isEngaged && !deadEnemies.has(enemy.id)
+    );
+  };
   
   // Exit combat when entering safety zone
   useEffect(() => {
@@ -499,7 +506,8 @@ export function Game() {
         const now = Date.now();
         const timeSinceLastRepair = (now - lastRepairTimeRef.current) / 1000;
         // Use ref to get latest inCombat value (avoids stale closure)
-        if (!inCombatRef.current && timeSinceLastRepair >= 5 && !isRepairing) {
+        // Also check if any enemy is engaged/aggressive - can't repair if enemy is aggressive
+        if (!inCombatRef.current && !hasAggressiveEnemies() && timeSinceLastRepair >= 5 && !isRepairing) {
           setIsRepairing(true);
           // Don't update lastRepairTimeRef here - it will be updated when repair completes
         }
@@ -616,13 +624,13 @@ export function Game() {
     setPlayerHealth((prev) => Math.min(PLAYER_STATS.MAX_HEALTH, prev + amount));
   };
   
-  // Cancel repair when entering combat
+  // Cancel repair when entering combat or when any enemy becomes aggressive
   useEffect(() => {
-    if (inCombat && isRepairing) {
+    if ((inCombat || hasAggressiveEnemies()) && isRepairing) {
       setIsRepairing(false);
       lastRepairTimeRef.current = Date.now();
     }
-  }, [inCombat, isRepairing]);
+  }, [inCombat, isRepairing, enemies, deadEnemies]);
   
   // Clear combat state if no engaged enemies remain
   useEffect(() => {
@@ -663,7 +671,8 @@ export function Game() {
             const now = Date.now();
             const timeSinceLastRepair = (now - lastRepairTimeRef.current) / 1000;
             // Use ref to get latest inCombat value (avoids stale closure)
-            if (!inCombatRef.current && timeSinceLastRepair >= 5 && !isRepairing) {
+            // Also check if any enemy is engaged/aggressive - can't repair if enemy is aggressive
+            if (!inCombatRef.current && !hasAggressiveEnemies() && timeSinceLastRepair >= 5 && !isRepairing) {
               setIsRepairing(true);
               // Don't update lastRepairTimeRef here - it will be updated when repair completes
             }
@@ -718,6 +727,8 @@ export function Game() {
                 shipPosition={shipPosition}
                 onRepairComplete={handleRepairComplete}
                 onHealTick={handleRepairHeal}
+                playerHealth={playerHealth}
+                maxHealth={PLAYER_STATS.MAX_HEALTH}
               />
             )}
             {/* Player HP Bar */}
