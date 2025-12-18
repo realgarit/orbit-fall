@@ -37,6 +37,9 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
   useEffect(() => {
     if (!app || !cameraContainer) return;
 
+    // Store app in local variable to avoid stale closure issues during hot reload
+    const currentApp = app;
+
     // Create layers for parallax effect
     const layers: Container[] = [];
     const starMaps: Map<string, Graphics>[] = [];
@@ -59,10 +62,12 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
 
     // Function to ensure stars exist in viewport area with predictive padding
     // Generates stars ahead of camera movement to prevent black gaps
+    // Use currentApp from closure to avoid stale references during hot reload
     const updateStarsForViewport = (cameraX: number, cameraY: number, velocityX: number, velocityY: number) => {
-      if (!app?.screen) return;
-      const screenWidth = app.screen.width;
-      const screenHeight = app.screen.height;
+      if (!currentApp) return;
+      if (!currentApp.screen) return;
+      const screenWidth = currentApp.screen.width;
+      const screenHeight = currentApp.screen.height;
       const gridSize = gridSizeRef.current;
       
       // Calculate base viewport bounds in world space
@@ -211,8 +216,10 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
     };
 
     // Animation ticker for parallax effect and procedural generation
+    // Use currentApp from closure to avoid stale references during hot reload
     const tickerCallback = () => {
-      if (!cameraContainer || !app?.screen) return;
+      if (!cameraContainer || !currentApp) return;
+      if (!currentApp.screen) return;
       const cameraX = cameraContainer.x;
       const cameraY = cameraContainer.y;
 
@@ -241,11 +248,12 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
     };
 
     // Initial star generation
-    if (cameraContainer && app?.screen) {
-      updateStarsForViewport(cameraContainer.x, cameraContainer.y, 0, 0);
-      lastCameraPosRef.current = { x: cameraContainer.x, y: cameraContainer.y };
-      cameraVelocityRef.current = { vx: 0, vy: 0 };
-    }
+    // Double-check currentApp is still valid (handles hot reload stale closures)
+    if (!cameraContainer || !currentApp) return;
+    if (!currentApp.screen) return;
+    updateStarsForViewport(cameraContainer.x, cameraContainer.y, 0, 0);
+    lastCameraPosRef.current = { x: cameraContainer.x, y: cameraContainer.y };
+    cameraVelocityRef.current = { vx: 0, vy: 0 };
 
     if (!app?.ticker) return;
 

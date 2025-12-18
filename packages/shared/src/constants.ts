@@ -74,7 +74,7 @@ export const ENEMY_STATS = {
   DRIFTER: {
     MAX_HEALTH: 1000,
     MAX_SHIELD: 600,
-    DAMAGE: 5, // Will be calculated using new formula
+    DAMAGE: 20, // Will be calculated using new formula
     NAME: '-=[ Drifter ]=-',
     BASE_SPEED: 300,
     ATTITUDE: 'defensive' as const,

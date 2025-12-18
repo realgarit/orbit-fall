@@ -116,9 +116,15 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
           bar.visible = false;
           return;
         }
+        // Double-check targetGraphicsRef is still valid (handles hot reload stale closures)
+        const targetGraphics = targetGraphicsRef.current;
+        if (!targetGraphics) {
+          bar.visible = false;
+          return;
+        }
         const expectedPos = currentPosition;
-        const dx = targetGraphicsRef.current.x - expectedPos.x;
-        const dy = targetGraphicsRef.current.y - expectedPos.y;
+        const dx = targetGraphics.x - expectedPos.x;
+        const dy = targetGraphics.y - expectedPos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         // If Graphics has moved too far from expected position, re-find it
@@ -127,8 +133,10 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
         }
         
         // Use Graphics position if still valid, otherwise fallback
-        if (targetGraphicsRef.current && targetGraphicsRef.current.visible) {
-          pos = { x: targetGraphicsRef.current.x, y: targetGraphicsRef.current.y };
+        // Re-check targetGraphicsRef after potential re-find
+        const updatedTargetGraphics = targetGraphicsRef.current;
+        if (updatedTargetGraphics && updatedTargetGraphics.visible) {
+          pos = { x: updatedTargetGraphics.x, y: updatedTargetGraphics.y };
         } else {
           pos = currentPosition;
         }

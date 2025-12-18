@@ -80,6 +80,9 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   useEffect(() => {
     if (!app || !cameraContainer) return;
 
+    // Store app in local variable to avoid stale closure issues during hot reload
+    const currentApp = app;
+
     // Create ship visual - simple space ship design
     // Draw centered at origin (0,0) for proper rotation
     const ship = new Graphics();
@@ -183,9 +186,9 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
     };
 
     // Store canvas reference for cleanup
-    // Double-check app exists right before accessing to handle hot reload stale closures
-    if (!app) return;
-    const canvas = app.canvas as HTMLCanvasElement | null;
+    // Double-check currentApp is still valid (handles hot reload stale closures)
+    if (!currentApp) return;
+    const canvas = (currentApp?.canvas) as HTMLCanvasElement | null;
 
     // Add event listeners to canvas
     if (canvas) {
