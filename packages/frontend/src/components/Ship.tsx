@@ -78,7 +78,7 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   }, [isDead]);
 
   useEffect(() => {
-    if (!app) return;
+    if (!app || !cameraContainer) return;
 
     // Create ship visual - simple space ship design
     // Draw centered at origin (0,0) for proper rotation
@@ -183,7 +183,9 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
     };
 
     // Store canvas reference for cleanup
-    const canvas = app?.canvas as HTMLCanvasElement | null;
+    // Double-check app exists right before accessing to handle hot reload stale closures
+    if (!app) return;
+    const canvas = app.canvas as HTMLCanvasElement | null;
 
     // Add event listeners to canvas
     if (canvas) {

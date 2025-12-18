@@ -35,7 +35,7 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
   const gridSizeRef = useRef(200); // Larger grid cells for sparser distribution
 
   useEffect(() => {
-    if (!app) return;
+    if (!app || !cameraContainer) return;
 
     // Create layers for parallax effect
     const layers: Container[] = [];
@@ -60,6 +60,7 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
     // Function to ensure stars exist in viewport area with predictive padding
     // Generates stars ahead of camera movement to prevent black gaps
     const updateStarsForViewport = (cameraX: number, cameraY: number, velocityX: number, velocityY: number) => {
+      if (!app?.screen) return;
       const screenWidth = app.screen.width;
       const screenHeight = app.screen.height;
       const gridSize = gridSizeRef.current;
@@ -211,6 +212,7 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
 
     // Animation ticker for parallax effect and procedural generation
     const tickerCallback = () => {
+      if (!cameraContainer || !app?.screen) return;
       const cameraX = cameraContainer.x;
       const cameraY = cameraContainer.y;
 
@@ -239,9 +241,11 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
     };
 
     // Initial star generation
-    updateStarsForViewport(cameraContainer.x, cameraContainer.y, 0, 0);
-    lastCameraPosRef.current = { x: cameraContainer.x, y: cameraContainer.y };
-    cameraVelocityRef.current = { vx: 0, vy: 0 };
+    if (cameraContainer && app?.screen) {
+      updateStarsForViewport(cameraContainer.x, cameraContainer.y, 0, 0);
+      lastCameraPosRef.current = { x: cameraContainer.x, y: cameraContainer.y };
+      cameraVelocityRef.current = { vx: 0, vy: 0 };
+    }
 
     if (!app?.ticker) return;
 

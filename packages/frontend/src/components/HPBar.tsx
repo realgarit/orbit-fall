@@ -46,7 +46,7 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
   }, [position, health, maxHealth, visible, shield, maxShield]);
 
   useEffect(() => {
-    if (!app) return;
+    if (!app || !cameraContainer) return;
 
     const bar = new Graphics();
     cameraContainer.addChild(bar);
@@ -55,6 +55,7 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
     // Find the ship/enemy Graphics object to read position directly
     // This avoids React state timing delays
     const findTargetGraphics = (): Graphics | null => {
+      if (!cameraContainer) return null;
       const barIndex = cameraContainer.getChildIndex(bar);
       const expectedPos = positionRef.current;
       if (!expectedPos) return null;
@@ -110,6 +111,11 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
       
       if (targetGraphicsRef.current && targetGraphicsRef.current.visible) {
         // Verify the Graphics is still close to expected position (enemies may have moved)
+        // Double-check currentPosition is still valid (handles hot reload stale closures)
+        if (!currentPosition) {
+          bar.visible = false;
+          return;
+        }
         const expectedPos = currentPosition;
         const dx = targetGraphicsRef.current.x - expectedPos.x;
         const dy = targetGraphicsRef.current.y - expectedPos.y;

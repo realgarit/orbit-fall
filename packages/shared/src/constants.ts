@@ -18,7 +18,7 @@ export const SHIP_ROTATION_SPEED = 0.1;
 
 // Speed conversion constants
 // Base speed 320 = normal movement, scale so 540-580 feels very fast
-export const SPEED_SCALE_FACTOR = 0.015625; // 320 * 0.015625 = 5 (current normal speed)
+export const SPEED_SCALE_FACTOR = 0.01; // 320 * 0.01 = 3.2 (current normal speed)
 export const SPEED_BASE_NORMAL = 320; // Base speed that feels normal
 export const SPEED_MAX_FAST = 580; // Max speed that should feel very fast
 
