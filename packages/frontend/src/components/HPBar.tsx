@@ -13,15 +13,14 @@ interface HPBarProps {
 
 export function HPBar({ app, cameraContainer, position, health, maxHealth, visible }: HPBarProps) {
   const barRef = useRef<Graphics | null>(null);
-  const shipGraphicsRef = useRef<Graphics | null>(null);
   const healthRef = useRef(health);
   const maxHealthRef = useRef(maxHealth);
   const visibleRef = useRef(visible);
-  const fallbackPositionRef = useRef(position);
+  const positionRef = useRef(position);
 
-  // Update fallback position and other refs
+  // Update refs when props change
   useEffect(() => {
-    fallbackPositionRef.current = position;
+    positionRef.current = position;
     healthRef.current = health;
     maxHealthRef.current = maxHealth;
     visibleRef.current = visible;
@@ -33,22 +32,6 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
     const bar = new Graphics();
     cameraContainer.addChild(bar);
     barRef.current = bar;
-
-    // Find the ship graphics object - it's added before the HP bar
-    // Look for the first Graphics object that's not the HP bar itself
-    const findShipGraphics = (): Graphics | null => {
-      const barIndex = cameraContainer.getChildIndex(bar);
-      for (let i = 0; i < barIndex; i++) {
-        const child = cameraContainer.children[i];
-        if (child instanceof Graphics) {
-          return child;
-        }
-      }
-      return null;
-    };
-
-    // Try to find ship graphics
-    shipGraphicsRef.current = findShipGraphics();
 
     const updateBar = () => {
       const bar = barRef.current;
@@ -63,20 +46,8 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
 
       bar.visible = true;
 
-      // Try to find ship graphics if we don't have it yet
-      if (!shipGraphicsRef.current) {
-        shipGraphicsRef.current = findShipGraphics();
-      }
-
-      // Read position directly from ship graphics object (synchronously updated)
-      // This avoids React state timing issues
-      let pos: { x: number; y: number };
-      if (shipGraphicsRef.current) {
-        pos = { x: shipGraphicsRef.current.x, y: shipGraphicsRef.current.y };
-      } else {
-        // Fallback to prop if ship not found yet
-        pos = fallbackPositionRef.current;
-      }
+      // Use position from prop (kept in sync via refs)
+      const pos = positionRef.current;
       const hp = healthRef.current;
       const maxHp = maxHealthRef.current;
       const percentage = Math.max(0, Math.min(1, hp / maxHp));

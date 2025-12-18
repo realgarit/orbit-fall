@@ -283,7 +283,7 @@ export function Game() {
                   position={enemyPosition}
                   health={enemyState.health}
                   maxHealth={enemyState.maxHealth}
-                  visible={inCombat}
+                  visible={selectedEnemyId === enemyState.id || inCombat}
                 />
               </>
             )}
