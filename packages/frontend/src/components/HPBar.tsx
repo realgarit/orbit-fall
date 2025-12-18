@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Application, Graphics, Container } from 'pixi.js';
-import { HP_BAR_CONFIG } from '@shared/constants';
+import { HP_BAR_CONFIG, SHIELD_BAR_CONFIG } from '@shared/constants';
 
 interface HPBarProps {
   app: Application;
@@ -9,12 +9,17 @@ interface HPBarProps {
   health: number;
   maxHealth: number;
   visible: boolean;
+  shield?: number;
+  maxShield?: number;
 }
 
-export function HPBar({ app, cameraContainer, position, health, maxHealth, visible }: HPBarProps) {
+export function HPBar({ app, cameraContainer, position, health, maxHealth, visible, shield, maxShield }: HPBarProps) {
   const barRef = useRef<Graphics | null>(null);
   const healthRef = useRef(health);
   const maxHealthRef = useRef(maxHealth);
+  const shieldRef = useRef(shield ?? 0);
+  const maxShieldRef = useRef(maxShield ?? 0);
+  const maxShieldProvidedRef = useRef(maxShield !== undefined); // Track if maxShield prop was provided
   const visibleRef = useRef(visible);
   const positionRef = useRef(position);
   const targetGraphicsRef = useRef<Graphics | null>(null);
@@ -33,8 +38,12 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
     positionRef.current = position;
     healthRef.current = health;
     maxHealthRef.current = maxHealth;
+    // Store shield values - use 0 if undefined, but keep track if maxShield was provided
+    shieldRef.current = shield ?? 0;
+    maxShieldRef.current = maxShield ?? 0;
+    maxShieldProvidedRef.current = maxShield !== undefined;
     visibleRef.current = visible;
-  }, [position, health, maxHealth, visible]);
+  }, [position, health, maxHealth, visible, shield, maxShield]);
 
   useEffect(() => {
     if (!app) return;
@@ -126,55 +135,97 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
 
       const hp = healthRef.current;
       const maxHp = maxHealthRef.current;
-      const percentage = Math.max(0, Math.min(1, hp / maxHp));
+      const currentShield = shieldRef.current ?? 0;
+      const maxSh = maxShieldRef.current ?? 0;
+      const hpPercentage = Math.max(0, Math.min(1, hp / maxHp));
+      // Always show shield bar if maxShield prop was provided (even if 0)
+      // This allows showing shield bar even when shield is 0/0
+      const hasShield = maxShieldProvidedRef.current;
+      const shieldPercentage = hasShield && maxSh > 0 ? Math.max(0, Math.min(1, currentShield / maxSh)) : 0;
 
       // Position the Graphics object at the ship/enemy position
       // This ensures smooth movement without sub-pixel rendering issues
       bar.x = pos.x;
       bar.y = pos.y;
 
-      // Redraw the bar (health may have changed)
+      // Redraw the bar (health and shield may have changed)
       bar.clear();
-
-      // Calculate color based on health percentage
-      let color: number;
-      if (percentage > 0.6) {
-        color = 0x33ff33; // More visible standard green
-      } else if (percentage > 0.3) {
-        color = 0xffff00; // Yellow
-      } else {
-        color = 0xff0000; // Red
-      }
 
       const barWidth = HP_BAR_CONFIG.WIDTH;
       const barHeight = HP_BAR_CONFIG.HEIGHT;
-      const offsetY = HP_BAR_CONFIG.OFFSET_Y;
+      const shieldBarHeight = SHIELD_BAR_CONFIG.HEIGHT;
+      const hpOffsetY = HP_BAR_CONFIG.OFFSET_Y;
+      const shieldOffsetY = SHIELD_BAR_CONFIG.OFFSET_Y;
 
-      // Draw relative to (0,0) since bar position is set above
-      // This matches the pattern used by Ship and Enemy components
+      // Draw shield bar first (if exists) - it goes below HP bar
+      // Shield bar should be BELOW HP bar (more positive Y = lower on screen)
+      // Always show shield bar if maxShield is defined (even if 0)
+      if (hasShield) {
+        // Shield background (dark bar)
+        bar.rect(
+          -barWidth / 2,
+          shieldOffsetY,
+          barWidth,
+          shieldBarHeight
+        );
+        bar.fill({ color: 0x000000, alpha: 0.7 });
+
+        // Shield bar (blue) - draw fill if shield > 0
+        if (currentShield > 0 && maxSh > 0) {
+          const shieldWidth = barWidth * shieldPercentage;
+          bar.rect(
+            -barWidth / 2,
+            shieldOffsetY,
+            shieldWidth,
+            shieldBarHeight
+          );
+          bar.fill({ color: SHIELD_BAR_CONFIG.COLOR, alpha: 1.0 });
+        }
+
+        // Shield border
+        bar.rect(
+          -barWidth / 2,
+          shieldOffsetY,
+          barWidth,
+          shieldBarHeight
+        );
+        bar.stroke({ color: 0xffffff, width: SHIELD_BAR_CONFIG.BORDER_WIDTH });
+      }
+
+      // Calculate color based on health percentage
+      let hpColor: number;
+      if (hpPercentage > 0.6) {
+        hpColor = 0x33ff33; // More visible standard green
+      } else if (hpPercentage > 0.3) {
+        hpColor = 0xffff00; // Yellow
+      } else {
+        hpColor = 0xff0000; // Red
+      }
+
+      // Draw HP bar (above shield bar)
       // Background (dark bar)
       bar.rect(
         -barWidth / 2,
-        offsetY,
+        hpOffsetY,
         barWidth,
         barHeight
       );
       bar.fill({ color: 0x000000, alpha: 0.7 });
 
       // Health bar
-      const healthWidth = barWidth * percentage;
+      const healthWidth = barWidth * hpPercentage;
       bar.rect(
         -barWidth / 2,
-        offsetY,
+        hpOffsetY,
         healthWidth,
         barHeight
       );
-      bar.fill(color);
+      bar.fill(hpColor);
 
-      // Border
+      // HP Border
       bar.rect(
         -barWidth / 2,
-        offsetY,
+        hpOffsetY,
         barWidth,
         barHeight
       );

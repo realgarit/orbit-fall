@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Application, Graphics, Container } from 'pixi.js';
-import { COMBAT_CONFIG, ROCKET_CONFIG, PLAYER_STATS, ENEMY_STATS } from '@shared/constants';
-import type { LaserProjectile, RocketProjectile, EnemyState } from '@shared/types';
+import { COMBAT_CONFIG, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP, PLAYER_STATS } from '@shared/constants';
+import type { LaserProjectile, RocketProjectile, EnemyState, LaserCannonType, LaserAmmoType, RocketType } from '@shared/types';
+import { calculateLaserDamage, calculateRocketDamage } from '@shared/utils/damageCalculation';
 
 interface CombatSystemProps {
   app: Application;
@@ -10,15 +11,22 @@ interface CombatSystemProps {
   playerVelocity: { vx: number; vy: number };
   playerRotation: number;
   playerHealth: number;
+  playerShield?: number;
+  playerMaxShield?: number;
   enemyState: EnemyState | null;
   playerFiring: boolean;
   onPlayerHealthChange: (health: number) => void;
+  onPlayerShieldChange?: (shield: number) => void;
   onEnemyHealthChange: (health: number) => void;
+  onEnemyShieldChange?: (shield: number) => void;
   onLaserHit?: (laser: LaserProjectile) => void;
   isInSafetyZone?: boolean;
   laserAmmo?: number;
+  currentLaserCannon?: LaserCannonType;
+  currentLaserAmmoType?: LaserAmmoType;
   onLaserAmmoConsume?: () => void;
   rocketAmmo?: number;
+  currentRocketType?: RocketType;
   onRocketAmmoConsume?: () => void;
   playerFiringRocket?: boolean;
   onRocketFired?: () => void;
@@ -44,17 +52,24 @@ export function CombatSystem({
   cameraContainer,
   playerPosition,
   playerVelocity,
-  playerRotation,
+  playerRotation: _playerRotation,
   playerHealth,
+  playerShield,
+  playerMaxShield,
   enemyState,
   playerFiring,
   onPlayerHealthChange,
+  onPlayerShieldChange,
   onEnemyHealthChange,
+  onEnemyShieldChange,
   onLaserHit,
   isInSafetyZone = false,
   laserAmmo = 0,
+  currentLaserCannon = PLAYER_STATS.STARTING_LASER_CANNON,
+  currentLaserAmmoType = PLAYER_STATS.STARTING_LASER_AMMO,
   onLaserAmmoConsume,
   rocketAmmo = 0,
+  currentRocketType = PLAYER_STATS.STARTING_ROCKET,
   onRocketAmmoConsume,
   playerFiringRocket = false,
   onRocketFired,
@@ -72,15 +87,22 @@ export function CombatSystem({
   const playerPositionRef = useRef(playerPosition);
   const playerVelocityRef = useRef(playerVelocity);
   const playerHealthRef = useRef(playerHealth);
+  const playerShieldRef = useRef(playerShield ?? 0);
+  const playerMaxShieldRef = useRef(playerMaxShield ?? 0);
   const enemyStateRef = useRef(enemyState);
   const playerFiringRef = useRef(playerFiring);
   const onPlayerHealthChangeRef = useRef(onPlayerHealthChange);
+  const onPlayerShieldChangeRef = useRef(onPlayerShieldChange);
   const onEnemyHealthChangeRef = useRef(onEnemyHealthChange);
+  const onEnemyShieldChangeRef = useRef(onEnemyShieldChange);
   const onLaserHitRef = useRef(onLaserHit);
   const isInSafetyZoneRef = useRef(isInSafetyZone);
   const laserAmmoRef = useRef(laserAmmo);
+  const currentLaserCannonRef = useRef(currentLaserCannon);
+  const currentLaserAmmoTypeRef = useRef(currentLaserAmmoType);
   const onLaserAmmoConsumeRef = useRef(onLaserAmmoConsume);
   const rocketAmmoRef = useRef(rocketAmmo);
+  const currentRocketTypeRef = useRef(currentRocketType);
   const onRocketAmmoConsumeRef = useRef(onRocketAmmoConsume);
   const playerFiringRocketRef = useRef(playerFiringRocket);
   const onRocketFiredRef = useRef(onRocketFired);
@@ -98,6 +120,14 @@ export function CombatSystem({
   useEffect(() => {
     playerHealthRef.current = playerHealth;
   }, [playerHealth]);
+
+  useEffect(() => {
+    playerShieldRef.current = playerShield ?? 0;
+  }, [playerShield]);
+
+  useEffect(() => {
+    playerMaxShieldRef.current = playerMaxShield ?? 0;
+  }, [playerMaxShield]);
 
   useEffect(() => {
     enemyStateRef.current = enemyState;
@@ -128,12 +158,24 @@ export function CombatSystem({
   }, [laserAmmo]);
 
   useEffect(() => {
+    currentLaserCannonRef.current = currentLaserCannon;
+  }, [currentLaserCannon]);
+
+  useEffect(() => {
+    currentLaserAmmoTypeRef.current = currentLaserAmmoType;
+  }, [currentLaserAmmoType]);
+
+  useEffect(() => {
     onLaserAmmoConsumeRef.current = onLaserAmmoConsume;
   }, [onLaserAmmoConsume]);
 
   useEffect(() => {
     rocketAmmoRef.current = rocketAmmo;
   }, [rocketAmmo]);
+
+  useEffect(() => {
+    currentRocketTypeRef.current = currentRocketType;
+  }, [currentRocketType]);
 
   useEffect(() => {
     onRocketAmmoConsumeRef.current = onRocketAmmoConsume;
@@ -150,6 +192,14 @@ export function CombatSystem({
   useEffect(() => {
     instaShieldActiveRef.current = instaShieldActive;
   }, [instaShieldActive]);
+
+  useEffect(() => {
+    onPlayerShieldChangeRef.current = onPlayerShieldChange;
+  }, [onPlayerShieldChange]);
+
+  useEffect(() => {
+    onEnemyShieldChangeRef.current = onEnemyShieldChange;
+  }, [onEnemyShieldChange]);
 
   // Initialize enemy fire time when combat starts
   useEffect(() => {
@@ -230,7 +280,6 @@ export function CombatSystem({
       graphics.fill({ color: 0xcc0000, alpha: 1.0 }); // Darker red ring
       
       // Rocket nose cone - more prominent and pointed
-      const noseLength = length * 0.25;
       const noseBaseX = bodyEndX;
       const noseTipX = length / 2;
       
@@ -325,7 +374,6 @@ export function CombatSystem({
       
       const dx = predictedTarget.x - fromX;
       const dy = predictedTarget.y - fromY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
       
       // Allow firing even at very close range (minimum distance check removed)
       // The line-segment collision detection will handle close-range hits properly
@@ -376,7 +424,6 @@ export function CombatSystem({
       
       const dx = predictedTarget.x - fromX;
       const dy = predictedTarget.y - fromY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
       
       // Allow firing even at very close range (minimum distance check removed)
       // The line-segment collision detection will handle close-range hits properly
@@ -469,21 +516,6 @@ export function CombatSystem({
       
       return closestDist < targetRadius;
     };
-    
-    // Keep the old function name for backward compatibility with rockets
-    const checkLaserHit = (laser: LaserProjectile, targetPos: { x: number; y: number }, targetRadius: number = 20): boolean => {
-      const dx = laser.x - targetPos.x;
-      const dy = laser.y - targetPos.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      return distance < targetRadius;
-    };
-
-    const checkRocketHit = (rocket: RocketProjectile, targetPos: { x: number; y: number }, targetRadius: number = 20): boolean => {
-      const dx = rocket.x - targetPos.x;
-      const dy = rocket.y - targetPos.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      return distance < targetRadius;
-    };
 
     const tickerCallback = () => {
       const now = Date.now();
@@ -499,6 +531,13 @@ export function CombatSystem({
       if (currentPlayerFiring && currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && laserAmmoRef.current > 0) {
         const timeSinceLastFire = (now - playerLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
+          // Calculate damage using new formula
+          const damage = calculateLaserDamage(
+            currentLaserCannonRef.current,
+            currentLaserAmmoTypeRef.current,
+            SPARROW_SHIP.laserSlots,
+            0 // No bonuses yet
+          );
           createLaser(
             currentPlayerPos.x,
             currentPlayerPos.y,
@@ -506,7 +545,7 @@ export function CombatSystem({
             currentEnemyState.y,
             'player',
             currentEnemyState.id,
-            PLAYER_STATS.DAMAGE,
+            damage,
             currentEnemyState.vx,
             currentEnemyState.vy
           );
@@ -520,6 +559,8 @@ export function CombatSystem({
       if (playerFiringRocketRef.current && currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && rocketAmmoRef.current > 0) {
         const timeSinceLastRocketFire = (now - playerLastRocketFireTimeRef.current) / 1000;
         if (timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
+          // Calculate rocket damage
+          const damage = calculateRocketDamage(currentRocketTypeRef.current);
           createRocket(
             currentPlayerPos.x,
             currentPlayerPos.y,
@@ -527,7 +568,7 @@ export function CombatSystem({
             currentEnemyState.y,
             'player',
             currentEnemyState.id,
-            ROCKET_CONFIG.DAMAGE,
+            damage,
             currentEnemyState.vx,
             currentEnemyState.vy
           );
@@ -543,6 +584,8 @@ export function CombatSystem({
       if (currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && !isInSafetyZoneRef.current && !instaShieldActiveRef.current) {
         const timeSinceLastFire = (now - enemyLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
+          // Enemy uses default damage (can be updated later with enemy equipment)
+          const enemyDamage = ENEMY_STATS.DRIFTER.DAMAGE;
           createLaser(
             currentEnemyState.x,
             currentEnemyState.y,
@@ -550,7 +593,7 @@ export function CombatSystem({
             currentPlayerPos.y,
             currentEnemyState.id,
             'player',
-            ENEMY_STATS.DRIFTER.DAMAGE,
+            enemyDamage,
             currentPlayerVel.vx,
             currentPlayerVel.vy
           );
@@ -598,8 +641,23 @@ export function CombatSystem({
           if (checkLaserHitLineSegment(prevX, prevY, projectile.x, projectile.y, currentPlayerPos.x, currentPlayerPos.y)) {
             // Check if Insta-shield is active - if so, block damage
             if (!instaShieldActiveRef.current) {
-              const newHealth = Math.max(0, currentPlayerHealth - projectile.damage);
-              onPlayerHealthChangeRef.current?.(newHealth);
+              let remainingDamage = projectile.damage;
+              const currentShield = playerShieldRef.current;
+              const maxShield = playerMaxShieldRef.current;
+              
+              // Apply damage to shield first, then health
+              if (currentShield > 0 && maxShield > 0) {
+                const shieldDamage = Math.min(remainingDamage, currentShield);
+                const newShield = Math.max(0, currentShield - shieldDamage);
+                remainingDamage -= shieldDamage;
+                onPlayerShieldChangeRef.current?.(newShield);
+              }
+              
+              // Apply remaining damage to health
+              if (remainingDamage > 0) {
+                const newHealth = Math.max(0, currentPlayerHealth - remainingDamage);
+                onPlayerHealthChangeRef.current?.(newHealth);
+              }
             }
             // Always remove laser on hit (shield blocks damage but laser still hits)
             onLaserHitRef.current?.(projectile);
@@ -611,8 +669,24 @@ export function CombatSystem({
           }
         } else if (projectile.targetId === currentEnemyState?.id && currentEnemyState) {
           if (checkLaserHitLineSegment(prevX, prevY, projectile.x, projectile.y, currentEnemyState.x, currentEnemyState.y)) {
-            const newHealth = Math.max(0, currentEnemyState.health - projectile.damage);
-            onEnemyHealthChangeRef.current?.(newHealth);
+            let remainingDamage = projectile.damage;
+            const currentEnemyShield = currentEnemyState.shield ?? 0;
+            const maxEnemyShield = currentEnemyState.maxShield ?? 0;
+            
+            // Apply damage to enemy shield first, then health
+            if (currentEnemyShield > 0 && maxEnemyShield > 0) {
+              const shieldDamage = Math.min(remainingDamage, currentEnemyShield);
+              const newShield = Math.max(0, currentEnemyShield - shieldDamage);
+              remainingDamage -= shieldDamage;
+              onEnemyShieldChangeRef.current?.(newShield);
+            }
+            
+            // Apply remaining damage to enemy health
+            if (remainingDamage > 0) {
+              const newHealth = Math.max(0, currentEnemyState.health - remainingDamage);
+              onEnemyHealthChangeRef.current?.(newHealth);
+            }
+            
             onLaserHitRef.current?.(projectile);
             lasersToRemove.push(id);
           } else {
@@ -678,8 +752,23 @@ export function CombatSystem({
           if (checkLaserHitLineSegment(prevX, prevY, projectile.x, projectile.y, currentPlayerPos.x, currentPlayerPos.y)) {
             // Check if Insta-shield is active - if so, block damage
             if (!instaShieldActiveRef.current) {
-              const newHealth = Math.max(0, currentPlayerHealth - projectile.damage);
-              onPlayerHealthChangeRef.current?.(newHealth);
+              let remainingDamage = projectile.damage;
+              const currentShield = playerShieldRef.current;
+              const maxShield = playerMaxShieldRef.current;
+              
+              // Apply damage to shield first, then health
+              if (currentShield > 0 && maxShield > 0) {
+                const shieldDamage = Math.min(remainingDamage, currentShield);
+                const newShield = Math.max(0, currentShield - shieldDamage);
+                remainingDamage -= shieldDamage;
+                onPlayerShieldChangeRef.current?.(newShield);
+              }
+              
+              // Apply remaining damage to health
+              if (remainingDamage > 0) {
+                const newHealth = Math.max(0, currentPlayerHealth - remainingDamage);
+                onPlayerHealthChangeRef.current?.(newHealth);
+              }
             }
             // Always remove rocket on hit (shield blocks damage but rocket still hits)
             rocketsToRemove.push(id);
@@ -690,8 +779,24 @@ export function CombatSystem({
           }
         } else if (projectile.targetId === currentEnemyState?.id && currentEnemyState) {
           if (checkLaserHitLineSegment(prevX, prevY, projectile.x, projectile.y, currentEnemyState.x, currentEnemyState.y)) {
-            const newHealth = Math.max(0, currentEnemyState.health - projectile.damage);
-            onEnemyHealthChangeRef.current?.(newHealth);
+            let remainingDamage = projectile.damage;
+            const currentEnemyShield = currentEnemyState.shield ?? 0;
+            const maxEnemyShield = currentEnemyState.maxShield ?? 0;
+            
+            // Apply damage to enemy shield first, then health
+            if (currentEnemyShield > 0 && maxEnemyShield > 0) {
+              const shieldDamage = Math.min(remainingDamage, currentEnemyShield);
+              const newShield = Math.max(0, currentEnemyShield - shieldDamage);
+              remainingDamage -= shieldDamage;
+              onEnemyShieldChangeRef.current?.(newShield);
+            }
+            
+            // Apply remaining damage to enemy health
+            if (remainingDamage > 0) {
+              const newHealth = Math.max(0, currentEnemyState.health - remainingDamage);
+              onEnemyHealthChangeRef.current?.(newHealth);
+            }
+            
             rocketsToRemove.push(id);
           } else {
             // Update previous position for next frame

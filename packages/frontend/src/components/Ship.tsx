@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Application, Graphics, Container } from 'pixi.js';
-import { SHIP_SPEED, MAP_WIDTH, MAP_HEIGHT } from '@shared/constants';
+import { MAP_WIDTH, MAP_HEIGHT, SPARROW_SHIP } from '@shared/constants';
+import { convertSpeedToDisplay } from '@shared/utils/speedConversion';
 
 interface ShipProps {
   app: Application;
@@ -311,8 +312,9 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
           // Set velocity in direction of mouse (continuous movement)
           const normalizedDx = dx / distance;
           const normalizedDy = dy / distance;
-          velocity.vx = normalizedDx * SHIP_SPEED;
-          velocity.vy = normalizedDy * SHIP_SPEED;
+          const shipSpeed = convertSpeedToDisplay(SPARROW_SHIP.baseSpeed);
+          velocity.vx = normalizedDx * shipSpeed;
+          velocity.vy = normalizedDy * shipSpeed;
         } else {
           // At exact position (or extremely close), maintain current rotation and stop movement
           velocity.vx = 0;
@@ -351,8 +353,9 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
 
           const normalizedDx = dx / distance;
           const normalizedDy = dy / distance;
-          velocity.vx = normalizedDx * SHIP_SPEED;
-          velocity.vy = normalizedDy * SHIP_SPEED;
+          const shipSpeed = convertSpeedToDisplay(SPARROW_SHIP.baseSpeed);
+          velocity.vx = normalizedDx * shipSpeed;
+          velocity.vy = normalizedDy * shipSpeed;
         }
       } else {
         // No input and no target

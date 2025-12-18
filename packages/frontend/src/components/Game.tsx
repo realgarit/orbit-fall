@@ -23,8 +23,9 @@ import { SettingsWindow } from './windows/SettingsWindow';
 import { ShipWindow } from './windows/ShipWindow';
 import { DeathWindow } from './windows/DeathWindow';
 import { MessageSystem } from './MessageSystem';
-import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS } from '@shared/constants';
-import type { EnemyState } from '@shared/types';
+import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP } from '@shared/constants';
+import type { EnemyState, LaserAmmoType, LaserCannonType, RocketType } from '@shared/types';
+import { getLevelFromExp, getExpForLevel } from '@shared/utils/leveling';
 import '../styles/windows.css';
 
 export function Game() {
@@ -37,7 +38,24 @@ export function Game() {
   const [fps, setFps] = useState(0);
   
   // Game state for Stats Window
-  const [playerHealth, setPlayerHealth] = useState(PLAYER_STATS.MAX_HEALTH);
+  const [playerHealth, setPlayerHealth] = useState(SPARROW_SHIP.hitpoints);
+  const [playerShield, setPlayerShield] = useState<number | undefined>(undefined);
+  const [playerMaxShield, setPlayerMaxShield] = useState<number | undefined>(undefined);
+  
+  // Player progression stats
+  const [playerExperience, setPlayerExperience] = useState(0);
+  const playerLevel = getLevelFromExp(playerExperience);
+  const [playerCredits, setPlayerCredits] = useState(0);
+  const [playerHonor, setPlayerHonor] = useState(0);
+  const [playerUridium, setPlayerUridium] = useState(0);
+  
+  // Update level when experience changes
+  useEffect(() => {
+    const newLevel = getLevelFromExp(playerExperience);
+    if (newLevel > 1 && newLevel !== getLevelFromExp(playerExperience - 1)) {
+      // Level up detected (handled in reward logic)
+    }
+  }, [playerExperience]);
   
   // Death state
   const [isDead, setIsDead] = useState(false);
@@ -48,35 +66,69 @@ export function Game() {
   const [instaShieldActive, setInstaShieldActive] = useState(false);
   const instaShieldEndTimeRef = useRef(0);
   
-  // Laser ammunition state
-  const [laserAmmo, setLaserAmmo] = useState(10000);
+  // Equipment state
+  const [currentLaserCannon, setCurrentLaserCannon] = useState<LaserCannonType>(PLAYER_STATS.STARTING_LASER_CANNON);
+  const [currentLaserAmmoType, setCurrentLaserAmmoType] = useState<LaserAmmoType>(PLAYER_STATS.STARTING_LASER_AMMO);
+  const [currentRocketType, setCurrentRocketType] = useState<RocketType>(PLAYER_STATS.STARTING_ROCKET);
+  
+  // Laser ammunition state (by type)
+  const [laserAmmo, setLaserAmmo] = useState<Record<LaserAmmoType, number>>({
+    'LC-10': 10000,
+    'LC-25': 0,
+    'LC-50': 0,
+    'LC-100': 0,
+    'RS-75': 0,
+  });
   
   // Handle laser ammunition consumption
   const handleLaserAmmoConsume = () => {
     setLaserAmmo((prev) => {
-      const newAmmo = Math.max(0, prev - 1);
-      if (newAmmo === 0 && prev > 0) {
+      const currentType = currentLaserAmmoType;
+      const currentQuantity = prev[currentType];
+      const newQuantity = Math.max(0, currentQuantity - 1);
+      
+      if (newQuantity === 0 && currentQuantity > 0) {
         // Defer message to avoid updating state during render
-        queueMicrotask(() => addMessage('Laser ammunition depleted!', 'warning'));
+        queueMicrotask(() => addMessage(`Laser ammunition ${currentType} depleted!`, 'warning'));
       }
-      return newAmmo;
+      
+      return {
+        ...prev,
+        [currentType]: newQuantity,
+      };
     });
   };
   
-  // Rocket ammunition state
-  const [rocketAmmo, setRocketAmmo] = useState(100);
+  // Rocket ammunition state (by type)
+  const [rocketAmmo, setRocketAmmo] = useState<Record<RocketType, number>>({
+    'RT-01': 100,
+    'RT-02': 0,
+    'RT-03': 0,
+    'RT-04': 0,
+  });
   
   // Handle rocket ammunition consumption
   const handleRocketAmmoConsume = () => {
     setRocketAmmo((prev) => {
-      const newAmmo = Math.max(0, prev - 1);
-      if (newAmmo === 0 && prev > 0) {
+      const currentType = currentRocketType;
+      const currentQuantity = prev[currentType];
+      const newQuantity = Math.max(0, currentQuantity - 1);
+      
+      if (newQuantity === 0 && currentQuantity > 0) {
         // Defer message to avoid updating state during render
-        queueMicrotask(() => addMessage('Rocket ammunition depleted!', 'warning'));
+        queueMicrotask(() => addMessage(`Rocket ammunition ${currentType} depleted!`, 'warning'));
       }
-      return newAmmo;
+      
+      return {
+        ...prev,
+        [currentType]: newQuantity,
+      };
     });
   };
+  
+  // Get current ammo quantities for display
+  const currentLaserAmmoQuantity = laserAmmo[currentLaserAmmoType];
+  const currentRocketAmmoQuantity = rocketAmmo[currentRocketType];
   
   // Rocket firing state (manual with SPACE key)
   const [playerFiringRocket, setPlayerFiringRocket] = useState(false);
@@ -263,9 +315,12 @@ export function Game() {
         vy: 0,
         health: ENEMY_STATS.DRIFTER.MAX_HEALTH,
         maxHealth: ENEMY_STATS.DRIFTER.MAX_HEALTH,
+        shield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
+        maxShield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
         rotation: 0,
         isEngaged: false,
         lastFireTime: 0,
+        attitude: ENEMY_STATS.DRIFTER.ATTITUDE,
       });
     }
     setEnemies(initialEnemies);
@@ -286,58 +341,76 @@ export function Game() {
       return next;
     });
     
-    // Check if enemy died
-    if (state.health <= 0 && !deadEnemiesRef.current.has(enemyId)) {
-      // Get dead enemy's last position before removing it
-      const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
-      
-      // Defer message to avoid updating state during render
-      queueMicrotask(() => addMessage('Enemy destroyed!', 'combat'));
-      
-      // Remove position first to ensure enemyPosition prop becomes null immediately
-      setEnemyPositions((prev) => {
-        const next = new Map(prev);
-        next.delete(enemyId);
-        return next;
-      });
-      
-      setDeadEnemies((prev) => new Set(prev).add(enemyId));
-      
-      // Clear enemy's engagement state
-      setEnemies((prev) => {
-        const next = new Map(prev);
-        const enemy = next.get(enemyId);
-        if (enemy) {
-          next.set(enemyId, { ...enemy, isEngaged: false });
-        }
-        return next;
-      });
-      
-      // Clear selection and combat if this was the selected enemy
-      // Use ref to get latest selectedEnemyId value (avoids stale closure)
-      if (selectedEnemyIdRef.current === enemyId) {
-        setInCombat(false);
-        setPlayerFiring(false);
-        setPlayerFiringRocket(false);
-        inCombatRef.current = false;
-        setSelectedEnemyId(null);
-        setTargetPosition(null);
-      }
-      
-      // Clear targetPosition if it's near where the dead enemy was
-      if (deadEnemyLastPos) {
-        setTargetPosition((currentTarget) => {
-          if (!currentTarget) return null;
-          const dx = currentTarget.x - deadEnemyLastPos.x;
-          const dy = currentTarget.y - deadEnemyLastPos.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          return distance < 100 ? null : currentTarget;
+      // Check if enemy died
+      if (state.health <= 0 && !deadEnemiesRef.current.has(enemyId)) {
+        // Get dead enemy's last position before removing it
+        const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
+        
+        // Award rewards
+        const reward = ENEMY_STATS.DRIFTER.REWARD;
+        setPlayerExperience((prevExp) => {
+          const newExp = prevExp + reward.experience;
+          // Check for level up
+          const newLevel = getLevelFromExp(newExp);
+          if (newLevel > playerLevel) {
+            queueMicrotask(() => addMessage(`Level up! You are now level ${newLevel}!`, 'success'));
+          }
+          return newExp;
         });
+        setPlayerCredits((prev) => prev + reward.credits);
+        setPlayerHonor((prev) => prev + reward.honor);
+        setPlayerUridium((prev) => prev + reward.uridium);
+        
+        // Defer message to avoid updating state during render
+        queueMicrotask(() => addMessage(
+          `Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits, +${reward.honor} Honor, +${reward.uridium} Uridium`,
+          'combat'
+        ));
+        
+        // Remove position first to ensure enemyPosition prop becomes null immediately
+        setEnemyPositions((prev) => {
+          const next = new Map(prev);
+          next.delete(enemyId);
+          return next;
+        });
+        
+        setDeadEnemies((prev) => new Set(prev).add(enemyId));
+        
+        // Clear enemy's engagement state
+        setEnemies((prev) => {
+          const next = new Map(prev);
+          const enemy = next.get(enemyId);
+          if (enemy) {
+            next.set(enemyId, { ...enemy, isEngaged: false });
+          }
+          return next;
+        });
+        
+        // Clear selection and combat if this was the selected enemy
+        // Use ref to get latest selectedEnemyId value (avoids stale closure)
+        if (selectedEnemyIdRef.current === enemyId) {
+          setInCombat(false);
+          setPlayerFiring(false);
+          setPlayerFiringRocket(false);
+          inCombatRef.current = false;
+          setSelectedEnemyId(null);
+          setTargetPosition(null);
+        }
+        
+        // Clear targetPosition if it's near where the dead enemy was
+        if (deadEnemyLastPos) {
+          setTargetPosition((currentTarget) => {
+            if (!currentTarget) return null;
+            const dx = currentTarget.x - deadEnemyLastPos.x;
+            const dy = currentTarget.y - deadEnemyLastPos.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            return distance < 100 ? null : currentTarget;
+          });
+        }
+        // Schedule respawn after 3 seconds
+        const respawnTime = Date.now() + 3000;
+        enemyRespawnTimersRef.current.set(enemyId, respawnTime);
       }
-      // Schedule respawn after 3 seconds
-      const respawnTime = Date.now() + 3000;
-      enemyRespawnTimersRef.current.set(enemyId, respawnTime);
-    }
   };
 
   const handleEnemyPositionUpdate = (enemyId: string, position: { x: number; y: number }) => {
@@ -374,8 +447,26 @@ export function Game() {
           // Get dead enemy's last position before removing it
           const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
           
+          // Award rewards
+          const reward = ENEMY_STATS.DRIFTER.REWARD;
+          setPlayerExperience((prevExp) => {
+            const newExp = prevExp + reward.experience;
+            // Check for level up
+            const newLevel = getLevelFromExp(newExp);
+            if (newLevel > playerLevel) {
+              queueMicrotask(() => addMessage(`Level up! You are now level ${newLevel}!`, 'success'));
+            }
+            return newExp;
+          });
+          setPlayerCredits((prev) => prev + reward.credits);
+          setPlayerHonor((prev) => prev + reward.honor);
+          setPlayerUridium((prev) => prev + reward.uridium);
+          
           // Defer message to avoid updating state during render
-          queueMicrotask(() => addMessage('Enemy destroyed!', 'combat'));
+          queueMicrotask(() => addMessage(
+            `Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits, +${reward.honor} Honor, +${reward.uridium} Uridium`,
+            'combat'
+          ));
           
           // Remove position first to ensure enemyPosition prop becomes null immediately
           setEnemyPositions((prevPos) => {
@@ -467,9 +558,12 @@ export function Game() {
               vy: 0,
               health: ENEMY_STATS.DRIFTER.MAX_HEALTH,
               maxHealth: ENEMY_STATS.DRIFTER.MAX_HEALTH,
+              shield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
+              maxShield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
               rotation: 0,
               isEngaged: false,
               lastFireTime: 0,
+              attitude: ENEMY_STATS.DRIFTER.ATTITUDE,
             };
             nextEnemies.set(enemyId, newEnemyState);
             
@@ -662,7 +756,7 @@ export function Game() {
             const now = Date.now();
             const timeSinceLastRocketFire = (now - playerLastRocketFireTimeRef.current) / 1000;
             // Check cooldown before allowing fire
-            if (rocketAmmo > 0 && timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
+            if (currentRocketAmmoQuantity > 0 && timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
               setInCombat(true);
               setSelectedEnemyId(selectedEnemyId);
               setEnemies((prev) => {
@@ -686,7 +780,7 @@ export function Game() {
             const now = Date.now();
             const timeSinceLastRocketFire = (now - playerLastRocketFireTimeRef.current) / 1000;
             // Check cooldown before allowing fire
-            if (rocketAmmo > 0 && timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
+            if (currentRocketAmmoQuantity > 0 && timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
               if (!inCombat) {
                 // Not in combat: engage combat and fire rocket immediately
                 setInCombat(true);
@@ -714,7 +808,7 @@ export function Game() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedEnemyId, enemies, shipPosition, inCombat, rocketAmmo, deadEnemies, isDead, instaShieldActive]);
+  }, [selectedEnemyId, enemies, shipPosition, inCombat, currentRocketAmmoQuantity, deadEnemies, isDead, instaShieldActive]);
   
   // Update repair cooldown
   useEffect(() => {
@@ -758,7 +852,7 @@ export function Game() {
   
   // Handle gradual healing during repair
   const handleRepairHeal = (amount: number) => {
-    setPlayerHealth((prev) => Math.min(PLAYER_STATS.MAX_HEALTH, prev + amount));
+    setPlayerHealth((prev) => Math.min(SPARROW_SHIP.hitpoints, prev + amount));
   };
   
   // Detect when player dies
@@ -792,7 +886,7 @@ export function Game() {
   const handleRepairOnSpot = () => {
     if (deathPosition) {
       // Restore 10% of base HP
-      const restoredHealth = Math.floor(PLAYER_STATS.MAX_HEALTH * 0.1);
+      const restoredHealth = Math.floor(SPARROW_SHIP.hitpoints * 0.1);
       setPlayerHealth(restoredHealth);
       setIsDead(false);
       setShowDeathWindow(false); // Hide death window
@@ -903,8 +997,8 @@ export function Game() {
         <TopBar />
         <MessageSystem />
         <ActionBar 
-          laserAmmo={laserAmmo} 
-          rocketAmmo={rocketAmmo}
+          laserAmmo={currentLaserAmmoQuantity} 
+          rocketAmmo={currentRocketAmmoQuantity}
           rocketCooldown={rocketCooldown}
           repairCooldown={repairCooldown}
           isRepairing={isRepairing}
@@ -980,7 +1074,7 @@ export function Game() {
                 onRepairComplete={handleRepairComplete}
                 onHealTick={handleRepairHeal}
                 playerHealth={playerHealth}
-                maxHealth={PLAYER_STATS.MAX_HEALTH}
+                maxHealth={SPARROW_SHIP.hitpoints}
               />
             )}
             {/* Player HP Bar */}
@@ -989,8 +1083,10 @@ export function Game() {
               cameraContainer={cameraContainer}
               position={shipPosition}
               health={playerHealth}
-              maxHealth={PLAYER_STATS.MAX_HEALTH}
+              maxHealth={SPARROW_SHIP.hitpoints}
               visible={true}
+              shield={playerShield ?? 0}
+              maxShield={playerMaxShield ?? 0}
             />
             {/* Insta-Shield Visual Effect */}
             {instaShieldActive && (
@@ -1024,6 +1120,8 @@ export function Game() {
                     health={enemy.health}
                     maxHealth={enemy.maxHealth}
                     visible={true}
+                    shield={enemy.shield ?? 0}
+                    maxShield={enemy.maxShield ?? 0}
                   />
                 </>
               );
@@ -1048,11 +1146,28 @@ export function Game() {
                   playerFiring={playerFiring && selectedEnemyId === enemyId}
                   onPlayerHealthChange={setPlayerHealth}
                   onEnemyHealthChange={(health) => handleEnemyHealthChange(enemyId, health)}
+                  onEnemyShieldChange={(shield) => {
+                    setEnemies((prev) => {
+                      const enemy = prev.get(enemyId);
+                      if (enemy) {
+                        const next = new Map(prev);
+                        next.set(enemyId, { ...enemy, shield });
+                        return next;
+                      }
+                      return prev;
+                    });
+                  }}
                   isInSafetyZone={inSafetyZone}
-                  laserAmmo={laserAmmo}
+                  laserAmmo={currentLaserAmmoQuantity}
+                  currentLaserCannon={currentLaserCannon}
+                  currentLaserAmmoType={currentLaserAmmoType}
                   onLaserAmmoConsume={handleLaserAmmoConsume}
-                  rocketAmmo={rocketAmmo}
+                  rocketAmmo={currentRocketAmmoQuantity}
+                  currentRocketType={currentRocketType}
                   onRocketAmmoConsume={handleRocketAmmoConsume}
+                  playerShield={playerShield}
+                  playerMaxShield={playerMaxShield}
+                  onPlayerShieldChange={setPlayerShield}
                   playerFiringRocket={playerFiringRocket && selectedEnemyId === enemyId}
                   onRocketFired={() => {
                     if (selectedEnemyId === enemyId) {
@@ -1085,12 +1200,22 @@ export function Game() {
             )}
             <ShipWindow
               playerHealth={playerHealth}
-              maxHealth={PLAYER_STATS.MAX_HEALTH}
+              maxHealth={SPARROW_SHIP.hitpoints}
+              playerShield={playerShield}
+              playerMaxShield={playerMaxShield}
+              currentLaserCannon={currentLaserCannon}
+              currentLaserAmmo={currentLaserAmmoType}
+              currentRocket={currentRocketType}
             />
             <StatsWindow
               shipPosition={shipPosition}
               shipVelocity={shipVelocity}
               fps={fps}
+              playerLevel={playerLevel}
+              playerExperience={playerExperience}
+              playerCredits={playerCredits}
+              playerHonor={playerHonor}
+              playerUridium={playerUridium}
             />
             <BattleWindow
               selectedEnemy={selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId) ? (() => {
@@ -1101,6 +1226,8 @@ export function Game() {
                   name: enemy.name,
                   health: enemy.health,
                   maxHealth: enemy.maxHealth,
+                  shield: enemy.shield,
+                  maxShield: enemy.maxShield,
                 };
               })() : null}
               inCombat={(() => {

@@ -1,10 +1,16 @@
 import { Window } from './Window';
 import { useWindowManager } from '../../hooks/useWindowManager';
+import { getLevelProgress, getExpForNextLevel } from '@shared/utils/leveling';
 
 interface StatsWindowProps {
   shipPosition?: { x: number; y: number };
   shipVelocity?: { vx: number; vy: number };
   fps?: number;
+  playerLevel?: number;
+  playerExperience?: number;
+  playerCredits?: number;
+  playerHonor?: number;
+  playerUridium?: number;
   windowId?: string;
 }
 
@@ -21,11 +27,18 @@ export function StatsWindow({
   shipPosition = { x: 0, y: 0 },
   shipVelocity = { vx: 0, vy: 0 },
   fps = 0,
+  playerLevel = 1,
+  playerExperience = 0,
+  playerCredits = 0,
+  playerHonor = 0,
+  playerUridium = 0,
   windowId = 'stats-window',
 }: StatsWindowProps) {
   const { minimizeWindow, restoreWindow } = useWindowManager();
 
   const speed = Math.sqrt(shipVelocity.vx * shipVelocity.vx + shipVelocity.vy * shipVelocity.vy);
+  const expForNextLevel = getExpForNextLevel(playerLevel);
+  const levelProgress = getLevelProgress(playerExperience, playerLevel);
 
   return (
     <Window
@@ -35,28 +48,68 @@ export function StatsWindow({
       initialX={20}
       initialY={60}
       initialWidth={280}
-      initialHeight={280}
+      initialHeight={400}
       onMinimize={minimizeWindow}
       onRestore={restoreWindow}
     >
       <div className="stats-window-content">
-        {/* Speed */}
+        {/* Level and Experience */}
         <div className="stats-section">
+          <div className="stats-label">Level</div>
+          <div className="stats-value">{playerLevel}</div>
+        </div>
+
+        <div className="stats-section">
+          <div className="stats-label">Experience</div>
+          <div className="stats-value">
+            {playerExperience.toLocaleString()}
+            {expForNextLevel !== null && (
+              <span style={{ fontSize: '11px', color: '#888' }}>
+                {' '}/ {expForNextLevel.toLocaleString()}
+              </span>
+            )}
+          </div>
+          {expForNextLevel !== null && (
+            <div className="stats-health-bar-container" style={{ marginTop: '4px' }}>
+              <div
+                className="stats-health-bar"
+                style={{ width: `${levelProgress}%`, height: '4px' }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Currency */}
+        <div className="stats-section">
+          <div className="stats-label">Credits</div>
+          <div className="stats-value">{playerCredits.toLocaleString()}</div>
+        </div>
+
+        <div className="stats-section">
+          <div className="stats-label">Honor</div>
+          <div className="stats-value">{playerHonor.toLocaleString()}</div>
+        </div>
+
+        <div className="stats-section">
+          <div className="stats-label">Uridium</div>
+          <div className="stats-value">{playerUridium.toLocaleString()}</div>
+        </div>
+
+        {/* Technical Stats */}
+        <div className="stats-section" style={{ marginTop: '8px', borderTop: '1px solid #333', paddingTop: '8px' }}>
           <div className="stats-label">Speed</div>
           <div className="stats-value">
             {speed.toFixed(2)}
           </div>
         </div>
 
-        {/* Velocity */}
         <div className="stats-section">
           <div className="stats-label">Velocity</div>
-          <div className="stats-value">
+          <div className="stats-value" style={{ fontSize: '11px' }}>
             X: {shipVelocity.vx.toFixed(2)}, Y: {shipVelocity.vy.toFixed(2)}
           </div>
         </div>
 
-        {/* FPS */}
         <div className="stats-section">
           <div className="stats-label">FPS</div>
           <div className="stats-value">

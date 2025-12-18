@@ -6,6 +6,8 @@ interface BattleWindowProps {
     name: string;
     health?: number;
     maxHealth?: number;
+    shield?: number;
+    maxShield?: number;
   } | null;
   inCombat?: boolean;
   windowId?: string;
@@ -30,6 +32,10 @@ export function BattleWindow({
   windowId = 'battle-window',
 }: BattleWindowProps) {
   const { minimizeWindow, restoreWindow } = useWindowManager();
+  
+  // Calculate height based on whether enemy has shield
+  const hasShield = selectedEnemy && selectedEnemy.maxShield !== undefined;
+  const windowHeight = hasShield ? 240 : 180;
 
   return (
     <Window
@@ -39,7 +45,7 @@ export function BattleWindow({
       initialX={320}
       initialY={60}
       initialWidth={280}
-      initialHeight={180}
+      initialHeight={windowHeight}
       onMinimize={minimizeWindow}
       onRestore={restoreWindow}
     >
@@ -54,22 +60,42 @@ export function BattleWindow({
 
         {/* Selected Enemy */}
         {selectedEnemy && (
-          <div className="stats-section">
-            <div className="stats-label">Target: {selectedEnemy.name}</div>
-            {selectedEnemy.health !== undefined && selectedEnemy.maxHealth !== undefined && (
-              <div className="stats-health-bar-container">
-                <div
-                  className="stats-health-bar enemy"
-                  style={{
-                    width: `${((selectedEnemy.health / selectedEnemy.maxHealth) * 100)}%`,
-                  }}
-                />
-                <div className="stats-health-text">
-                  {selectedEnemy.health.toFixed(0)} / {selectedEnemy.maxHealth}
+          <>
+            <div className="stats-section">
+              <div className="stats-label">Target: {selectedEnemy.name}</div>
+              {selectedEnemy.health !== undefined && selectedEnemy.maxHealth !== undefined && (
+                <div className="stats-health-bar-container">
+                  <div
+                    className="stats-health-bar enemy"
+                    style={{
+                      width: `${((selectedEnemy.health / selectedEnemy.maxHealth) * 100)}%`,
+                    }}
+                  />
+                  <div className="stats-health-text">
+                    {selectedEnemy.health.toFixed(0)} / {selectedEnemy.maxHealth}
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Enemy Shield */}
+            {selectedEnemy.maxShield !== undefined && (
+              <div className="stats-section">
+                <div className="stats-label">Shield</div>
+                <div className="stats-health-bar-container">
+                  <div
+                    className="stats-health-bar stats-shield-bar"
+                    style={{
+                      width: `${selectedEnemy.maxShield > 0 ? ((selectedEnemy.shield ?? 0) / selectedEnemy.maxShield) * 100 : 0}%`,
+                    }}
+                  />
+                  <div className="stats-health-text">
+                    {(selectedEnemy.shield ?? 0).toFixed(0)} / {selectedEnemy.maxShield}
+                  </div>
                 </div>
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
     </Window>
