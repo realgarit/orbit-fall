@@ -186,13 +186,11 @@ export function Game() {
         const isDoubleClick = now - lastOutsideClickTimeRef.current < 300;
         
         if (isDoubleClick) {
-          // Double-click outside: clear selection and combat
+          // Double-click outside: clear selection and player combat state
+          // Enemy remains engaged/aggressive if it was already engaged.
           setSelectedEnemyId(null);
           setInCombat(false);
           setPlayerFiring(false);
-          if (enemyState) {
-            setEnemyState({ ...enemyState, isEngaged: false });
-          }
           lastOutsideClickTimeRef.current = 0;
         } else {
           // Single click outside: do nothing (selection persists)
@@ -212,12 +210,10 @@ export function Game() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // ESC exits player combat state but does not pacify the enemy.
         setPlayerFiring(false);
         setInCombat(false);
         setSelectedEnemyId(null);
-        if (enemyState) {
-          setEnemyState({ ...enemyState, isEngaged: false });
-        }
       }
     };
 

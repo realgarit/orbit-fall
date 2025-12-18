@@ -35,7 +35,6 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
   const playerPositionRef = useRef(playerPosition);
   const onStateUpdateRef = useRef(onStateUpdate);
   const onPositionUpdateRef = useRef(onPositionUpdate);
-  const inCombatRef = useRef(inCombat);
   const tickerAddedRef = useRef(false);
   const tickerCallbackRef = useRef<((ticker: any) => void) | null>(null);
 
@@ -44,8 +43,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
     playerPositionRef.current = playerPosition;
     onStateUpdateRef.current = onStateUpdate;
     onPositionUpdateRef.current = onPositionUpdate;
-    inCombatRef.current = inCombat;
-  }, [playerPosition, onStateUpdate, onPositionUpdate, inCombat]);
+  }, [playerPosition, onStateUpdate, onPositionUpdate]);
 
   // Sync external state when provided (for health, engagement status)
   // Don't sync position/velocity as those are managed internally
@@ -120,7 +118,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         style: {
           fontFamily: 'Arial',
           fontSize: 14,
-          fill: 0xff0000, // Red
+          fill: 0xff0000, // Strong standard red
           align: 'center',
         },
       });
@@ -153,32 +151,31 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         const delta = ticker.deltaTime;
         const state = stateRef.current;
         const now = Date.now();
-        const isInCombat = inCombatRef.current;
 
-        // Only follow player when in combat
-        if (isInCombat && state.isEngaged) {
-          const currentPlayerPos = playerPositionRef.current;
-          const dx = currentPlayerPos.x - state.x;
-          const dy = currentPlayerPos.y - state.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          
-          // Follow player during combat (maintain combat distance)
-          const COMBAT_DISTANCE = 200; // Optimal combat distance
-          
+        const currentPlayerPos = playerPositionRef.current;
+        const dx = currentPlayerPos.x - state.x;
+        const dy = currentPlayerPos.y - state.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (state.isEngaged) {
+          // Engaged/aggressive: always chase player and maintain combat distance,
+          // regardless of whether the player considers themselves "in combat".
+          const COMBAT_DISTANCE = 200; // Preferred combat distance
+
           if (distance > COMBAT_DISTANCE) {
-            // Move closer to player during combat
+            // Move toward player
             const followSpeed = 1.5;
             const normalizedDx = dx / distance;
             const normalizedDy = dy / distance;
             state.vx = normalizedDx * followSpeed;
             state.vy = normalizedDy * followSpeed;
           } else {
-            // At combat distance, stop moving
+            // At combat distance, stop closing further
             state.vx = 0;
             state.vy = 0;
           }
         } else {
-          // When not in combat, use patrol behavior
+          // Not engaged yet: pure AI patrol, ignore player position entirely.
           // Change patrol direction periodically (every 3-5 seconds)
           if (now - lastPatrolChangeRef.current > 3000 + Math.random() * 2000) {
             const randomAngle = Math.random() * Math.PI * 2;
@@ -187,8 +184,8 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
             patrolVelocityRef.current.vy = Math.sin(randomAngle) * patrolSpeed;
             lastPatrolChangeRef.current = now;
           }
-          
-          // Use patrol velocity
+
+          // Use patrol velocity (AI movement)
           state.vx = patrolVelocityRef.current.vx;
           state.vy = patrolVelocityRef.current.vy;
         }
@@ -207,26 +204,19 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         nameText.x = state.x;
         nameText.y = state.y + 25;
 
-        // Update rotation - face player when in combat, face movement direction when patrolling
-        if (isInCombat && state.isEngaged) {
-          // Face the player when in combat
-          const currentPlayerPos = playerPositionRef.current;
-          const dx = currentPlayerPos.x - state.x;
-          const dy = currentPlayerPos.y - state.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
+        // Update rotation:
+        // - When engaged: always face the player
+        // - When not engaged: face patrol movement direction only (never track player)
+        if (state.isEngaged) {
           if (distance > 0.01) {
             const targetRotation = Math.atan2(dy, dx) + Math.PI / 2;
             state.rotation = targetRotation;
             enemy.rotation = state.rotation;
           }
-        } else {
-          // When not in combat, face movement direction (patrol direction)
-          if (Math.abs(state.vx) > 0.01 || Math.abs(state.vy) > 0.01) {
-            const targetRotation = Math.atan2(state.vy, state.vx) + Math.PI / 2;
-            state.rotation = targetRotation;
-            enemy.rotation = state.rotation;
-          }
-          // If not moving, maintain current rotation (don't face player)
+        } else if (Math.abs(state.vx) > 0.01 || Math.abs(state.vy) > 0.01) {
+          const targetRotation = Math.atan2(state.vy, state.vx) + Math.PI / 2;
+          state.rotation = targetRotation;
+          enemy.rotation = state.rotation;
         }
 
         // Notify parent of state changes

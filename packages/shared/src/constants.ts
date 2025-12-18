@@ -39,9 +39,9 @@ export const COMBAT_CONFIG = {
 
 // HP Bar configuration
 export const HP_BAR_CONFIG = {
-  WIDTH: 60,
-  HEIGHT: 6,
-  OFFSET_Y: -35, // pixels above ship
+  WIDTH: 50,
+  HEIGHT: 4,
+  OFFSET_Y: -45, // pixels above ship
   BORDER_WIDTH: 1,
 };
 

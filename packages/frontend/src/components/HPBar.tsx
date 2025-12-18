@@ -84,7 +84,7 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
       // Calculate color based on health percentage
       let color: number;
       if (percentage > 0.6) {
-        color = 0x00ff00; // Green
+        color = 0x33ff33; // More visible standard green
       } else if (percentage > 0.3) {
         color = 0xffff00; // Yellow
       } else {
