@@ -17,6 +17,7 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   const rotationRef = useRef(0);
   const isMouseDownRef = useRef(false);
   const mouseWorldPosRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
+  const mouseScreenPosRef = useRef({ x: 0, y: 0 }); // Track screen position for continuous updates
   const velocityRef = useRef({ vx: 0, vy: 0 });
   const targetPosRef = useRef<{ x: number; y: number } | null>(null);
   const onTargetReachedRef = useRef<(() => void) | undefined>(undefined);
@@ -105,6 +106,7 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
     // Mouse event handlers
     const handleMouseDown = (e: MouseEvent) => {
       const canvasPos = getCanvasMousePos(e);
+      mouseScreenPosRef.current = canvasPos; // Store screen position
       const worldPos = screenToWorld(canvasPos.x, canvasPos.y);
       
       // Check if click is on enemy (prevent ship movement)
@@ -128,8 +130,8 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
     const handleMouseMove = (e: MouseEvent) => {
       if (isMouseDownRef.current) {
         const canvasPos = getCanvasMousePos(e);
-        const worldPos = screenToWorld(canvasPos.x, canvasPos.y);
-        mouseWorldPosRef.current = worldPos;
+        mouseScreenPosRef.current = canvasPos; // Update screen position
+        // World position will be recalculated in ticker using current camera position
       }
     };
 
@@ -150,31 +152,57 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
 
       const delta = ticker.deltaTime;
       const pos = positionRef.current;
-      const mousePos = mouseWorldPosRef.current;
       const velocity = velocityRef.current;
       const currentTarget = targetPosRef.current;
 
       // Priority: direct mouse control
       if (isMouseDownRef.current) {
+        // Continuously update mouse world position based on current camera position
+        // This ensures the target stays relative to the screen position, not a fixed world position
+        const screenPos = mouseScreenPosRef.current;
+        const currentWorldPos = screenToWorld(screenPos.x, screenPos.y);
+        mouseWorldPosRef.current = currentWorldPos;
+        
         // Calculate direction to mouse
-        const dx = mousePos.x - pos.x;
-        const dy = mousePos.y - pos.y;
+        const dx = currentWorldPos.x - pos.x;
+        const dy = currentWorldPos.y - pos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance > 0.1) {
-          // Point ship toward mouse
-          const angle = Math.atan2(dy, dx);
-          const rotation = angle + Math.PI / 2;
-          ship.rotation = rotation;
-          rotationRef.current = rotation;
+        // Always move toward mouse while button is held down
+        // Use a minimum distance threshold to prevent rotation instability
+        const MIN_DISTANCE_FOR_ROTATION = 5.0; // Don't update rotation when closer than this
+        const MIN_DISTANCE_FOR_MOVEMENT = 0.5; // Stop movement when closer than this
+        
+        if (distance > MIN_DISTANCE_FOR_MOVEMENT) {
+          // Only update rotation if we're far enough away to prevent spinning
+          if (distance > MIN_DISTANCE_FOR_ROTATION) {
+            // Calculate target rotation
+            const angle = Math.atan2(dy, dx);
+            const targetRotation = angle + Math.PI / 2;
+            
+            // Smoothly interpolate rotation to prevent rapid spinning
+            const currentRotation = rotationRef.current;
+            let rotationDiff = targetRotation - currentRotation;
+            
+            // Normalize rotation difference to [-PI, PI]
+            while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
+            while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
+            
+            // Smooth rotation update
+            const rotationSpeed = 0.2; // Rotation interpolation speed
+            const newRotation = currentRotation + rotationDiff * rotationSpeed;
+            ship.rotation = newRotation;
+            rotationRef.current = newRotation;
+          }
+          // If close but still moving, keep current rotation (don't update it)
 
-          // Set velocity in direction of mouse (instant acceleration)
+          // Set velocity in direction of mouse (continuous movement)
           const normalizedDx = dx / distance;
           const normalizedDy = dy / distance;
           velocity.vx = normalizedDx * SHIP_SPEED;
           velocity.vy = normalizedDy * SHIP_SPEED;
         } else {
-          // Very close to target, stop
+          // At exact position (or extremely close), maintain current rotation and stop movement
           velocity.vx = 0;
           velocity.vy = 0;
         }
