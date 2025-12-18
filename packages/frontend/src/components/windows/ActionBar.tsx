@@ -1,18 +1,35 @@
 import React from 'react';
 import { LaserSlot } from './LaserSlot';
 import { RocketSlot } from './RocketSlot';
+import { RepairSlot } from './RepairSlot';
 
 interface ActionBarProps {
   laserAmmo?: number;
   rocketAmmo?: number;
+  rocketCooldown?: number;
+  repairCooldown?: number;
+  isRepairing?: boolean;
   onActionClick?: (key: number) => void;
+  onRepairClick?: () => void;
 }
 
-export function ActionBar({ laserAmmo = 0, rocketAmmo = 0, onActionClick }: ActionBarProps) {
-  const keys = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
+export function ActionBar({ 
+  laserAmmo = 0, 
+  rocketAmmo = 0, 
+  rocketCooldown = 0,
+  repairCooldown = 0,
+  isRepairing = false,
+  onActionClick,
+  onRepairClick,
+}: ActionBarProps) {
+  const keys = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   const handleClick = (key: number) => {
-    onActionClick?.(key);
+    if (key === 0 && onRepairClick) {
+      onRepairClick();
+    } else {
+      onActionClick?.(key);
+    }
   };
 
   return (
@@ -28,10 +45,11 @@ export function ActionBar({ laserAmmo = 0, rocketAmmo = 0, onActionClick }: Acti
       <RocketSlot
         slotNumber={2}
         ammo={rocketAmmo}
+        cooldown={rocketCooldown}
         onActionClick={handleClick}
       />
       
-      {/* Slots 3-9, 0: Regular numbered buttons */}
+      {/* Slots 3-9: Regular numbered buttons */}
       {keys.slice(2).map((key) => (
         <button
           key={key}
@@ -42,6 +60,14 @@ export function ActionBar({ laserAmmo = 0, rocketAmmo = 0, onActionClick }: Acti
           <span className="game-actionbar-badge">{key}</span>
         </button>
       ))}
+      
+      {/* Slot 0: RPR-1 Repair Robot */}
+      <RepairSlot
+        slotNumber={0}
+        cooldown={repairCooldown}
+        isRepairing={isRepairing}
+        onActionClick={handleClick}
+      />
     </div>
   );
 }

@@ -10,12 +10,13 @@ interface EnemyProps {
   enemyState?: EnemyState | null;
   onStateUpdate?: (state: EnemyState) => void;
   onPositionUpdate?: (position: { x: number; y: number }) => void;
-  inCombat?: boolean;
+  isDead?: boolean;
 }
 
-export function Enemy({ app, cameraContainer, playerPosition, enemyState: externalState, onStateUpdate, onPositionUpdate, inCombat = false }: EnemyProps) {
+export function Enemy({ app, cameraContainer, playerPosition, enemyState: externalState, onStateUpdate, onPositionUpdate, isDead = false }: EnemyProps) {
   const enemyRef = useRef<Graphics | null>(null);
   const nameTextRef = useRef<Text | null>(null);
+  const explosionRef = useRef<Graphics | null>(null);
   const stateRef = useRef<EnemyState>({
     id: 'drifter-1',
     name: ENEMY_STATS.DRIFTER.NAME,
@@ -37,6 +38,9 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
   const onPositionUpdateRef = useRef(onPositionUpdate);
   const tickerAddedRef = useRef(false);
   const tickerCallbackRef = useRef<((ticker: any) => void) | null>(null);
+  const deathTimeRef = useRef<number | null>(null);
+  const explosionTimeRef = useRef<number | null>(null);
+  const fadeAlphaRef = useRef(1);
 
   // Keep refs updated
   useEffect(() => {
@@ -49,12 +53,45 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
   // Don't sync position/velocity as those are managed internally
   useEffect(() => {
     if (externalState) {
+      const wasAlive = stateRef.current.health > 0;
       stateRef.current.health = externalState.health;
       stateRef.current.maxHealth = externalState.maxHealth;
       stateRef.current.isEngaged = externalState.isEngaged;
       stateRef.current.lastFireTime = externalState.lastFireTime;
+      
+      // Check if enemy just died
+      if (wasAlive && externalState.health <= 0 && !deathTimeRef.current) {
+        deathTimeRef.current = Date.now();
+        explosionTimeRef.current = Date.now();
+        // Hide enemy model immediately so explosion looks better
+        if (enemyRef.current) {
+          enemyRef.current.visible = false;
+        }
+        if (nameTextRef.current) {
+          nameTextRef.current.visible = false;
+        }
+        // Create explosion
+        if (enemyRef.current && !explosionRef.current) {
+          const explosion = new Graphics();
+          const radius = 30;
+          // Outer explosion ring
+          explosion.circle(0, 0, radius);
+          explosion.fill({ color: 0xff8800, alpha: 0.8 });
+          // Middle ring
+          explosion.circle(0, 0, radius * 0.7);
+          explosion.fill({ color: 0xff0000, alpha: 0.9 });
+          // Inner core
+          explosion.circle(0, 0, radius * 0.4);
+          explosion.fill({ color: 0xffff00, alpha: 1.0 });
+          
+          explosion.x = stateRef.current.x;
+          explosion.y = stateRef.current.y;
+          cameraContainer.addChild(explosion);
+          explosionRef.current = explosion;
+        }
+      }
     }
-  }, [externalState?.health, externalState?.maxHealth, externalState?.isEngaged, externalState?.lastFireTime]);
+  }, [externalState?.health, externalState?.maxHealth, externalState?.isEngaged, externalState?.lastFireTime, cameraContainer]);
 
   useEffect(() => {
     if (!app) return;
@@ -62,7 +99,13 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
     // Only create Graphics if it doesn't exist
     if (!enemyRef.current) {
       // Spawn enemy near player (200-400px away) - only once
-      if (!spawnedRef.current) {
+      if (!spawnedRef.current && externalState) {
+        // Use external state position if available
+        stateRef.current.x = externalState.x;
+        stateRef.current.y = externalState.y;
+        stateRef.current.id = externalState.id;
+        spawnedRef.current = true;
+      } else if (!spawnedRef.current) {
         const angle = Math.random() * Math.PI * 2;
         const distance = 200 + Math.random() * 200;
         const spawnX = playerPosition.x + Math.cos(angle) * distance;
@@ -144,6 +187,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         // Always get fresh refs in case they changed
         const enemy = enemyRef.current;
         const nameText = nameTextRef.current;
+        const explosion = explosionRef.current;
         // Early return if enemy or nameText don't exist
         if (!enemy || !nameText) {
           return;
@@ -152,6 +196,48 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         const delta = ticker.deltaTime;
         const state = stateRef.current;
         const now = Date.now();
+        
+        // Handle death and explosion
+        if (isDead || state.health <= 0) {
+          // Update explosion animation
+          if (explosion && explosionTimeRef.current) {
+            const explosionAge = now - explosionTimeRef.current;
+            const explosionDuration = 500; // 500ms explosion
+            
+            if (explosionAge < explosionDuration) {
+              // Expand and fade explosion
+              const progress = explosionAge / explosionDuration;
+              const scale = 1 + progress * 2; // Expand to 3x size
+              const alpha = 1 - progress;
+              explosion.scale.set(scale);
+              explosion.alpha = alpha;
+            } else {
+              // Remove explosion after duration
+              if (explosion.parent) {
+                cameraContainer.removeChild(explosion);
+                explosion.destroy();
+                explosionRef.current = null;
+              }
+            }
+          }
+          
+          // Fade out enemy after explosion
+          if (deathTimeRef.current) {
+            const deathAge = now - deathTimeRef.current;
+            const fadeStart = 500; // Start fading after explosion
+            const fadeDuration = 1000; // 1 second fade
+            
+            if (deathAge > fadeStart) {
+              const fadeProgress = Math.min(1, (deathAge - fadeStart) / fadeDuration);
+              fadeAlphaRef.current = 1 - fadeProgress;
+              enemy.alpha = fadeAlphaRef.current;
+              nameText.alpha = fadeAlphaRef.current;
+            }
+          }
+          
+          // Don't update position or rotation when dead
+          return;
+        }
 
         const currentPlayerPos = playerPositionRef.current;
         const dx = currentPlayerPos.x - state.x;
@@ -238,6 +324,11 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         app.ticker.remove(tickerCallbackRef.current);
         tickerAddedRef.current = false;
         tickerCallbackRef.current = null;
+      }
+      if (explosionRef.current) {
+        cameraContainer.removeChild(explosionRef.current);
+        explosionRef.current.destroy();
+        explosionRef.current = null;
       }
       if (enemyRef.current) {
         cameraContainer.removeChild(enemyRef.current);

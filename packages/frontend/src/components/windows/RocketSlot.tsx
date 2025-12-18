@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 interface RocketSlotProps {
   slotNumber: number;
   ammo: number;
+  cooldown?: number;
   onActionClick?: (key: number) => void;
 }
 
@@ -23,12 +24,14 @@ const formatExactAmmo = (amount: number): string => {
   return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "'");
 };
 
-export function RocketSlot({ slotNumber, ammo, onActionClick }: RocketSlotProps) {
+export function RocketSlot({ slotNumber, ammo, cooldown = 0, onActionClick }: RocketSlotProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   const handleClick = () => {
     onActionClick?.(slotNumber);
   };
+
+  const isOnCooldown = cooldown > 0;
 
   return (
     <div
@@ -39,9 +42,18 @@ export function RocketSlot({ slotNumber, ammo, onActionClick }: RocketSlotProps)
       <button
         className="game-actionbar-item"
         onClick={handleClick}
+        style={{
+          opacity: isOnCooldown ? 0.5 : 1,
+        }}
       >
-        {/* Ammunition count display on top */}
-        <span className="game-actionbar-ammo">{formatAmmo(ammo)}</span>
+        {/* Cooldown or ammo display on top */}
+        {isOnCooldown ? (
+          <span className="game-actionbar-ammo" style={{ color: '#ff8800' }}>
+            {cooldown.toFixed(1)}s
+          </span>
+        ) : (
+          <span className="game-actionbar-ammo">{formatAmmo(ammo)}</span>
+        )}
         
         {/* Horizontal rocket icon */}
         <div className="game-actionbar-rocket-icon">
@@ -70,7 +82,11 @@ export function RocketSlot({ slotNumber, ammo, onActionClick }: RocketSlotProps)
       {isHovered && (
         <div className="game-actionbar-laser-tooltip">
           <div className="game-actionbar-laser-tooltip-name">RT-01</div>
-          <div className="game-actionbar-laser-tooltip-amount">{formatExactAmmo(ammo)}</div>
+          <div className="game-actionbar-laser-tooltip-amount">
+            {isOnCooldown 
+              ? `Cooldown: ${cooldown.toFixed(1)}s` 
+              : formatExactAmmo(ammo)}
+          </div>
         </div>
       )}
     </div>

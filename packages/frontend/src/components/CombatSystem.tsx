@@ -412,8 +412,8 @@ export function CombatSystem({
       const currentEnemyState = enemyStateRef.current;
       const currentPlayerFiring = playerFiringRef.current;
 
-      // Player firing lasers (only if ammo available)
-      if (currentPlayerFiring && currentEnemyState && currentEnemyState.isEngaged && laserAmmoRef.current > 0) {
+      // Player firing lasers (only if ammo available and enemy is alive)
+      if (currentPlayerFiring && currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && laserAmmoRef.current > 0) {
         const timeSinceLastFire = (now - playerLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
           createLaser(
@@ -433,8 +433,8 @@ export function CombatSystem({
         }
       }
 
-      // Player firing rockets (manual with SPACE key, only if ammo available)
-      if (playerFiringRocketRef.current && currentEnemyState && currentEnemyState.isEngaged && rocketAmmoRef.current > 0) {
+      // Player firing rockets (manual with SPACE key, only if ammo available and enemy is alive)
+      if (playerFiringRocketRef.current && currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && rocketAmmoRef.current > 0) {
         const timeSinceLastRocketFire = (now - playerLastRocketFireTimeRef.current) / 1000;
         if (timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
           createRocket(
@@ -456,8 +456,8 @@ export function CombatSystem({
         }
       }
 
-      // Enemy firing (disabled in safety zone)
-      if (currentEnemyState && currentEnemyState.isEngaged && !isInSafetyZoneRef.current) {
+      // Enemy firing (disabled in safety zone and if enemy is dead)
+      if (currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && !isInSafetyZoneRef.current) {
         const timeSinceLastFire = (now - enemyLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
           createLaser(

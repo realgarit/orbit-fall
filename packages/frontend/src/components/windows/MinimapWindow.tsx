@@ -8,7 +8,7 @@ interface MinimapWindowProps {
   playerPosition: { x: number; y: number };
   targetPosition: { x: number; y: number } | null;
   onTargetChange: (target: { x: number; y: number } | null) => void;
-  enemyPosition?: { x: number; y: number } | null;
+  enemyPositions?: { x: number; y: number }[] | Map<string, { x: number; y: number }>;
   basePosition?: { x: number; y: number } | null;
   windowId?: string;
 }
@@ -26,7 +26,7 @@ export function MinimapWindow({
   playerPosition,
   targetPosition,
   onTargetChange,
-  enemyPosition = null,
+  enemyPositions = [],
   basePosition = null,
   windowId = 'minimap-window',
 }: MinimapWindowProps) {
@@ -146,8 +146,13 @@ export function MinimapWindow({
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Enemy dot
-    if (enemyPosition) {
+    // Enemy dots - render all enemies
+    // Handle both Map and Array formats
+    const enemyPositionsArray = enemyPositions instanceof Map 
+      ? Array.from(enemyPositions.values())
+      : (enemyPositions || []);
+    
+    enemyPositionsArray.forEach((enemyPosition) => {
       const enemyMinimap = worldToMinimap(enemyPosition.x, enemyPosition.y, width, height);
       ctx.fillStyle = '#ff0000';
       ctx.beginPath();
@@ -156,7 +161,7 @@ export function MinimapWindow({
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1;
       ctx.stroke();
-    }
+    });
 
     // Target + line
     if (targetPosition) {
@@ -220,11 +225,11 @@ export function MinimapWindow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Redraw when player / target / enemy / base changes, or when Mars background loads
+  // Redraw when player / target / enemies / base changes, or when Mars background loads
   useEffect(() => {
     drawMinimap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y, enemyPosition?.x, enemyPosition?.y, basePosition?.x, basePosition?.y, marsBackgroundImage]);
+  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y, enemyPositions, basePosition?.x, basePosition?.y, marsBackgroundImage]);
 
   // Mouse down: start drag + set target
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {

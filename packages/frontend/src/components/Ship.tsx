@@ -26,6 +26,10 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   const onEnemyClickRef = useRef<((worldX: number, worldY: number) => boolean) | undefined>(undefined);
   const inCombatRef = useRef(inCombat ?? false);
   const enemyPositionRef = useRef<{ x: number; y: number } | null>(enemyPosition ?? null);
+  
+  // Store latest prop values to compare against refs in ticker
+  const inCombatPropRef = useRef(inCombat ?? false);
+  const enemyPositionPropRef = useRef<{ x: number; y: number } | null>(enemyPosition ?? null);
 
   // Keep refs in sync with latest props without recreating Pixi objects
   useEffect(() => {
@@ -41,12 +45,32 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   }, [onEnemyClick]);
 
   useEffect(() => {
-    inCombatRef.current = inCombat ?? false;
-  }, [inCombat]);
-
-  useEffect(() => {
-    enemyPositionRef.current = enemyPosition ?? null;
-  }, [enemyPosition]);
+    // Update prop refs immediately - these track what props SAY we should have
+    inCombatPropRef.current = inCombat ?? false;
+    enemyPositionPropRef.current = enemyPosition ?? null;
+    
+    // CRITICAL: Update actual refs based on props
+    // If props say we shouldn't have something, clear it IMMEDIATELY
+    // This is the source of truth - props override any stale refs
+    if (!inCombat) {
+      inCombatRef.current = false;
+    } else {
+      inCombatRef.current = true;
+    }
+    
+    if (!enemyPosition) {
+      // Prop says no enemy position - clear ref immediately
+      enemyPositionRef.current = null;
+    } else {
+      // Prop says we have enemy position - update ref
+      enemyPositionRef.current = enemyPosition;
+    }
+    
+    // Defensive: If combat is false, also clear enemy position (double-check)
+    if (!inCombat && enemyPositionRef.current) {
+      enemyPositionRef.current = null;
+    }
+  }, [inCombat, enemyPosition]);
 
   useEffect(() => {
     if (!app) return;
@@ -171,10 +195,65 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
       const isInCombat = inCombatRef.current;
       const currentEnemyPos = enemyPositionRef.current;
       
-      if (isInCombat && currentEnemyPos) {
-        // Turn towards enemy when in combat
-        const dx = currentEnemyPos.x - pos.x;
-        const dy = currentEnemyPos.y - pos.y;
+      // CRITICAL: Compare refs against latest props to detect stale state
+      // This catches cases where refs haven't updated yet but props have changed
+      const shouldBeInCombat = inCombatPropRef.current;
+      const shouldHaveEnemyPos = enemyPositionPropRef.current;
+      
+      // PROPS ARE THE SOURCE OF TRUTH - if props say no, clear refs immediately
+      // This is the most important check - props override any stale refs
+      if (!shouldBeInCombat) {
+        inCombatRef.current = false;
+        // If we shouldn't be in combat, we also shouldn't have enemy position
+        if (currentEnemyPos) {
+          enemyPositionRef.current = null;
+        }
+      }
+      if (!shouldHaveEnemyPos) {
+        enemyPositionRef.current = null;
+        // If we don't have enemy position, we can't be in combat
+        if (isInCombat) {
+          inCombatRef.current = false;
+        }
+      }
+      
+      // Defensive: Clear stale refs immediately if they're inconsistent
+      // This prevents rotation towards dead enemies
+      // Check all combinations to ensure we catch any stale state
+      if (currentEnemyPos && !isInCombat) {
+        // Have enemy position but not in combat - clear it immediately
+        enemyPositionRef.current = null;
+      }
+      if (isInCombat && !currentEnemyPos) {
+        // In combat but no enemy position - clear combat state
+        inCombatRef.current = false;
+      }
+      
+      // Update local variables after defensive clears
+      const finalIsInCombat = inCombatRef.current;
+      const finalEnemyPos = enemyPositionRef.current;
+      
+      // Defensive: If we have a target but we're in combat, clear the target immediately
+      // This prevents rotation towards target when we should be in combat mode
+      if (currentTarget && finalIsInCombat) {
+        targetPosRef.current = null;
+        // Skip target movement, go to combat rotation
+      }
+      
+      // Only rotate if in combat AND we have a valid enemy position
+      // Use the final values after defensive clears
+      // CRITICAL: Also check props - if props say we shouldn't be in combat, don't rotate
+      // This prevents rotation when enemy dies and props update before refs
+      if (shouldBeInCombat && shouldHaveEnemyPos &&
+          finalIsInCombat && finalEnemyPos && 
+          typeof finalEnemyPos === 'object' &&
+          typeof finalEnemyPos.x === 'number' && 
+          typeof finalEnemyPos.y === 'number' &&
+          !isNaN(finalEnemyPos.x) &&
+          !isNaN(finalEnemyPos.y)) {
+        // Valid combat rotation - turn towards enemy
+        const dx = finalEnemyPos.x - pos.x;
+        const dy = finalEnemyPos.y - pos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance > 0.01) {
@@ -251,6 +330,20 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
         }
       } else if (currentTarget) {
         // Auto-fly to minimap target
+        // But don't rotate if we're supposed to be in combat (combat takes priority)
+        if (isInCombat && currentEnemyPos) {
+          // Combat rotation takes priority over target movement
+          // Don't rotate towards target if in combat
+          return;
+        }
+        
+        // Defensive: If we're in combat but have a target, clear the target
+        // This handles cases where target wasn't cleared when combat started
+        if (isInCombat) {
+          targetPosRef.current = null;
+          return;
+        }
+        
         const dx = currentTarget.x - pos.x;
         const dy = currentTarget.y - pos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
