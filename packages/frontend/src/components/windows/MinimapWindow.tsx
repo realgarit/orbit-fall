@@ -8,6 +8,7 @@ interface MinimapWindowProps {
   targetPosition: { x: number; y: number } | null;
   onTargetChange: (target: { x: number; y: number } | null) => void;
   enemyPosition?: { x: number; y: number } | null;
+  basePosition?: { x: number; y: number } | null;
   windowId?: string;
 }
 
@@ -25,6 +26,7 @@ export function MinimapWindow({
   targetPosition,
   onTargetChange,
   enemyPosition = null,
+  basePosition = null,
   windowId = 'minimap-window',
 }: MinimapWindowProps) {
   const { minimizeWindow, restoreWindow, resetWindow, windows } = useWindowManager();
@@ -88,6 +90,34 @@ export function MinimapWindow({
     ctx.strokeStyle = '#0ea5e9';
     ctx.lineWidth = 2;
     ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
+
+    // Home base - red star (smaller than player circle)
+    if (basePosition) {
+      const baseMinimap = worldToMinimap(basePosition.x, basePosition.y, width, height);
+      ctx.fillStyle = '#ff0000'; // red
+      
+      // Draw a 5-pointed star
+      const starRadius = 5; // A bit bigger
+      const innerRadius = starRadius * 0.4;
+      const centerX = baseMinimap.x;
+      const centerY = baseMinimap.y;
+      const spikes = 5;
+      
+      ctx.beginPath();
+      for (let i = 0; i < spikes * 2; i++) {
+        const radius = i % 2 === 0 ? starRadius : innerRadius;
+        const angle = (i * Math.PI) / spikes - Math.PI / 2;
+        const x = centerX + Math.cos(angle) * radius;
+        const y = centerY + Math.sin(angle) * radius;
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
 
     // Player dot
     const playerMinimap = worldToMinimap(playerPosition.x, playerPosition.y, width, height);
@@ -173,11 +203,11 @@ export function MinimapWindow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Redraw when player / target / enemy changes
+  // Redraw when player / target / enemy / base changes
   useEffect(() => {
     drawMinimap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y, enemyPosition?.x, enemyPosition?.y]);
+  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y, enemyPosition?.x, enemyPosition?.y, basePosition?.x, basePosition?.y]);
 
   // Mouse down: start drag + set target
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {

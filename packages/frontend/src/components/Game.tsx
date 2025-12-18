@@ -4,6 +4,7 @@ import { usePixiApp } from '../hooks/usePixiApp';
 import { Starfield } from './Starfield';
 import { Ship } from './Ship';
 import { Enemy } from './Enemy';
+import { Base } from './Base';
 import { HPBar } from './HPBar';
 import { SelectionCircle } from './SelectionCircle';
 import { CombatSystem } from './CombatSystem';
@@ -41,6 +42,9 @@ export function Game() {
   
   // Minimap auto-fly target
   const [targetPosition, setTargetPosition] = useState<{ x: number; y: number } | null>(null);
+  
+  // Base position (top left of map)
+  const basePosition = { x: 200, y: 200 };
   
   // Double-click detection
   const lastClickTimeRef = useRef(0);
@@ -244,6 +248,11 @@ export function Game() {
         {app && cameraContainer && (
           <>
             <Starfield app={app} cameraContainer={cameraContainer} />
+            <Base
+              app={app}
+              cameraContainer={cameraContainer}
+              position={basePosition}
+            />
             <Ship
               app={app}
               cameraContainer={cameraContainer}
@@ -329,6 +338,7 @@ export function Game() {
               targetPosition={targetPosition}
               onTargetChange={setTargetPosition}
               enemyPosition={enemyPosition}
+              basePosition={basePosition}
             />
             <SettingsWindow />
           </>
