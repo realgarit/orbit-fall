@@ -39,10 +39,21 @@ const BattleIcon = () => (
   </svg>
 );
 
+// Default icon for settings window
+const SettingsIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M8 1L9.5 3.5L12.5 3L13 5.5L15 6.5L13 7.5L12.5 10L9.5 9.5L8 12L6.5 9.5L3.5 10L3 7.5L1 6.5L3 5.5L3.5 3L6.5 3.5L8 1Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 const defaultIcons = new Map<string, React.ReactNode>([
   ['stats-window', <StatsIcon key="stats-icon" />],
   ['minimap-window', <MinimapIcon key="minimap-icon" />],
   ['battle-window', <BattleIcon key="battle-icon" />],
+  ['settings-window', <SettingsIcon key="settings-icon" />],
 ]);
 
 export function TopBar({ windowIcons = new Map() }: TopBarProps) {

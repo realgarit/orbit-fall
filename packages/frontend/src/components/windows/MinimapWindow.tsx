@@ -27,9 +27,25 @@ export function MinimapWindow({
   enemyPosition = null,
   windowId = 'minimap-window',
 }: MinimapWindowProps) {
-  const { minimizeWindow, restoreWindow } = useWindowManager();
+  const { minimizeWindow, restoreWindow, resetWindow, windows } = useWindowManager();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  
+  // Reset minimap window if it's off-screen or missing
+  useEffect(() => {
+    const savedState = windows.get(windowId);
+    if (savedState) {
+      const isOffScreen = 
+        savedState.x + savedState.width < -100 ||
+        savedState.x > window.innerWidth + 100 ||
+        savedState.y + savedState.height < -100 ||
+        savedState.y > window.innerHeight + 100;
+      
+      if (isOffScreen) {
+        resetWindow(windowId);
+      }
+    }
+  }, [windowId, windows, resetWindow]);
 
   // World -> minimap
   const worldToMinimap = (worldX: number, worldY: number, canvasWidth: number, canvasHeight: number) => {

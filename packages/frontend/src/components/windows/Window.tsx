@@ -72,10 +72,31 @@ export function Window({
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     
+    // ActionBar dimensions
+    const ACTION_BAR_HEIGHT = 48;
+    const ACTION_BAR_GAP = 10; // gap from bottom edge
+    const ACTION_BAR_ITEM_WIDTH = 48;
+    const ACTION_BAR_ITEM_COUNT = 10;
+    const ACTION_BAR_WIDTH = ACTION_BAR_ITEM_WIDTH * ACTION_BAR_ITEM_COUNT;
+    const ACTION_BAR_TOTAL_HEIGHT = ACTION_BAR_HEIGHT + ACTION_BAR_GAP + borderGap;
+    
+    // ActionBar is centered, calculate its horizontal bounds
+    const actionBarLeft = viewportWidth / 2 - ACTION_BAR_WIDTH / 2;
+    const actionBarRight = viewportWidth / 2 + ACTION_BAR_WIDTH / 2;
+    
+    // Check if window horizontally overlaps with ActionBar
+    const windowLeft = x;
+    const windowRight = x + width;
+    const overlapsActionBarHorizontally = windowRight > actionBarLeft && windowLeft < actionBarRight;
+    
+    // Apply vertical constraint if window overlaps ActionBar horizontally
+    const maxY = overlapsActionBarHorizontally
+      ? viewportHeight - height - ACTION_BAR_TOTAL_HEIGHT
+      : viewportHeight - height - borderGap;
+    
     const minX = borderGap;
-    const minY = borderGap;
     const maxX = viewportWidth - width - borderGap;
-    const maxY = viewportHeight - height - borderGap;
+    const minY = borderGap;
     
     return {
       x: Math.max(minX, Math.min(maxX, x)),

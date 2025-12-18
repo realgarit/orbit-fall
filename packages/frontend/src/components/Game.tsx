@@ -9,9 +9,11 @@ import { SelectionCircle } from './SelectionCircle';
 import { CombatSystem } from './CombatSystem';
 import { WindowManagerProvider } from '../hooks/useWindowManager';
 import { TopBar } from './windows/TopBar';
+import { ActionBar } from './windows/ActionBar';
 import { StatsWindow } from './windows/StatsWindow';
 import { BattleWindow } from './windows/BattleWindow';
 import { MinimapWindow } from './windows/MinimapWindow';
+import { SettingsWindow } from './windows/SettingsWindow';
 import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS } from '@shared/constants';
 import type { EnemyState } from '@shared/types';
 import '../styles/windows.css';
@@ -237,6 +239,7 @@ export function Game() {
         }}
       >
         <TopBar />
+        <ActionBar />
         {app && cameraContainer && (
           <>
             <Starfield app={app} cameraContainer={cameraContainer} />
@@ -324,6 +327,7 @@ export function Game() {
               onTargetChange={setTargetPosition}
               enemyPosition={enemyPosition}
             />
+            <SettingsWindow />
           </>
         )}
       </div>

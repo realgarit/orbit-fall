@@ -20,6 +20,7 @@ interface WindowManagerContextType {
   closeWindow: (id: string) => void;
   bringToFront: (id: string) => void;
   getMinimizedWindows: () => WindowState[];
+  resetWindow: (id: string) => void;
 }
 
 const WindowManagerContext = createContext<WindowManagerContextType | undefined>(undefined);
@@ -104,6 +105,26 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
     return Array.from(windows.values()).filter((w) => w.minimized);
   }, [windows]);
 
+  const resetWindow = useCallback((id: string) => {
+    setWindows((prev) => {
+      const next = new Map(prev);
+      next.delete(id);
+      persistWindows(next);
+      return next;
+    });
+    // Also remove from localStorage directly
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        delete parsed[id];
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      }
+    } catch (error) {
+      console.error('Failed to reset window state:', error);
+    }
+  }, [persistWindows]);
+
   return (
     <WindowManagerContext.Provider
       value={{
@@ -115,6 +136,7 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
         closeWindow,
         bringToFront,
         getMinimizedWindows,
+        resetWindow,
       }}
     >
       {children}
