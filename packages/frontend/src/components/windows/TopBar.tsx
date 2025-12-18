@@ -43,11 +43,12 @@ const BattleIcon = () => (
 const SettingsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
-      d="M8 0.5L9.5 2.5L9 4.5L11 5L11.5 7L13.5 7.5L11.5 8.5L12 10.5L10 12L8 11.5L6 12L4 10.5L4.5 8.5L2.5 7.5L4.5 7L5 5L7 4.5L6.5 2.5L8 0.5ZM8 5C6.3 5 5 6.3 5 8C5 9.7 6.3 11 8 11C9.7 11 11 9.7 11 8C11 6.3 9.7 5 8 5Z"
+      d="M2 4h8v1H2V4zm0 3h6v1H2V7zm0 3h7v1H2v-1zm10-6h2v1h-2V4zm0 3h2v1h-2V7zm0 3h2v1h-2v-1z"
       fill="currentColor"
-      fillRule="evenodd"
     />
-    <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+    <circle cx="11" cy="4.5" r="1" fill="currentColor" />
+    <circle cx="10" cy="7.5" r="1" fill="currentColor" />
+    <circle cx="11" cy="10.5" r="1" fill="currentColor" />
   </svg>
 );
 
