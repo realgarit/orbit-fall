@@ -83,12 +83,17 @@ export function Game() {
   const [inCombat, setInCombat] = useState(false);
   const [playerFiring, setPlayerFiring] = useState(false);
   
-  // Ref to track inCombat for immediate updates in callbacks
+  // Refs to track state for immediate updates in callbacks (avoid stale closures)
   const inCombatRef = useRef(false);
+  const selectedEnemyIdRef = useRef<string | null>(null);
   
   useEffect(() => {
     inCombatRef.current = inCombat;
   }, [inCombat]);
+  
+  useEffect(() => {
+    selectedEnemyIdRef.current = selectedEnemyId;
+  }, [selectedEnemyId]);
   
   // Repair system state
   const [isRepairing, setIsRepairing] = useState(false);
@@ -239,7 +244,8 @@ export function Game() {
       });
       
       // Clear selection and combat if this was the selected enemy
-      if (selectedEnemyId === enemyId) {
+      // Use ref to get latest selectedEnemyId value (avoids stale closure)
+      if (selectedEnemyIdRef.current === enemyId) {
         setInCombat(false);
         setPlayerFiring(false);
         setPlayerFiringRocket(false);
@@ -492,7 +498,8 @@ export function Game() {
         // Press "0" to activate repair
         const now = Date.now();
         const timeSinceLastRepair = (now - lastRepairTimeRef.current) / 1000;
-        if (!inCombat && timeSinceLastRepair >= 5 && !isRepairing) {
+        // Use ref to get latest inCombat value (avoids stale closure)
+        if (!inCombatRef.current && timeSinceLastRepair >= 5 && !isRepairing) {
           setIsRepairing(true);
           // Don't update lastRepairTimeRef here - it will be updated when repair completes
         }
@@ -616,6 +623,22 @@ export function Game() {
       lastRepairTimeRef.current = Date.now();
     }
   }, [inCombat, isRepairing]);
+  
+  // Clear combat state if no engaged enemies remain
+  useEffect(() => {
+    if (inCombat) {
+      const hasEngagedEnemies = Array.from(enemies.values()).some(
+        (enemy) => enemy.health > 0 && enemy.isEngaged && !deadEnemies.has(enemy.id)
+      );
+      if (!hasEngagedEnemies) {
+        // No engaged enemies left, clear combat state
+        setInCombat(false);
+        setPlayerFiring(false);
+        setPlayerFiringRocket(false);
+        inCombatRef.current = false;
+      }
+    }
+  }, [enemies, deadEnemies, inCombat]);
 
   return (
     <WindowManagerProvider>
@@ -639,7 +662,8 @@ export function Game() {
           onRepairClick={() => {
             const now = Date.now();
             const timeSinceLastRepair = (now - lastRepairTimeRef.current) / 1000;
-            if (!inCombat && timeSinceLastRepair >= 5 && !isRepairing) {
+            // Use ref to get latest inCombat value (avoids stale closure)
+            if (!inCombatRef.current && timeSinceLastRepair >= 5 && !isRepairing) {
               setIsRepairing(true);
               // Don't update lastRepairTimeRef here - it will be updated when repair completes
             }
