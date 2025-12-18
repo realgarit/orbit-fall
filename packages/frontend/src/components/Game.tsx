@@ -83,10 +83,9 @@ export function Game() {
   const [inCombat, setInCombat] = useState(false);
   const [playerFiring, setPlayerFiring] = useState(false);
   
-  // Ref to track inCombat for immediate updates
+  // Ref to track inCombat for immediate updates in callbacks
   const inCombatRef = useRef(false);
   
-  // Keep ref in sync with state
   useEffect(() => {
     inCombatRef.current = inCombat;
   }, [inCombat]);
@@ -217,11 +216,10 @@ export function Game() {
     
     // Check if enemy died
     if (state.health <= 0 && !deadEnemies.has(enemyId)) {
-      // Get the dead enemy's last position BEFORE removing it from the map
+      // Get dead enemy's last position before removing it
       const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
       
-      // CRITICAL: Remove position FIRST, then clear selection
-      // This ensures enemyPosition prop becomes null immediately
+      // Remove position first to ensure enemyPosition prop becomes null immediately
       setEnemyPositions((prev) => {
         const next = new Map(prev);
         next.delete(enemyId);
@@ -230,7 +228,7 @@ export function Game() {
       
       setDeadEnemies((prev) => new Set(prev).add(enemyId));
       
-      // Clear enemy's engagement state when it dies
+      // Clear enemy's engagement state
       setEnemies((prev) => {
         const next = new Map(prev);
         const enemy = next.get(enemyId);
@@ -241,43 +239,24 @@ export function Game() {
       });
       
       // Clear selection and combat if this was the selected enemy
-      // Do this AFTER removing position to ensure prop calculation returns null
       if (selectedEnemyId === enemyId) {
-        // Clear combat state FIRST
         setInCombat(false);
         setPlayerFiring(false);
         setPlayerFiringRocket(false);
-        // Also update ref immediately
         inCombatRef.current = false;
-        // Clear selection AFTER clearing combat
         setSelectedEnemyId(null);
-        // Immediately clear targetPosition if this was the selected enemy
         setTargetPosition(null);
       }
       
-      // Always clear targetPosition if it's pointing to where ANY dead enemy was
-      // This is a defensive measure to prevent ship rotation issues
+      // Clear targetPosition if it's near where the dead enemy was
       if (deadEnemyLastPos) {
         setTargetPosition((currentTarget) => {
           if (!currentTarget) return null;
-          // Check if target is very close to dead enemy's last known position
           const dx = currentTarget.x - deadEnemyLastPos.x;
           const dy = currentTarget.y - deadEnemyLastPos.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
-          // If target is within 100px of dead enemy position, clear it
-          if (distance < 100) {
-            return null;
-          }
-          return currentTarget;
+          return distance < 100 ? null : currentTarget;
         });
-      }
-      
-      // Defensive: If we're in combat but the selected enemy is dead, clear combat
-      // This handles edge cases where state might be out of sync
-      if (inCombatRef.current && selectedEnemyId === enemyId) {
-        setInCombat(false);
-        setPlayerFiring(false);
-        setPlayerFiringRocket(false);
       }
       // Schedule respawn after 3 seconds
       setEnemyRespawnTimers((prev) => {
@@ -684,7 +663,6 @@ export function Game() {
               onEnemyClick={handleEnemyClick}
               inCombat={inCombat && selectedEnemyId && !deadEnemies.has(selectedEnemyId)}
               enemyPosition={(() => {
-                // Triple-check: selectedEnemyId exists, enemy is not dead, position exists, and enemy is alive
                 if (!selectedEnemyId || deadEnemies.has(selectedEnemyId)) {
                   return null;
                 }
@@ -692,8 +670,7 @@ export function Game() {
                 if (!enemy || enemy.health <= 0) {
                   return null;
                 }
-                const position = enemyPositions.get(selectedEnemyId);
-                return position || null;
+                return enemyPositions.get(selectedEnemyId) || null;
               })()}
             />
             {/* Render all enemies */}
