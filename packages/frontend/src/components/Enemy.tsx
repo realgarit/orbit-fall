@@ -26,9 +26,12 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
     vy: 0,
     health: ENEMY_STATS.DRIFTER.MAX_HEALTH,
     maxHealth: ENEMY_STATS.DRIFTER.MAX_HEALTH,
+    shield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
+    maxShield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
     rotation: 0,
     isEngaged: false,
     lastFireTime: 0,
+    attitude: ENEMY_STATS.DRIFTER.ATTITUDE,
   });
   const patrolVelocityRef = useRef({ vx: 0, vy: 0 });
   const lastPatrolChangeRef = useRef(0);
@@ -50,12 +53,29 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
     onPositionUpdateRef.current = onPositionUpdate;
   }, [playerPosition, onStateUpdate, onPositionUpdate]);
 
-  // Sync external state when provided (for health, engagement status)
-  // Don't sync position/velocity as those are managed internally
-  useEffect(() => {
-    // Check for death even when externalState is null (enemy marked as dead in parent)
-    // This handles the case where death is detected in parent before externalState becomes null
-    if (!externalState) {
+      // Sync external state when provided (for health, shield, engagement status)
+      // Don't sync position/velocity as those are managed internally
+      useEffect(() => {
+        // Initialize state from externalState on first mount if available
+        if (externalState && !spawnedRef.current) {
+          stateRef.current.id = externalState.id;
+          stateRef.current.name = externalState.name;
+          stateRef.current.x = externalState.x;
+          stateRef.current.y = externalState.y;
+          stateRef.current.health = externalState.health;
+          stateRef.current.maxHealth = externalState.maxHealth;
+          stateRef.current.shield = externalState.shield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
+          stateRef.current.maxShield = externalState.maxShield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
+          stateRef.current.rotation = externalState.rotation;
+          stateRef.current.isEngaged = externalState.isEngaged;
+          stateRef.current.lastFireTime = externalState.lastFireTime;
+          stateRef.current.attitude = externalState.attitude;
+          previousHealthRef.current = externalState.health;
+        }
+        
+        // Check for death even when externalState is null (enemy marked as dead in parent)
+        // This handles the case where death is detected in parent before externalState becomes null
+        if (!externalState) {
       // ExternalState is null - enemy is marked as dead
       // If isDead prop is true and we haven't set deathTimeRef yet, initialize death animation
       if (isDead && previousHealthRef.current > 0 && !deathTimeRef.current) {
@@ -105,8 +125,11 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
       
       stateRef.current.health = externalState.health;
       stateRef.current.maxHealth = externalState.maxHealth;
+      stateRef.current.shield = externalState.shield;
+      stateRef.current.maxShield = externalState.maxShield;
       stateRef.current.isEngaged = externalState.isEngaged;
       stateRef.current.lastFireTime = externalState.lastFireTime;
+      stateRef.current.attitude = externalState.attitude;
       
       // Check if enemy just died
       if (wasAlive && externalState.health <= 0 && !deathTimeRef.current) {
@@ -172,12 +195,14 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
           explosionRef.current = null;
         }
         
-        // Update internal state position
+        // Update internal state position and restore shield
         stateRef.current.x = externalState.x;
         stateRef.current.y = externalState.y;
         stateRef.current.vx = 0;
         stateRef.current.vy = 0;
         stateRef.current.rotation = 0;
+        stateRef.current.shield = externalState.shield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
+        stateRef.current.maxShield = externalState.maxShield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
         
         // Force position update to parent immediately after respawn
         if (onPositionUpdateRef.current) {
@@ -185,7 +210,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         }
       }
     }
-  }, [externalState?.health, externalState?.maxHealth, externalState?.isEngaged, externalState?.lastFireTime, externalState?.x, externalState?.y, isDead, cameraContainer]);
+  }, [externalState?.health, externalState?.maxHealth, externalState?.shield, externalState?.maxShield, externalState?.isEngaged, externalState?.lastFireTime, externalState?.x, externalState?.y, isDead, cameraContainer]);
 
   useEffect(() => {
     if (!app) return;

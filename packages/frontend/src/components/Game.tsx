@@ -332,11 +332,23 @@ export function Game() {
       const next = new Map(prev);
       const existing = prev.get(enemyId);
       // Preserve isEngaged state if it was already set to true
+      // Also preserve shield values if they exist in existing state
       if (existing && existing.isEngaged && !state.isEngaged) {
         // Don't reset isEngaged if it was already engaged
-        next.set(enemyId, { ...state, isEngaged: true });
+        // Preserve shield values from existing state if not provided in new state
+        next.set(enemyId, { 
+          ...state, 
+          isEngaged: true,
+          shield: state.shield ?? existing.shield,
+          maxShield: state.maxShield ?? existing.maxShield,
+        });
       } else {
-        next.set(enemyId, state);
+        // Preserve shield values from existing state if not provided in new state
+        next.set(enemyId, {
+          ...state,
+          shield: state.shield ?? existing?.shield,
+          maxShield: state.maxShield ?? existing?.maxShield,
+        });
       }
       return next;
     });
