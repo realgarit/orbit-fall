@@ -10,6 +10,7 @@ import { CombatSystem } from './CombatSystem';
 import { WindowManagerProvider } from '../hooks/useWindowManager';
 import { TopBar } from './windows/TopBar';
 import { StatsWindow } from './windows/StatsWindow';
+import { BattleWindow } from './windows/BattleWindow';
 import { MinimapWindow } from './windows/MinimapWindow';
 import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS } from '@shared/constants';
 import type { EnemyState } from '@shared/types';
@@ -308,6 +309,8 @@ export function Game() {
               shipPosition={shipPosition}
               shipVelocity={shipVelocity}
               fps={fps}
+            />
+            <BattleWindow
               selectedEnemy={enemyState && selectedEnemyId === enemyState.id ? {
                 name: enemyState.name,
                 health: enemyState.health,

@@ -17,6 +17,7 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
   const maxHealthRef = useRef(maxHealth);
   const visibleRef = useRef(visible);
   const positionRef = useRef(position);
+  const targetGraphicsRef = useRef<Graphics | null>(null);
 
   // Update refs when props change
   useEffect(() => {
@@ -33,11 +34,34 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
     cameraContainer.addChild(bar);
     barRef.current = bar;
 
+    // Find the ship/enemy Graphics object to read position directly
+    // This avoids React state timing delays
+    const findTargetGraphics = (): Graphics | null => {
+      const barIndex = cameraContainer.getChildIndex(bar);
+      // Look for Graphics objects before the HPBar
+      // The ship/enemy should be added before the HPBar
+      for (let i = 0; i < barIndex; i++) {
+        const child = cameraContainer.children[i];
+        if (child instanceof Graphics && child !== bar) {
+          // Check if this Graphics is near our expected position (within 100px)
+          // This helps identify the correct Graphics object
+          const expectedPos = positionRef.current;
+          const dx = Math.abs(child.x - expectedPos.x);
+          const dy = Math.abs(child.y - expectedPos.y);
+          if (dx < 100 && dy < 100) {
+            return child;
+          }
+        }
+      }
+      return null;
+    };
+
+    // Try to find target Graphics on first render
+    targetGraphicsRef.current = findTargetGraphics();
+
     const updateBar = () => {
       const bar = barRef.current;
       if (!bar) return;
-
-      bar.clear();
 
       if (!visibleRef.current) {
         bar.visible = false;
@@ -46,11 +70,29 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
 
       bar.visible = true;
 
-      // Use position from prop (kept in sync via refs)
-      const pos = positionRef.current;
+      // Try to read position directly from ship/enemy Graphics object
+      // This ensures frame-accurate positioning without React state delays
+      let pos: { x: number; y: number };
+      if (targetGraphicsRef.current && targetGraphicsRef.current.visible) {
+        pos = { x: targetGraphicsRef.current.x, y: targetGraphicsRef.current.y };
+      } else {
+        // Fallback to prop if Graphics not found yet
+        pos = positionRef.current;
+        // Try to find it again
+        targetGraphicsRef.current = findTargetGraphics();
+      }
+
       const hp = healthRef.current;
       const maxHp = maxHealthRef.current;
       const percentage = Math.max(0, Math.min(1, hp / maxHp));
+
+      // Position the Graphics object at the ship/enemy position
+      // This ensures smooth movement without sub-pixel rendering issues
+      bar.x = pos.x;
+      bar.y = pos.y;
+
+      // Redraw the bar (health may have changed)
+      bar.clear();
 
       // Calculate color based on health percentage
       let color: number;
@@ -66,10 +108,12 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
       const barHeight = HP_BAR_CONFIG.HEIGHT;
       const offsetY = HP_BAR_CONFIG.OFFSET_Y;
 
+      // Draw relative to (0,0) since bar position is set above
+      // This matches the pattern used by Ship and Enemy components
       // Background (dark bar)
       bar.rect(
-        pos.x - barWidth / 2,
-        pos.y + offsetY,
+        -barWidth / 2,
+        offsetY,
         barWidth,
         barHeight
       );
@@ -78,8 +122,8 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
       // Health bar
       const healthWidth = barWidth * percentage;
       bar.rect(
-        pos.x - barWidth / 2,
-        pos.y + offsetY,
+        -barWidth / 2,
+        offsetY,
         healthWidth,
         barHeight
       );
@@ -87,8 +131,8 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
 
       // Border
       bar.rect(
-        pos.x - barWidth / 2,
-        pos.y + offsetY,
+        -barWidth / 2,
+        offsetY,
         barWidth,
         barHeight
       );

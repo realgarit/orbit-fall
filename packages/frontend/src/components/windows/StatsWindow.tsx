@@ -7,12 +7,6 @@ interface StatsWindowProps {
   shipPosition?: { x: number; y: number };
   shipVelocity?: { vx: number; vy: number };
   fps?: number;
-  selectedEnemy?: {
-    name: string;
-    health?: number;
-    maxHealth?: number;
-  } | null;
-  inCombat?: boolean;
   windowId?: string;
 }
 
@@ -31,8 +25,6 @@ export function StatsWindow({
   shipPosition = { x: 0, y: 0 },
   shipVelocity = { vx: 0, vy: 0 },
   fps = 0,
-  selectedEnemy = null,
-  inCombat = false,
   windowId = 'stats-window',
 }: StatsWindowProps) {
   const { minimizeWindow, restoreWindow } = useWindowManager();
@@ -98,34 +90,6 @@ export function StatsWindow({
             {fps.toFixed(0)}
           </div>
         </div>
-
-        {/* Combat Status */}
-        <div className="stats-section">
-          <div className="stats-label">Combat Status</div>
-          <div className={`stats-combat-status ${inCombat ? 'in-combat' : 'idle'}`}>
-            {inCombat ? 'In Combat' : 'Idle'}
-          </div>
-        </div>
-
-        {/* Selected Enemy */}
-        {selectedEnemy && (
-          <div className="stats-section">
-            <div className="stats-label">Target: {selectedEnemy.name}</div>
-            {selectedEnemy.health !== undefined && selectedEnemy.maxHealth !== undefined && (
-              <div className="stats-health-bar-container">
-                <div
-                  className="stats-health-bar enemy"
-                  style={{
-                    width: `${((selectedEnemy.health / selectedEnemy.maxHealth) * 100)}%`,
-                  }}
-                />
-                <div className="stats-health-text">
-                  {selectedEnemy.health.toFixed(0)} / {selectedEnemy.maxHealth}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
     </Window>
   );
