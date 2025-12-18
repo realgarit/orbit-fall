@@ -17,7 +17,7 @@ import { BattleWindow } from './windows/BattleWindow';
 import { MinimapWindow } from './windows/MinimapWindow';
 import { SettingsWindow } from './windows/SettingsWindow';
 import { ShipWindow } from './windows/ShipWindow';
-import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS, BASE_SAFETY_ZONE } from '@shared/constants';
+import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS, BASE_SAFETY_ZONE, ROCKET_CONFIG } from '@shared/constants';
 import type { EnemyState } from '@shared/types';
 import '../styles/windows.css';
 
@@ -50,6 +50,7 @@ export function Game() {
   
   // Rocket firing state (manual with SPACE key)
   const [playerFiringRocket, setPlayerFiringRocket] = useState(false);
+  const playerLastRocketFireTimeRef = useRef(0);
   
   // Enemy state
   const [enemyState, setEnemyState] = useState<EnemyState | null>(null);
@@ -275,7 +276,10 @@ export function Game() {
       } else if (e.key === '2' || e.key === 'Digit2') {
         // Press "2" to engage combat and fire rockets with selected enemy
         if (selectedEnemyId && enemyState && enemyState.id === selectedEnemyId && !isInSafetyZone()) {
-          if (rocketAmmo > 0) {
+          const now = Date.now();
+          const timeSinceLastRocketFire = (now - playerLastRocketFireTimeRef.current) / 1000;
+          // Check cooldown before allowing fire
+          if (rocketAmmo > 0 && timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
             setInCombat(true);
             setSelectedEnemyId(enemyState.id);
             setEnemyState({ ...enemyState, isEngaged: true });
@@ -286,17 +290,18 @@ export function Game() {
         // SPACE key: engage combat and fire rocket immediately (if not in combat) or fire rocket (if already in combat)
         e.preventDefault(); // Prevent page scroll
         if (selectedEnemyId && enemyState && enemyState.id === selectedEnemyId && !isInSafetyZone()) {
-          if (!inCombat) {
-            // Not in combat: engage combat and fire rocket immediately
-            if (rocketAmmo > 0) {
+          const now = Date.now();
+          const timeSinceLastRocketFire = (now - playerLastRocketFireTimeRef.current) / 1000;
+          // Check cooldown before allowing fire
+          if (rocketAmmo > 0 && timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
+            if (!inCombat) {
+              // Not in combat: engage combat and fire rocket immediately
               setInCombat(true);
               setSelectedEnemyId(enemyState.id);
               setEnemyState({ ...enemyState, isEngaged: true });
               setPlayerFiringRocket(true);
-            }
-          } else {
-            // Already in combat: fire rockets manually
-            if (rocketAmmo > 0) {
+            } else {
+              // Already in combat: fire rockets manually
               setPlayerFiringRocket(true);
             }
           }
@@ -400,7 +405,10 @@ export function Game() {
                 rocketAmmo={rocketAmmo}
                 onRocketAmmoConsume={handleRocketAmmoConsume}
                 playerFiringRocket={playerFiringRocket}
-                onRocketFired={() => setPlayerFiringRocket(false)}
+                onRocketFired={() => {
+                  setPlayerFiringRocket(false);
+                  playerLastRocketFireTimeRef.current = Date.now();
+                }}
               />
             )}
             {/* Safety Zone Message */}
