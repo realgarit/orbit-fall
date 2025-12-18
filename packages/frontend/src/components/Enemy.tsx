@@ -151,22 +151,30 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         const state = stateRef.current;
         const now = Date.now();
 
-        // Patrol behavior when not engaged
+        // Follow player behavior when not engaged
         if (!state.isEngaged) {
-          // Change patrol direction every 2-4 seconds
-          if (now - lastPatrolChangeRef.current > 2000 + Math.random() * 2000) {
-            const randomAngle = Math.random() * Math.PI * 2;
-            const patrolSpeed = 0.5;
-            patrolVelocityRef.current.vx = Math.cos(randomAngle) * patrolSpeed;
-            patrolVelocityRef.current.vy = Math.sin(randomAngle) * patrolSpeed;
-            lastPatrolChangeRef.current = now;
+          const currentPlayerPos = playerPositionRef.current;
+          const dx = currentPlayerPos.x - state.x;
+          const dy = currentPlayerPos.y - state.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          // Follow player until close distance (150px), then stop
+          const FOLLOW_STOP_DISTANCE = 150;
+          
+          if (distance > FOLLOW_STOP_DISTANCE) {
+            // Follow player
+            const followSpeed = 1.5; // Slightly slower than player
+            const normalizedDx = dx / distance;
+            const normalizedDy = dy / distance;
+            state.vx = normalizedDx * followSpeed;
+            state.vy = normalizedDy * followSpeed;
+          } else {
+            // Close enough, stop following
+            state.vx = 0;
+            state.vy = 0;
           }
-
-          // Apply patrol velocity
-          state.vx = patrolVelocityRef.current.vx;
-          state.vy = patrolVelocityRef.current.vy;
         } else {
-          // Stop patrolling when engaged
+          // Stop when engaged
           state.vx = 0;
           state.vy = 0;
         }
@@ -185,7 +193,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         nameText.x = state.x;
         nameText.y = state.y + 25;
 
-        // Update rotation - only when necessary (enemy already checked at start)
+        // Update rotation - face player when engaged, or face movement direction when following
         if (state.isEngaged) {
           // Face the player when engaged
           const currentPlayerPos = playerPositionRef.current;
@@ -198,13 +206,23 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
             enemy.rotation = state.rotation;
           }
         } else {
-          // Only update rotation when actually moving during patrol
+          // Face movement direction when following player
           if (Math.abs(state.vx) > 0.01 || Math.abs(state.vy) > 0.01) {
             const targetRotation = Math.atan2(state.vy, state.vx) + Math.PI / 2;
             state.rotation = targetRotation;
             enemy.rotation = state.rotation;
+          } else {
+            // When stationary, face the player
+            const currentPlayerPos = playerPositionRef.current;
+            const dx = currentPlayerPos.x - state.x;
+            const dy = currentPlayerPos.y - state.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance > 0.01) {
+              const targetRotation = Math.atan2(dy, dx) + Math.PI / 2;
+              state.rotation = targetRotation;
+              enemy.rotation = state.rotation;
+            }
           }
-          // When stationary, keep the last rotation (don't update)
         }
 
         // Notify parent of state changes

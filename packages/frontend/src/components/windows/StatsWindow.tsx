@@ -103,7 +103,7 @@ export function StatsWindow({
         <div className="stats-section">
           <div className="stats-label">Combat Status</div>
           <div className={`stats-combat-status ${inCombat ? 'in-combat' : 'idle'}`}>
-            {inCombat ? '⚔️ In Combat' : '✓ Idle'}
+            {inCombat ? 'In Combat' : 'Idle'}
           </div>
         </div>
 

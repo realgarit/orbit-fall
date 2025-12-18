@@ -41,6 +41,7 @@ export function Game() {
   // Double-click detection
   const lastClickTimeRef = useRef(0);
   const lastClickEnemyIdRef = useRef<string | null>(null);
+  const lastOutsideClickTimeRef = useRef(0);
   const { containerRef } = usePixiApp({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -147,6 +148,7 @@ export function Game() {
   };
 
   // Clicking on the main game canvas (outside windows / minimap) cancels auto-fly
+  // Only double-click outside clears selection/combat, single click does nothing
   useEffect(() => {
     if (!app) return;
 
@@ -157,23 +159,65 @@ export function Game() {
 
       if (canvas && (target === canvas || canvas.contains(target)) && !isWindowClick) {
         setTargetPosition(null);
-        // Clear selection if clicking on empty space
-        setSelectedEnemyId(null);
+        
+        // Check if clicking on empty space (not on enemy)
+        const rect = canvas.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
+        // Convert screen to world coordinates
+        const cameraX = -shipPosition.x + app.screen.width / 2;
+        const cameraY = -shipPosition.y + app.screen.height / 2;
+        const worldX = clickX - cameraX;
+        const worldY = clickY - cameraY;
+        
+        // Check if click is on enemy
+        if (enemyPosition) {
+          const dx = worldX - enemyPosition.x;
+          const dy = worldY - enemyPosition.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < 30) {
+            // Clicked on enemy, don't clear selection
+            return;
+          }
+        }
+        
+        // Clicked outside enemy - check for double-click
+        const now = Date.now();
+        const isDoubleClick = now - lastOutsideClickTimeRef.current < 300;
+        
+        if (isDoubleClick) {
+          // Double-click outside: clear selection and combat
+          setSelectedEnemyId(null);
+          setInCombat(false);
+          setPlayerFiring(false);
+          if (enemyState) {
+            setEnemyState({ ...enemyState, isEngaged: false });
+          }
+          lastOutsideClickTimeRef.current = 0;
+        } else {
+          // Single click outside: do nothing (selection persists)
+          lastOutsideClickTimeRef.current = now;
+        }
       }
     };
 
-    window.addEventListener('mousedown', handleCanvasClick, true);
+    // Use normal phase (not capture) so enemy clicks are handled first
+    window.addEventListener('mousedown', handleCanvasClick);
     return () => {
-      window.removeEventListener('mousedown', handleCanvasClick, true);
+      window.removeEventListener('mousedown', handleCanvasClick);
     };
-  }, [app]);
+  }, [app, shipPosition, enemyPosition, enemyState]);
 
-  // ESC key handler to stop player combat
+  // ESC key handler to clear combat state and red circle
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setPlayerFiring(false);
-        // Enemy continues firing (isEngaged stays true)
+        setInCombat(false);
+        setSelectedEnemyId(null);
+        if (enemyState) {
+          setEnemyState({ ...enemyState, isEngaged: false });
+        }
       }
     };
 
@@ -181,7 +225,7 @@ export function Game() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [enemyState]);
 
   return (
     <WindowManagerProvider>
@@ -206,6 +250,8 @@ export function Game() {
               targetPosition={targetPosition}
               onTargetReached={handleTargetReached}
               onEnemyClick={handleEnemyClick}
+              inCombat={inCombat}
+              enemyPosition={enemyPosition}
             />
             <Enemy
               app={app}

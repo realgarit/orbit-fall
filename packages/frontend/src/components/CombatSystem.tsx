@@ -16,6 +16,11 @@ interface CombatSystemProps {
   onLaserHit?: (laser: LaserProjectile) => void;
 }
 
+interface LaserData {
+  graphics: Graphics;
+  projectile: LaserProjectile;
+}
+
 export function CombatSystem({
   app,
   cameraContainer,
@@ -28,11 +33,49 @@ export function CombatSystem({
   onEnemyHealthChange,
   onLaserHit,
 }: CombatSystemProps) {
-  const lasersRef = useRef<Map<string, { graphics: Graphics; data: LaserProjectile }>>(new Map());
+  const lasersRef = useRef<Map<string, LaserData>>(new Map());
   const playerLastFireTimeRef = useRef(0);
   const enemyLastFireTimeRef = useRef(0);
   const laserIdCounterRef = useRef(0);
   
+  // Use refs to avoid recreating ticker on every prop change
+  const playerPositionRef = useRef(playerPosition);
+  const playerHealthRef = useRef(playerHealth);
+  const enemyStateRef = useRef(enemyState);
+  const playerFiringRef = useRef(playerFiring);
+  const onPlayerHealthChangeRef = useRef(onPlayerHealthChange);
+  const onEnemyHealthChangeRef = useRef(onEnemyHealthChange);
+  const onLaserHitRef = useRef(onLaserHit);
+
+  // Update refs when props change
+  useEffect(() => {
+    playerPositionRef.current = playerPosition;
+  }, [playerPosition]);
+
+  useEffect(() => {
+    playerHealthRef.current = playerHealth;
+  }, [playerHealth]);
+
+  useEffect(() => {
+    enemyStateRef.current = enemyState;
+  }, [enemyState]);
+
+  useEffect(() => {
+    playerFiringRef.current = playerFiring;
+  }, [playerFiring]);
+
+  useEffect(() => {
+    onPlayerHealthChangeRef.current = onPlayerHealthChange;
+  }, [onPlayerHealthChange]);
+
+  useEffect(() => {
+    onEnemyHealthChangeRef.current = onEnemyHealthChange;
+  }, [onEnemyHealthChange]);
+
+  useEffect(() => {
+    onLaserHitRef.current = onLaserHit;
+  }, [onLaserHit]);
+
   // Initialize enemy fire time when combat starts
   useEffect(() => {
     if (enemyState && enemyState.isEngaged && enemyLastFireTimeRef.current === 0) {
@@ -41,9 +84,29 @@ export function CombatSystem({
   }, [enemyState?.isEngaged]);
 
   useEffect(() => {
-    if (!app) return;
+    if (!app || !cameraContainer) return;
 
     const lasers = lasersRef.current;
+
+    const createLaserGraphics = (x: number, y: number, angle: number): Graphics => {
+      const graphics = new Graphics();
+      const length = COMBAT_CONFIG.LASER_LENGTH;
+      const width = COMBAT_CONFIG.LASER_WIDTH;
+      
+      // Draw laser as a rounded rectangle
+      graphics.roundRect(-length / 2, -width / 2, length, width, width / 2);
+      graphics.fill({ color: COMBAT_CONFIG.LASER_COLOR, alpha: 1.0 });
+      
+      // Add glow
+      graphics.roundRect(-length / 2 - 2, -width / 2 - 2, length + 4, width + 4, (width + 4) / 2);
+      graphics.fill({ color: COMBAT_CONFIG.LASER_COLOR, alpha: 0.5 });
+      
+      graphics.rotation = angle;
+      graphics.x = x;
+      graphics.y = y;
+      
+      return graphics;
+    };
 
     const createLaser = (
       fromX: number,
@@ -53,16 +116,23 @@ export function CombatSystem({
       ownerId: string,
       targetId: string,
       damage: number
-    ): LaserProjectile => {
+    ): void => {
       const dx = toX - fromX;
       const dy = toY - fromY;
       const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance < 1) return; // Don't create laser if target is too close
+      
       const angle = Math.atan2(dy, dx);
+      
+      // Spawn laser at source position
+      const spawnX = fromX;
+      const spawnY = fromY;
 
-      const laser: LaserProjectile = {
+      const projectile: LaserProjectile = {
         id: `laser-${laserIdCounterRef.current++}`,
-        x: fromX,
-        y: fromY,
+        x: spawnX,
+        y: spawnY,
         vx: Math.cos(angle) * COMBAT_CONFIG.LASER_SPEED,
         vy: Math.sin(angle) * COMBAT_CONFIG.LASER_SPEED,
         rotation: angle,
@@ -72,29 +142,10 @@ export function CombatSystem({
         spawnTime: Date.now(),
       };
 
-      // Create visual
-      const laserGraphics = new Graphics();
+      const graphics = createLaserGraphics(spawnX, spawnY, angle);
+      cameraContainer.addChild(graphics);
       
-      // Create glowing red laser with rounded edges
-      const length = COMBAT_CONFIG.LASER_LENGTH;
-      const width = COMBAT_CONFIG.LASER_WIDTH;
-      
-      // Main laser body (rounded rectangle)
-      laserGraphics.roundRect(-length / 2, -width / 2, length, width, width / 2);
-      laserGraphics.fill({ color: COMBAT_CONFIG.LASER_COLOR, alpha: COMBAT_CONFIG.LASER_GLOW_ALPHA });
-      
-      // Glow effect (outer glow)
-      laserGraphics.roundRect(-length / 2 - 2, -width / 2 - 2, length + 4, width + 4, (width + 4) / 2);
-      laserGraphics.fill({ color: COMBAT_CONFIG.LASER_COLOR, alpha: 0.3 });
-
-      laserGraphics.rotation = angle;
-      laserGraphics.x = fromX;
-      laserGraphics.y = fromY;
-
-      cameraContainer.addChild(laserGraphics);
-      lasers.set(laser.id, { graphics: laserGraphics, data: laser });
-
-      return laser;
+      lasers.set(projectile.id, { graphics, projectile });
     };
 
     const checkLaserHit = (laser: LaserProjectile, targetPos: { x: number; y: number }, targetRadius: number = 20): boolean => {
@@ -104,37 +155,42 @@ export function CombatSystem({
       return distance < targetRadius;
     };
 
-    const tickerCallback = (ticker: any) => {
+    const tickerCallback = () => {
       const now = Date.now();
-      const delta = ticker.deltaTime;
+      const delta = app.ticker.deltaTime;
+      
+      const currentPlayerPos = playerPositionRef.current;
+      const currentPlayerHealth = playerHealthRef.current;
+      const currentEnemyState = enemyStateRef.current;
+      const currentPlayerFiring = playerFiringRef.current;
 
       // Player firing
-      if (playerFiring && enemyState && enemyState.isEngaged) {
+      if (currentPlayerFiring && currentEnemyState && currentEnemyState.isEngaged) {
         const timeSinceLastFire = (now - playerLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
           createLaser(
-            playerPosition.x,
-            playerPosition.y,
-            enemyState.x,
-            enemyState.y,
+            currentPlayerPos.x,
+            currentPlayerPos.y,
+            currentEnemyState.x,
+            currentEnemyState.y,
             'player',
-            enemyState.id,
+            currentEnemyState.id,
             PLAYER_STATS.DAMAGE
           );
           playerLastFireTimeRef.current = now;
         }
       }
 
-      // Enemy firing (only when engaged)
-      if (enemyState && enemyState.isEngaged) {
+      // Enemy firing
+      if (currentEnemyState && currentEnemyState.isEngaged) {
         const timeSinceLastFire = (now - enemyLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
           createLaser(
-            enemyState.x,
-            enemyState.y,
-            playerPosition.x,
-            playerPosition.y,
-            enemyState.id,
+            currentEnemyState.x,
+            currentEnemyState.y,
+            currentPlayerPos.x,
+            currentPlayerPos.y,
+            currentEnemyState.id,
             'player',
             ENEMY_STATS.DRIFTER.DAMAGE
           );
@@ -142,46 +198,48 @@ export function CombatSystem({
         }
       }
 
-      // Update and check lasers
+      // Update all lasers
       const lasersToRemove: string[] = [];
-      lasers.forEach(({ graphics, data: laser }, id) => {
-        // Update position
-        laser.x += laser.vx * delta;
-        laser.y += laser.vy * delta;
-        graphics.x = laser.x;
-        graphics.y = laser.y;
+      
+      lasers.forEach(({ graphics, projectile }, id) => {
+        // Update projectile position
+        projectile.x += projectile.vx * delta;
+        projectile.y += projectile.vy * delta;
+        
+        // Update graphics position
+        graphics.x = projectile.x;
+        graphics.y = projectile.y;
 
         // Check timeout
-        if (now - laser.spawnTime > COMBAT_CONFIG.LASER_TIMEOUT) {
+        if (now - projectile.spawnTime > COMBAT_CONFIG.LASER_TIMEOUT) {
           lasersToRemove.push(id);
           return;
         }
 
-        // Check collision
-        if (laser.targetId === 'player') {
-          if (checkLaserHit(laser, playerPosition)) {
-            // Hit player
-            const newHealth = Math.max(0, playerHealth - laser.damage);
-            onPlayerHealthChange(newHealth);
-            if (onLaserHit) {
-              onLaserHit(laser);
-            }
+        // Check collision - skip on first frame to avoid immediate hit
+        const age = now - projectile.spawnTime;
+        if (age < 50) {
+          return; // Skip collision check for first 50ms
+        }
+
+        if (projectile.targetId === 'player') {
+          if (checkLaserHit(projectile, currentPlayerPos)) {
+            const newHealth = Math.max(0, currentPlayerHealth - projectile.damage);
+            onPlayerHealthChangeRef.current?.(newHealth);
+            onLaserHitRef.current?.(projectile);
             lasersToRemove.push(id);
           }
-        } else if (laser.targetId === enemyState?.id && enemyState) {
-          if (checkLaserHit(laser, { x: enemyState.x, y: enemyState.y })) {
-            // Hit enemy
-            const newHealth = Math.max(0, enemyState.health - laser.damage);
-            onEnemyHealthChange(newHealth);
-            if (onLaserHit) {
-              onLaserHit(laser);
-            }
+        } else if (projectile.targetId === currentEnemyState?.id && currentEnemyState) {
+          if (checkLaserHit(projectile, { x: currentEnemyState.x, y: currentEnemyState.y })) {
+            const newHealth = Math.max(0, currentEnemyState.health - projectile.damage);
+            onEnemyHealthChangeRef.current?.(newHealth);
+            onLaserHitRef.current?.(projectile);
             lasersToRemove.push(id);
           }
         }
       });
 
-      // Remove hit/timed out lasers
+      // Remove lasers
       lasersToRemove.forEach((id) => {
         const laserData = lasers.get(id);
         if (laserData) {
@@ -202,18 +260,7 @@ export function CombatSystem({
       });
       lasers.clear();
     };
-  }, [
-    app,
-    cameraContainer,
-    playerPosition,
-    playerRotation,
-    playerHealth,
-    enemyState,
-    playerFiring,
-    onPlayerHealthChange,
-    onEnemyHealthChange,
-    onLaserHit,
-  ]);
+  }, [app, cameraContainer]); // Only depend on app and cameraContainer
 
   return null;
 }

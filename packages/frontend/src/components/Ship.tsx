@@ -9,9 +9,11 @@ interface ShipProps {
   targetPosition?: { x: number; y: number } | null;
   onTargetReached?: () => void;
   onEnemyClick?: (worldX: number, worldY: number) => boolean;
+  inCombat?: boolean;
+  enemyPosition?: { x: number; y: number } | null;
 }
 
-export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick }: ShipProps) {
+export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick, inCombat, enemyPosition }: ShipProps) {
   const shipRef = useRef<Graphics | null>(null);
   const positionRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
   const rotationRef = useRef(0);
@@ -22,6 +24,8 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   const targetPosRef = useRef<{ x: number; y: number } | null>(null);
   const onTargetReachedRef = useRef<(() => void) | undefined>(undefined);
   const onEnemyClickRef = useRef<((worldX: number, worldY: number) => boolean) | undefined>(undefined);
+  const inCombatRef = useRef(inCombat ?? false);
+  const enemyPositionRef = useRef<{ x: number; y: number } | null>(enemyPosition ?? null);
 
   // Keep refs in sync with latest props without recreating Pixi objects
   useEffect(() => {
@@ -35,6 +39,14 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   useEffect(() => {
     onEnemyClickRef.current = onEnemyClick;
   }, [onEnemyClick]);
+
+  useEffect(() => {
+    inCombatRef.current = inCombat ?? false;
+  }, [inCombat]);
+
+  useEffect(() => {
+    enemyPositionRef.current = enemyPosition ?? null;
+  }, [enemyPosition]);
 
   useEffect(() => {
     if (!app) return;
@@ -155,6 +167,36 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
       const velocity = velocityRef.current;
       const currentTarget = targetPosRef.current;
 
+      // Priority: combat rotation (turn to enemy when in combat)
+      const isInCombat = inCombatRef.current;
+      const currentEnemyPos = enemyPositionRef.current;
+      
+      if (isInCombat && currentEnemyPos) {
+        // Turn towards enemy when in combat
+        const dx = currentEnemyPos.x - pos.x;
+        const dy = currentEnemyPos.y - pos.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > 0.01) {
+          const angle = Math.atan2(dy, dx);
+          const targetRotation = angle + Math.PI / 2;
+          
+          // Smoothly interpolate rotation
+          const currentRotation = rotationRef.current;
+          let rotationDiff = targetRotation - currentRotation;
+          
+          // Normalize rotation difference to [-PI, PI]
+          while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
+          while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
+          
+          // Smooth rotation update
+          const rotationSpeed = 0.2;
+          const newRotation = currentRotation + rotationDiff * rotationSpeed;
+          ship.rotation = newRotation;
+          rotationRef.current = newRotation;
+        }
+      }
+
       // Priority: direct mouse control
       if (isMouseDownRef.current) {
         // Continuously update mouse world position based on current camera position
@@ -175,7 +217,8 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
         
         if (distance > MIN_DISTANCE_FOR_MOVEMENT) {
           // Only update rotation if we're far enough away to prevent spinning
-          if (distance > MIN_DISTANCE_FOR_ROTATION) {
+          // But don't override combat rotation if in combat
+          if (distance > MIN_DISTANCE_FOR_ROTATION && !isInCombat) {
             // Calculate target rotation
             const angle = Math.atan2(dy, dx);
             const targetRotation = angle + Math.PI / 2;

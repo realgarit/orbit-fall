@@ -28,13 +28,13 @@ export const ENEMY_STATS = {
 // Combat configuration
 export const COMBAT_CONFIG = {
   FIRING_RATE: 1, // shots per second
-  LASER_SPEED: 15, // pixels per frame (at 60fps)
-  LASER_LENGTH: 50, // pixels
-  LASER_WIDTH: 4, // pixels
+  LASER_SPEED: 32, // pixels per frame (at 60fps) - ~480 pixels/second for fast travel
+  LASER_LENGTH: 40, // pixels
+  LASER_WIDTH: 3, // pixels
   LASER_COLOR: 0xff0000, // red
   LASER_GLOW_ALPHA: 0.8,
   COMBAT_RANGE: 1000, // max distance for combat
-  LASER_TIMEOUT: 2000, // milliseconds before laser despawns
+  LASER_TIMEOUT: 5000, // milliseconds before laser despawns
 };
 
 // HP Bar configuration
