@@ -115,10 +115,14 @@ export function ShipExplosion({
       updateExplosion();
     };
 
+    if (!app?.ticker) return;
+
     app.ticker.add(tickerCallback);
 
     return () => {
-      app.ticker.remove(tickerCallback);
+      if (app?.ticker) {
+        app.ticker.remove(tickerCallback);
+      }
       if (explosionRef.current) {
         cameraContainer.removeChild(explosionRef.current);
         explosionRef.current.destroy();

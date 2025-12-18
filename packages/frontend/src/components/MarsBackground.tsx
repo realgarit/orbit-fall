@@ -249,10 +249,14 @@ export function MarsBackground({ app, cameraContainer }: MarsBackgroundProps) {
       lastCameraPosRef.current = { x: cameraX, y: cameraY };
     };
 
+    if (!app?.ticker) return;
+
     app.ticker.add(tickerCallback);
 
     return () => {
-      app.ticker.remove(tickerCallback);
+      if (app?.ticker) {
+        app.ticker.remove(tickerCallback);
+      }
       if (backgroundContainerRef.current) {
         cameraContainer.removeChild(backgroundContainerRef.current);
         backgroundContainerRef.current.destroy({ children: true });

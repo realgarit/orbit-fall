@@ -56,7 +56,8 @@ export function Game() {
     setLaserAmmo((prev) => {
       const newAmmo = Math.max(0, prev - 1);
       if (newAmmo === 0 && prev > 0) {
-        addMessage('Laser ammunition depleted!', 'warning');
+        // Defer message to avoid updating state during render
+        queueMicrotask(() => addMessage('Laser ammunition depleted!', 'warning'));
       }
       return newAmmo;
     });
@@ -70,7 +71,8 @@ export function Game() {
     setRocketAmmo((prev) => {
       const newAmmo = Math.max(0, prev - 1);
       if (newAmmo === 0 && prev > 0) {
-        addMessage('Rocket ammunition depleted!', 'warning');
+        // Defer message to avoid updating state during render
+        queueMicrotask(() => addMessage('Rocket ammunition depleted!', 'warning'));
       }
       return newAmmo;
     });
@@ -217,15 +219,19 @@ export function Game() {
 
   // Track FPS
   useEffect(() => {
-    if (!app) return;
+    if (!app?.ticker) return;
 
     const tickerCallback = () => {
-      setFps(app.ticker.FPS);
+      if (app?.ticker) {
+        setFps(app.ticker.FPS);
+      }
     };
 
     app.ticker.add(tickerCallback);
     return () => {
-      app.ticker.remove(tickerCallback);
+      if (app?.ticker) {
+        app.ticker.remove(tickerCallback);
+      }
     };
   }, [app]);
 
@@ -285,8 +291,8 @@ export function Game() {
       // Get dead enemy's last position before removing it
       const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
       
-      // Add message for enemy killed
-      addMessage('Enemy destroyed!', 'combat');
+      // Defer message to avoid updating state during render
+      queueMicrotask(() => addMessage('Enemy destroyed!', 'combat'));
       
       // Remove position first to ensure enemyPosition prop becomes null immediately
       setEnemyPositions((prev) => {
@@ -368,8 +374,8 @@ export function Game() {
           // Get dead enemy's last position before removing it
           const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
           
-          // Add message for enemy killed
-          addMessage('Enemy destroyed!', 'combat');
+          // Defer message to avoid updating state during render
+          queueMicrotask(() => addMessage('Enemy destroyed!', 'combat'));
           
           // Remove position first to ensure enemyPosition prop becomes null immediately
           setEnemyPositions((prevPos) => {

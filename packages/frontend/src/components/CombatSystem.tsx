@@ -716,10 +716,14 @@ export function CombatSystem({
       });
     };
 
+    if (!app?.ticker) return;
+
     app.ticker.add(tickerCallback);
 
     return () => {
-      app.ticker.remove(tickerCallback);
+      if (app?.ticker) {
+        app.ticker.remove(tickerCallback);
+      }
       lasers.forEach(({ graphics }) => {
         cameraContainer.removeChild(graphics);
         graphics.destroy();

@@ -48,6 +48,8 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
     const findTargetGraphics = (): Graphics | null => {
       const barIndex = cameraContainer.getChildIndex(bar);
       const expectedPos = positionRef.current;
+      if (!expectedPos) return null;
+      
       let closestGraphics: Graphics | null = null;
       let closestDistance = Infinity;
       const maxTolerance = 50; // Maximum distance to consider (reduced from 100px)
@@ -89,9 +91,17 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
       // Try to read position directly from ship/enemy Graphics object
       // This ensures frame-accurate positioning without React state delays
       let pos: { x: number; y: number };
+      const currentPosition = positionRef.current;
+      
+      // If no position available, hide bar and return
+      if (!currentPosition) {
+        bar.visible = false;
+        return;
+      }
+      
       if (targetGraphicsRef.current && targetGraphicsRef.current.visible) {
         // Verify the Graphics is still close to expected position (enemies may have moved)
-        const expectedPos = positionRef.current;
+        const expectedPos = currentPosition;
         const dx = targetGraphicsRef.current.x - expectedPos.x;
         const dy = targetGraphicsRef.current.y - expectedPos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -105,11 +115,11 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
         if (targetGraphicsRef.current && targetGraphicsRef.current.visible) {
           pos = { x: targetGraphicsRef.current.x, y: targetGraphicsRef.current.y };
         } else {
-          pos = positionRef.current;
+          pos = currentPosition;
         }
       } else {
         // Fallback to prop if Graphics not found yet
-        pos = positionRef.current;
+        pos = currentPosition;
         // Try to find it again
         targetGraphicsRef.current = findTargetGraphics();
       }
@@ -179,10 +189,14 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
       updateBar();
     };
 
+    if (!app?.ticker) return;
+
     app.ticker.add(tickerCallback);
 
     return () => {
-      app.ticker.remove(tickerCallback);
+      if (app?.ticker) {
+        app.ticker.remove(tickerCallback);
+      }
       if (barRef.current) {
         cameraContainer.removeChild(barRef.current);
         barRef.current.destroy();

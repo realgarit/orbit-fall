@@ -138,10 +138,14 @@ export function Shield({
       updateShield(ticker);
     };
 
+    if (!app?.ticker) return;
+
     app.ticker.add(tickerCallback);
 
     return () => {
-      app.ticker.remove(tickerCallback);
+      if (app?.ticker) {
+        app.ticker.remove(tickerCallback);
+      }
       if (shieldRef.current) {
         cameraContainer.removeChild(shieldRef.current);
         shieldRef.current.destroy();

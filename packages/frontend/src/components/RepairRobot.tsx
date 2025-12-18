@@ -212,11 +212,13 @@ export function RepairRobot({ app, cameraContainer, shipPosition, onRepairComple
       };
 
       tickerCallbackRef.current = tickerCallback;
-      app.ticker.add(tickerCallback);
+      if (app?.ticker) {
+        app.ticker.add(tickerCallback);
+      }
     }
 
     return () => {
-      if (tickerAddedRef.current && tickerCallbackRef.current) {
+      if (tickerAddedRef.current && tickerCallbackRef.current && app?.ticker) {
         app.ticker.remove(tickerCallbackRef.current);
         tickerAddedRef.current = false;
         tickerCallbackRef.current = null;

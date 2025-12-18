@@ -72,10 +72,14 @@ export function SelectionCircle({
       updateCircle();
     };
 
+    if (!app?.ticker) return;
+
     app.ticker.add(tickerCallback);
 
     return () => {
-      app.ticker.remove(tickerCallback);
+      if (app?.ticker) {
+        app.ticker.remove(tickerCallback);
+      }
       if (circleRef.current) {
         cameraContainer.removeChild(circleRef.current);
         circleRef.current.destroy();

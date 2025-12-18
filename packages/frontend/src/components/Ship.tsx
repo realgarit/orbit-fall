@@ -135,7 +135,8 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
 
     // Get canvas bounds for mouse position calculation
     const getCanvasMousePos = (e: MouseEvent) => {
-      const canvas = app.canvas as HTMLCanvasElement;
+      const canvas = app?.canvas as HTMLCanvasElement | null;
+      if (!canvas) return { x: 0, y: 0 };
       const rect = canvas.getBoundingClientRect();
       return {
         x: e.clientX - rect.left,
@@ -180,8 +181,10 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
       }
     };
 
+    // Store canvas reference for cleanup
+    const canvas = app?.canvas as HTMLCanvasElement | null;
+
     // Add event listeners to canvas
-    const canvas = app.canvas as HTMLCanvasElement;
     if (canvas) {
       canvas.addEventListener('mousedown', handleMouseDown);
       canvas.addEventListener('mousemove', handleMouseMove);
@@ -375,8 +378,10 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
       ship.y = pos.y;
 
       // Update camera to follow ship (ship always centered on screen)
-      cameraContainer.x = -pos.x + app.screen.width / 2;
-      cameraContainer.y = -pos.y + app.screen.height / 2;
+      if (app?.screen) {
+        cameraContainer.x = -pos.x + app.screen.width / 2;
+        cameraContainer.y = -pos.y + app.screen.height / 2;
+      }
 
       // Notify parent component of state changes
       if (onStateUpdate) {
@@ -384,11 +389,14 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
       }
     };
 
+    if (!app?.ticker) return;
+
     app.ticker.add(tickerCallback);
 
     return () => {
-      app.ticker.remove(tickerCallback);
-      const canvas = app.canvas as HTMLCanvasElement;
+      if (app?.ticker) {
+        app.ticker.remove(tickerCallback);
+      }
       if (canvas) {
         canvas.removeEventListener('mousedown', handleMouseDown);
         canvas.removeEventListener('mousemove', handleMouseMove);

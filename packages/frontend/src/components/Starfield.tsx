@@ -243,10 +243,14 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
     lastCameraPosRef.current = { x: cameraContainer.x, y: cameraContainer.y };
     cameraVelocityRef.current = { vx: 0, vy: 0 };
 
+    if (!app?.ticker) return;
+
     app.ticker.add(tickerCallback);
 
     return () => {
-      app.ticker.remove(tickerCallback);
+      if (app?.ticker) {
+        app.ticker.remove(tickerCallback);
+      }
       layers.forEach((container, layer) => {
         const starMap = starsRef.current[layer];
         starMap.forEach((star) => {
