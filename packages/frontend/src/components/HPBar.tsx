@@ -21,6 +21,15 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
 
   // Update refs when props change
   useEffect(() => {
+    // If position changes significantly, reset target Graphics to force re-discovery
+    const posChanged = 
+      Math.abs(positionRef.current.x - position.x) > 10 ||
+      Math.abs(positionRef.current.y - position.y) > 10;
+    
+    if (posChanged) {
+      targetGraphicsRef.current = null; // Force re-discovery of target Graphics
+    }
+    
     positionRef.current = position;
     healthRef.current = health;
     maxHealthRef.current = maxHealth;
@@ -38,22 +47,29 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
     // This avoids React state timing delays
     const findTargetGraphics = (): Graphics | null => {
       const barIndex = cameraContainer.getChildIndex(bar);
+      const expectedPos = positionRef.current;
+      let closestGraphics: Graphics | null = null;
+      let closestDistance = Infinity;
+      const maxTolerance = 50; // Maximum distance to consider (reduced from 100px)
+      
       // Look for Graphics objects before the HPBar
       // The ship/enemy should be added before the HPBar
       for (let i = 0; i < barIndex; i++) {
         const child = cameraContainer.children[i];
         if (child instanceof Graphics && child !== bar) {
-          // Check if this Graphics is near our expected position (within 100px)
-          // This helps identify the correct Graphics object
-          const expectedPos = positionRef.current;
-          const dx = Math.abs(child.x - expectedPos.x);
-          const dy = Math.abs(child.y - expectedPos.y);
-          if (dx < 100 && dy < 100) {
-            return child;
+          // Calculate distance to expected position
+          const dx = child.x - expectedPos.x;
+          const dy = child.y - expectedPos.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          // Find the closest Graphics object within tolerance
+          if (distance < maxTolerance && distance < closestDistance) {
+            closestGraphics = child;
+            closestDistance = distance;
           }
         }
       }
-      return null;
+      return closestGraphics;
     };
 
     // Try to find target Graphics on first render
@@ -74,7 +90,23 @@ export function HPBar({ app, cameraContainer, position, health, maxHealth, visib
       // This ensures frame-accurate positioning without React state delays
       let pos: { x: number; y: number };
       if (targetGraphicsRef.current && targetGraphicsRef.current.visible) {
-        pos = { x: targetGraphicsRef.current.x, y: targetGraphicsRef.current.y };
+        // Verify the Graphics is still close to expected position (enemies may have moved)
+        const expectedPos = positionRef.current;
+        const dx = targetGraphicsRef.current.x - expectedPos.x;
+        const dy = targetGraphicsRef.current.y - expectedPos.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // If Graphics has moved too far from expected position, re-find it
+        if (distance > 50) {
+          targetGraphicsRef.current = findTargetGraphics();
+        }
+        
+        // Use Graphics position if still valid, otherwise fallback
+        if (targetGraphicsRef.current && targetGraphicsRef.current.visible) {
+          pos = { x: targetGraphicsRef.current.x, y: targetGraphicsRef.current.y };
+        } else {
+          pos = positionRef.current;
+        }
       } else {
         // Fallback to prop if Graphics not found yet
         pos = positionRef.current;
