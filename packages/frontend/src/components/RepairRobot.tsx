@@ -146,12 +146,15 @@ export function RepairRobot({ app, cameraContainer, shipPosition, onRepairComple
         const elapsed = now - startTimeRef.current;
         const delta = ticker.deltaTime;
 
-        // Heal gradually - every 200ms heal 1.33 HP (20 HP over 3 seconds)
+        // Heal gradually - repair rate scales with max health
+        // Repairs to full health in ~60 seconds (1 minute) regardless of max health
+        // Every 200ms, heal 0.333% of max health (60 seconds / 200ms = 300 ticks, 1/300 = 0.333%)
         // Only heal if not at max health
         const currentHealth = playerHealthRef.current;
         const currentMaxHealth = maxHealthRef.current;
         if (now - lastHealTimeRef.current >= 200 && currentHealth < currentMaxHealth) {
-          onHealTick?.(1.33);
+          const healAmount = currentMaxHealth / 300; // 1/300 of max health per 200ms = full repair in 60 seconds
+          onHealTick?.(healAmount);
           lastHealTimeRef.current = now;
         }
 
