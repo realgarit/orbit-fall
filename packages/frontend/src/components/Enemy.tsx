@@ -31,6 +31,18 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
   const patrolVelocityRef = useRef({ vx: 0, vy: 0 });
   const lastPatrolChangeRef = useRef(0);
   const spawnedRef = useRef(false);
+  const playerPositionRef = useRef(playerPosition);
+  const onStateUpdateRef = useRef(onStateUpdate);
+  const onPositionUpdateRef = useRef(onPositionUpdate);
+  const tickerAddedRef = useRef(false);
+  const tickerCallbackRef = useRef<((ticker: any) => void) | null>(null);
+
+  // Keep refs updated
+  useEffect(() => {
+    playerPositionRef.current = playerPosition;
+    onStateUpdateRef.current = onStateUpdate;
+    onPositionUpdateRef.current = onPositionUpdate;
+  }, [playerPosition, onStateUpdate, onPositionUpdate]);
 
   // Sync external state when provided (for health, engagement status)
   // Don't sync position/velocity as those are managed internally
@@ -46,153 +58,186 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
   useEffect(() => {
     if (!app) return;
 
-    // Spawn enemy near player (200-400px away) - only once
-    if (!spawnedRef.current) {
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 200 + Math.random() * 200;
-      const spawnX = playerPosition.x + Math.cos(angle) * distance;
-      const spawnY = playerPosition.y + Math.sin(angle) * distance;
+    // Only create Graphics if it doesn't exist
+    if (!enemyRef.current) {
+      // Spawn enemy near player (200-400px away) - only once
+      if (!spawnedRef.current) {
+        const angle = Math.random() * Math.PI * 2;
+        const distance = 200 + Math.random() * 200;
+        const spawnX = playerPosition.x + Math.cos(angle) * distance;
+        const spawnY = playerPosition.y + Math.sin(angle) * distance;
+        
+        // Clamp to map bounds
+        stateRef.current.x = Math.max(0, Math.min(MAP_WIDTH, spawnX));
+        stateRef.current.y = Math.max(0, Math.min(MAP_HEIGHT, spawnY));
+        spawnedRef.current = true;
+      }
+
+      // Create enemy ship visual - similar size but weaker appearance
+      const enemy = new Graphics();
       
-      // Clamp to map bounds
-      stateRef.current.x = Math.max(0, Math.min(MAP_WIDTH, spawnX));
-      stateRef.current.y = Math.max(0, Math.min(MAP_HEIGHT, spawnY));
-      spawnedRef.current = true;
+      // Main body (triangle) - similar to player but darker/simpler
+      enemy.moveTo(0, -20); // Top point (nose)
+      enemy.lineTo(-12, 10); // Bottom left
+      enemy.lineTo(0, 5); // Center bottom
+      enemy.lineTo(12, 10); // Bottom right
+      enemy.lineTo(0, -20); // Close triangle
+      enemy.fill(0x2a4a7f); // Darker blue body (weaker appearance)
+      
+      // Add wings (simpler than player)
+      enemy.moveTo(-12, 10);
+      enemy.lineTo(-18, 15);
+      enemy.lineTo(-12, 13);
+      enemy.fill(0x1a3a5f); // Even darker wing
+      
+      enemy.moveTo(12, 10);
+      enemy.lineTo(18, 15);
+      enemy.lineTo(12, 13);
+      enemy.fill(0x1a3a5f); // Even darker wing
+      
+      // Add cockpit (darker)
+      enemy.circle(0, -8, 4);
+      enemy.fill(0x006644); // Darker green cockpit
+      
+      // Add engine glow (weaker)
+      enemy.circle(-6, 7, 2);
+      enemy.fill({ color: 0xcc8800, alpha: 0.6 }); // Dimmer orange engine
+      enemy.circle(6, 7, 2);
+      enemy.fill({ color: 0xcc8800, alpha: 0.6 }); // Dimmer orange engine
+
+      enemy.x = stateRef.current.x;
+      enemy.y = stateRef.current.y;
+
+      cameraContainer.addChild(enemy);
+      enemyRef.current = enemy;
+
+      // Create name text
+      const nameText = new Text({
+        text: ENEMY_STATS.DRIFTER.NAME,
+        style: {
+          fontFamily: 'Arial',
+          fontSize: 14,
+          fill: 0xff0000, // Red
+          align: 'center',
+        },
+      });
+      nameText.anchor.set(0.5, 0);
+      nameText.x = stateRef.current.x;
+      nameText.y = stateRef.current.y + 25; // Below ship
+      cameraContainer.addChild(nameText);
+      nameTextRef.current = nameText;
+
+      // Initialize random patrol velocity
+      const randomAngle = Math.random() * Math.PI * 2;
+      const patrolSpeed = 0.5; // Slow drift
+      patrolVelocityRef.current.vx = Math.cos(randomAngle) * patrolSpeed;
+      patrolVelocityRef.current.vy = Math.sin(randomAngle) * patrolSpeed;
+      lastPatrolChangeRef.current = Date.now();
     }
 
-    // Create enemy ship visual - similar size but weaker appearance
-    const enemy = new Graphics();
-    
-    // Main body (triangle) - similar to player but darker/simpler
-    enemy.moveTo(0, -20); // Top point (nose)
-    enemy.lineTo(-12, 10); // Bottom left
-    enemy.lineTo(0, 5); // Center bottom
-    enemy.lineTo(12, 10); // Bottom right
-    enemy.lineTo(0, -20); // Close triangle
-    enemy.fill(0x2a4a7f); // Darker blue body (weaker appearance)
-    
-    // Add wings (simpler than player)
-    enemy.moveTo(-12, 10);
-    enemy.lineTo(-18, 15);
-    enemy.lineTo(-12, 13);
-    enemy.fill(0x1a3a5f); // Even darker wing
-    
-    enemy.moveTo(12, 10);
-    enemy.lineTo(18, 15);
-    enemy.lineTo(12, 13);
-    enemy.fill(0x1a3a5f); // Even darker wing
-    
-    // Add cockpit (darker)
-    enemy.circle(0, -8, 4);
-    enemy.fill(0x006644); // Darker green cockpit
-    
-    // Add engine glow (weaker)
-    enemy.circle(-6, 7, 2);
-    enemy.fill({ color: 0xcc8800, alpha: 0.6 }); // Dimmer orange engine
-    enemy.circle(6, 7, 2);
-    enemy.fill({ color: 0xcc8800, alpha: 0.6 }); // Dimmer orange engine
-
-    enemy.x = stateRef.current.x;
-    enemy.y = stateRef.current.y;
-
-    cameraContainer.addChild(enemy);
-    enemyRef.current = enemy;
-
-    // Create name text
-    const nameText = new Text({
-      text: ENEMY_STATS.DRIFTER.NAME,
-      style: {
-        fontFamily: 'Arial',
-        fontSize: 14,
-        fill: 0xff0000, // Red
-        align: 'center',
-      },
-    });
-    nameText.anchor.set(0.5, 0);
-    nameText.x = stateRef.current.x;
-    nameText.y = stateRef.current.y + 25; // Below ship
-    cameraContainer.addChild(nameText);
-    nameTextRef.current = nameText;
-
-    // Initialize random patrol velocity
-    const randomAngle = Math.random() * Math.PI * 2;
-    const patrolSpeed = 0.5; // Slow drift
-    patrolVelocityRef.current.vx = Math.cos(randomAngle) * patrolSpeed;
-    patrolVelocityRef.current.vy = Math.sin(randomAngle) * patrolSpeed;
-    lastPatrolChangeRef.current = Date.now();
-
-    // Animation ticker
-    const tickerCallback = (ticker: any) => {
-      const enemy = enemyRef.current;
-      const nameText = nameTextRef.current;
-      if (!enemy || !nameText) return;
-
-      const delta = ticker.deltaTime;
-      const state = stateRef.current;
-      const now = Date.now();
-
-      // Patrol behavior when not engaged
-      if (!state.isEngaged) {
-        // Change patrol direction every 2-4 seconds
-        if (now - lastPatrolChangeRef.current > 2000 + Math.random() * 2000) {
-          const randomAngle = Math.random() * Math.PI * 2;
-          const patrolSpeed = 0.5;
-          patrolVelocityRef.current.vx = Math.cos(randomAngle) * patrolSpeed;
-          patrolVelocityRef.current.vy = Math.sin(randomAngle) * patrolSpeed;
-          lastPatrolChangeRef.current = now;
+    // Animation ticker - only add once and only if enemy exists
+    if (!tickerAddedRef.current && enemyRef.current) {
+      tickerAddedRef.current = true;
+      const tickerCallback = (ticker: any) => {
+        // Always get fresh refs in case they changed
+        const enemy = enemyRef.current;
+        const nameText = nameTextRef.current;
+        // Early return if enemy or nameText don't exist
+        if (!enemy || !nameText) {
+          return;
         }
 
-        // Apply patrol velocity
-        state.vx = patrolVelocityRef.current.vx;
-        state.vy = patrolVelocityRef.current.vy;
-      } else {
-        // Stop patrolling when engaged
-        state.vx = 0;
-        state.vy = 0;
-      }
+        const delta = ticker.deltaTime;
+        const state = stateRef.current;
+        const now = Date.now();
 
-      // Update position
-      state.x += state.vx * delta;
-      state.y += state.vy * delta;
+        // Patrol behavior when not engaged
+        if (!state.isEngaged) {
+          // Change patrol direction every 2-4 seconds
+          if (now - lastPatrolChangeRef.current > 2000 + Math.random() * 2000) {
+            const randomAngle = Math.random() * Math.PI * 2;
+            const patrolSpeed = 0.5;
+            patrolVelocityRef.current.vx = Math.cos(randomAngle) * patrolSpeed;
+            patrolVelocityRef.current.vy = Math.sin(randomAngle) * patrolSpeed;
+            lastPatrolChangeRef.current = now;
+          }
 
-      // Boundary constraints
-      state.x = Math.max(0, Math.min(MAP_WIDTH, state.x));
-      state.y = Math.max(0, Math.min(MAP_HEIGHT, state.y));
+          // Apply patrol velocity
+          state.vx = patrolVelocityRef.current.vx;
+          state.vy = patrolVelocityRef.current.vy;
+        } else {
+          // Stop patrolling when engaged
+          state.vx = 0;
+          state.vy = 0;
+        }
 
-      // Update visuals
-      enemy.x = state.x;
-      enemy.y = state.y;
-      nameText.x = state.x;
-      nameText.y = state.y + 25;
+        // Update position
+        state.x += state.vx * delta;
+        state.y += state.vy * delta;
 
-      // Update rotation to face movement direction when patrolling
-      if (!state.isEngaged && (Math.abs(state.vx) > 0.01 || Math.abs(state.vy) > 0.01)) {
-        state.rotation = Math.atan2(state.vy, state.vx) + Math.PI / 2;
-        enemy.rotation = state.rotation;
-      }
+        // Boundary constraints
+        state.x = Math.max(0, Math.min(MAP_WIDTH, state.x));
+        state.y = Math.max(0, Math.min(MAP_HEIGHT, state.y));
 
-      // Notify parent of state changes
-      if (onStateUpdate) {
-        onStateUpdate({ ...state });
-      }
-      if (onPositionUpdate) {
-        onPositionUpdate({ x: state.x, y: state.y });
-      }
-    };
+        // Update visuals - enemy and nameText already checked at start
+        enemy.x = state.x;
+        enemy.y = state.y;
+        nameText.x = state.x;
+        nameText.y = state.y + 25;
 
-    app.ticker.add(tickerCallback);
+        // Update rotation - only when necessary (enemy already checked at start)
+        if (state.isEngaged) {
+          // Face the player when engaged
+          const currentPlayerPos = playerPositionRef.current;
+          const dx = currentPlayerPos.x - state.x;
+          const dy = currentPlayerPos.y - state.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance > 0.01) {
+            const targetRotation = Math.atan2(dy, dx) + Math.PI / 2;
+            state.rotation = targetRotation;
+            enemy.rotation = state.rotation;
+          }
+        } else {
+          // Only update rotation when actually moving during patrol
+          if (Math.abs(state.vx) > 0.01 || Math.abs(state.vy) > 0.01) {
+            const targetRotation = Math.atan2(state.vy, state.vx) + Math.PI / 2;
+            state.rotation = targetRotation;
+            enemy.rotation = state.rotation;
+          }
+          // When stationary, keep the last rotation (don't update)
+        }
+
+        // Notify parent of state changes
+        if (onStateUpdateRef.current) {
+          onStateUpdateRef.current({ ...state });
+        }
+        if (onPositionUpdateRef.current) {
+          onPositionUpdateRef.current({ x: state.x, y: state.y });
+        }
+      };
+
+      tickerCallbackRef.current = tickerCallback;
+      app.ticker.add(tickerCallback);
+    }
 
     return () => {
-      app.ticker.remove(tickerCallback);
+      if (tickerAddedRef.current && tickerCallbackRef.current) {
+        app.ticker.remove(tickerCallbackRef.current);
+        tickerAddedRef.current = false;
+        tickerCallbackRef.current = null;
+      }
       if (enemyRef.current) {
         cameraContainer.removeChild(enemyRef.current);
         enemyRef.current.destroy();
+        enemyRef.current = null;
       }
       if (nameTextRef.current) {
         cameraContainer.removeChild(nameTextRef.current);
         nameTextRef.current.destroy();
+        nameTextRef.current = null;
       }
     };
-  }, [app, cameraContainer, playerPosition, onStateUpdate, onPositionUpdate]);
+  }, [app, cameraContainer]);
 
   // Expose method to update state from parent
   useEffect(() => {
