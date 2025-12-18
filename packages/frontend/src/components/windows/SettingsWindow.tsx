@@ -88,16 +88,16 @@ export function SettingsWindow({
       <div className="settings-window-content">
         <div className="settings-tabs">
           <button
-            className={`settings-tab ${activeTab === 'windows' ? 'active' : ''}`}
-            onClick={() => setActiveTab('windows')}
-          >
-            Windows
-          </button>
-          <button
             className={`settings-tab ${activeTab === 'general' ? 'active' : ''}`}
             onClick={() => setActiveTab('general')}
           >
             General
+          </button>
+          <button
+            className={`settings-tab ${activeTab === 'windows' ? 'active' : ''}`}
+            onClick={() => setActiveTab('windows')}
+          >
+            Windows
           </button>
         </div>
 
