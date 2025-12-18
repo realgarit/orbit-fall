@@ -11,9 +11,10 @@ interface ShipProps {
   onEnemyClick?: (worldX: number, worldY: number) => boolean;
   inCombat?: boolean;
   enemyPosition?: { x: number; y: number } | null;
+  isDead?: boolean;
 }
 
-export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick, inCombat, enemyPosition }: ShipProps) {
+export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick, inCombat, enemyPosition, isDead = false }: ShipProps) {
   const shipRef = useRef<Graphics | null>(null);
   const positionRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
   const rotationRef = useRef(0);
@@ -26,6 +27,7 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   const onEnemyClickRef = useRef<((worldX: number, worldY: number) => boolean) | undefined>(undefined);
   const inCombatRef = useRef(inCombat ?? false);
   const enemyPositionRef = useRef<{ x: number; y: number } | null>(enemyPosition ?? null);
+  const isDeadRef = useRef(isDead);
   
   // Store latest prop values to compare against refs in ticker
   const inCombatPropRef = useRef(inCombat ?? false);
@@ -53,6 +55,26 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
     inCombatRef.current = inCombat ?? false;
     enemyPositionRef.current = enemyPosition ?? null;
   }, [inCombat, enemyPosition]);
+
+  useEffect(() => {
+    isDeadRef.current = isDead;
+    // When ship dies, immediately stop all movement
+    if (isDead) {
+      velocityRef.current.vx = 0;
+      velocityRef.current.vy = 0;
+      isMouseDownRef.current = false;
+      targetPosRef.current = null;
+      // Hide ship graphics
+      if (shipRef.current) {
+        shipRef.current.visible = false;
+      }
+    } else {
+      // Show ship when alive
+      if (shipRef.current) {
+        shipRef.current.visible = true;
+      }
+    }
+  }, [isDead]);
 
   useEffect(() => {
     if (!app) return;
@@ -123,6 +145,11 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
 
     // Mouse event handlers
     const handleMouseDown = (e: MouseEvent) => {
+      // Don't allow movement if ship is dead
+      if (isDeadRef.current) {
+        return;
+      }
+
       const canvasPos = getCanvasMousePos(e);
       mouseScreenPosRef.current = canvasPos; // Store screen position
       const worldPos = screenToWorld(canvasPos.x, canvasPos.y);
@@ -167,6 +194,11 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
     const tickerCallback = (ticker: any) => {
       const ship = shipRef.current;
       if (!ship) return;
+
+      // If ship is dead, don't update position or movement
+      if (isDeadRef.current) {
+        return;
+      }
 
       const delta = ticker.deltaTime;
       const pos = positionRef.current;
@@ -327,8 +359,11 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
 
       // Update position (ship moves infinitely in direction until mouse is released)
       // Use delta time for frame-rate independent movement
-      pos.x += velocity.vx * delta;
-      pos.y += velocity.vy * delta;
+      // Don't update position if ship is dead
+      if (!isDeadRef.current) {
+        pos.x += velocity.vx * delta;
+        pos.y += velocity.vy * delta;
+      }
 
       // Boundary constraints: keep ship within map bounds (0,0) to (MAP_WIDTH, MAP_HEIGHT)
       // 0,0 is at top-left of the invisible border

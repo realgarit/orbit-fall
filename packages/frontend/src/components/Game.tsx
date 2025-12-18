@@ -11,6 +11,7 @@ import { HPBar } from './HPBar';
 import { SelectionCircle } from './SelectionCircle';
 import { CombatSystem } from './CombatSystem';
 import { Shield } from './Shield';
+import { ShipExplosion } from './ShipExplosion';
 import { WindowManagerProvider } from '../hooks/useWindowManager';
 import { TopBar } from './windows/TopBar';
 import { ActionBar } from './windows/ActionBar';
@@ -38,6 +39,7 @@ export function Game() {
   // Death state
   const [isDead, setIsDead] = useState(false);
   const [deathPosition, setDeathPosition] = useState<{ x: number; y: number } | null>(null);
+  const [showDeathWindow, setShowDeathWindow] = useState(false); // Delay window until explosion completes
   
   // Insta-shield protection after revive
   const [instaShieldActive, setInstaShieldActive] = useState(false);
@@ -644,15 +646,26 @@ export function Game() {
     if (playerHealth <= 0 && !isDead) {
       setIsDead(true);
       setDeathPosition({ x: shipPosition.x, y: shipPosition.y });
-      // Stop all combat and movement
+      setShowDeathWindow(false); // Don't show window yet - wait for explosion
+      // Stop all combat and movement immediately
       setInCombat(false);
       setPlayerFiring(false);
       setPlayerFiringRocket(false);
       setTargetPosition(null);
       // Clear any selected enemy
       setSelectedEnemyId(null);
+      // Stop ship velocity immediately
+      setShipVelocity({ vx: 0, vy: 0 });
     }
   }, [playerHealth, isDead, shipPosition]);
+  
+  // Handle explosion completion - show death window after a short delay
+  const handleExplosionComplete = () => {
+    // Wait 1 second before showing the death window after explosion completes
+    setTimeout(() => {
+      setShowDeathWindow(true);
+    }, 1000);
+  };
   
   // Handle repair on the spot
   const handleRepairOnSpot = () => {
@@ -661,6 +674,7 @@ export function Game() {
       const restoredHealth = Math.floor(PLAYER_STATS.MAX_HEALTH * 0.1);
       setPlayerHealth(restoredHealth);
       setIsDead(false);
+      setShowDeathWindow(false); // Hide death window
       
       // Activate Insta-shield for 10 seconds
       const shieldDuration = 10000; // 10 seconds in milliseconds
@@ -806,7 +820,18 @@ export function Game() {
                 }
                 return enemyPositions.get(selectedEnemyId) || null;
               })()}
+              isDead={isDead}
             />
+            {/* Ship Explosion */}
+            {isDead && deathPosition && (
+              <ShipExplosion
+                app={app}
+                cameraContainer={cameraContainer}
+                position={deathPosition}
+                active={isDead}
+                onComplete={handleExplosionComplete}
+              />
+            )}
             {/* Render all enemies */}
             {Array.from(enemies.entries()).map(([enemyId, enemyState]) => (
               <Enemy
@@ -984,8 +1009,8 @@ export function Game() {
               basePosition={basePosition}
             />
             <SettingsWindow />
-            {/* Death Window - shown when player is dead */}
-            {isDead && (
+            {/* Death Window - shown when player is dead and explosion is complete */}
+            {isDead && showDeathWindow && (
               <DeathWindow
                 onRepairOnSpot={handleRepairOnSpot}
               />
