@@ -35,12 +35,23 @@ export const ENEMY_STATS = {
 export const COMBAT_CONFIG = {
   FIRING_RATE: 1, // shots per second
   LASER_SPEED: 32, // pixels per frame (at 60fps) - ~480 pixels/second for fast travel
-  LASER_LENGTH: 40, // pixels
+  LASER_LENGTH: 30, // pixels (shortened)
   LASER_WIDTH: 3, // pixels
   LASER_COLOR: 0xff0000, // red
   LASER_GLOW_ALPHA: 0.8,
   COMBAT_RANGE: 1000, // max distance for combat
   LASER_TIMEOUT: 5000, // milliseconds before laser despawns
+};
+
+// Rocket configuration
+export const ROCKET_CONFIG = {
+  SPEED: 8, // pixels per frame (quarter of laser speed: 32/4)
+  DAMAGE: 40, // 4x laser damage: 10*4
+  FIRING_RATE: 1 / 3, // shots per second (3 second cooldown)
+  LENGTH: 15, // rocket visual length (shortened)
+  WIDTH: 6, // rocket visual width
+  COLOR: 0xff0000, // red color for rockets
+  TIMEOUT: 10000, // milliseconds before rocket despawns (longer since rockets are slower)
 };
 
 // HP Bar configuration

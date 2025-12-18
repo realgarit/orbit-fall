@@ -40,6 +40,17 @@ export function Game() {
     setLaserAmmo((prev) => Math.max(0, prev - 1));
   };
   
+  // Rocket ammunition state
+  const [rocketAmmo, setRocketAmmo] = useState(100);
+  
+  // Handle rocket ammunition consumption
+  const handleRocketAmmoConsume = () => {
+    setRocketAmmo((prev) => Math.max(0, prev - 1));
+  };
+  
+  // Rocket firing state (manual with SPACE key)
+  const [playerFiringRocket, setPlayerFiringRocket] = useState(false);
+  
   // Enemy state
   const [enemyState, setEnemyState] = useState<EnemyState | null>(null);
   const [enemyPosition, setEnemyPosition] = useState<{ x: number; y: number } | null>(null);
@@ -244,7 +255,7 @@ export function Game() {
     };
   }, [app, shipPosition, enemyPosition, enemyState]);
 
-  // Keyboard handler for ESC and "1" key
+  // Keyboard handler for ESC, "1" key, "2" key, and SPACE key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -252,6 +263,7 @@ export function Game() {
         setPlayerFiring(false);
         setInCombat(false);
         setSelectedEnemyId(null);
+        setPlayerFiringRocket(false);
       } else if (e.key === '1' || e.key === 'Digit1') {
         // Press "1" to engage combat with selected enemy (same as double-click)
         if (selectedEnemyId && enemyState && enemyState.id === selectedEnemyId && !isInSafetyZone()) {
@@ -260,6 +272,35 @@ export function Game() {
           setSelectedEnemyId(enemyState.id);
           setEnemyState({ ...enemyState, isEngaged: true });
         }
+      } else if (e.key === '2' || e.key === 'Digit2') {
+        // Press "2" to engage combat and fire rockets with selected enemy
+        if (selectedEnemyId && enemyState && enemyState.id === selectedEnemyId && !isInSafetyZone()) {
+          if (rocketAmmo > 0) {
+            setInCombat(true);
+            setSelectedEnemyId(enemyState.id);
+            setEnemyState({ ...enemyState, isEngaged: true });
+            setPlayerFiringRocket(true);
+          }
+        }
+      } else if (e.key === ' ' || e.key === 'Space') {
+        // SPACE key: engage combat and fire rocket immediately (if not in combat) or fire rocket (if already in combat)
+        e.preventDefault(); // Prevent page scroll
+        if (selectedEnemyId && enemyState && enemyState.id === selectedEnemyId && !isInSafetyZone()) {
+          if (!inCombat) {
+            // Not in combat: engage combat and fire rocket immediately
+            if (rocketAmmo > 0) {
+              setInCombat(true);
+              setSelectedEnemyId(enemyState.id);
+              setEnemyState({ ...enemyState, isEngaged: true });
+              setPlayerFiringRocket(true);
+            }
+          } else {
+            // Already in combat: fire rockets manually
+            if (rocketAmmo > 0) {
+              setPlayerFiringRocket(true);
+            }
+          }
+        }
       }
     };
 
@@ -267,7 +308,7 @@ export function Game() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedEnemyId, enemyState, shipPosition]);
+  }, [selectedEnemyId, enemyState, shipPosition, inCombat, rocketAmmo]);
 
   return (
     <WindowManagerProvider>
@@ -282,7 +323,7 @@ export function Game() {
         }}
       >
         <TopBar />
-        <ActionBar laserAmmo={laserAmmo} />
+        <ActionBar laserAmmo={laserAmmo} rocketAmmo={rocketAmmo} />
         {app && cameraContainer && (
           <>
             <MarsBackground app={app} cameraContainer={cameraContainer} />
@@ -356,6 +397,10 @@ export function Game() {
                 isInSafetyZone={inSafetyZone}
                 laserAmmo={laserAmmo}
                 onLaserAmmoConsume={handleLaserAmmoConsume}
+                rocketAmmo={rocketAmmo}
+                onRocketAmmoConsume={handleRocketAmmoConsume}
+                playerFiringRocket={playerFiringRocket}
+                onRocketFired={() => setPlayerFiringRocket(false)}
               />
             )}
             {/* Safety Zone Message */}

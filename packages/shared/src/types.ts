@@ -53,3 +53,17 @@ export interface LaserProjectile {
   spawnTime: number;
 }
 
+// Rocket projectile types
+export interface RocketProjectile {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  rotation: number;
+  damage: number;
+  ownerId: string; // 'player' or enemy id
+  targetId: string; // 'player' or enemy id
+  spawnTime: number;
+}
+

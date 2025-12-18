@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Application, Graphics, Container } from 'pixi.js';
-import { COMBAT_CONFIG, PLAYER_STATS, ENEMY_STATS } from '@shared/constants';
-import type { LaserProjectile, EnemyState } from '@shared/types';
+import { COMBAT_CONFIG, ROCKET_CONFIG, PLAYER_STATS, ENEMY_STATS } from '@shared/constants';
+import type { LaserProjectile, RocketProjectile, EnemyState } from '@shared/types';
 
 interface CombatSystemProps {
   app: Application;
@@ -18,11 +18,20 @@ interface CombatSystemProps {
   isInSafetyZone?: boolean;
   laserAmmo?: number;
   onLaserAmmoConsume?: () => void;
+  rocketAmmo?: number;
+  onRocketAmmoConsume?: () => void;
+  playerFiringRocket?: boolean;
+  onRocketFired?: () => void;
 }
 
 interface LaserData {
   graphics: Graphics;
   projectile: LaserProjectile;
+}
+
+interface RocketData {
+  graphics: Graphics;
+  projectile: RocketProjectile;
 }
 
 export function CombatSystem({
@@ -40,11 +49,18 @@ export function CombatSystem({
   isInSafetyZone = false,
   laserAmmo = 0,
   onLaserAmmoConsume,
+  rocketAmmo = 0,
+  onRocketAmmoConsume,
+  playerFiringRocket = false,
+  onRocketFired,
 }: CombatSystemProps) {
   const lasersRef = useRef<Map<string, LaserData>>(new Map());
+  const rocketsRef = useRef<Map<string, RocketData>>(new Map());
   const playerLastFireTimeRef = useRef(0);
+  const playerLastRocketFireTimeRef = useRef(0);
   const enemyLastFireTimeRef = useRef(0);
   const laserIdCounterRef = useRef(0);
+  const rocketIdCounterRef = useRef(0);
   
   // Use refs to avoid recreating ticker on every prop change
   const playerPositionRef = useRef(playerPosition);
@@ -58,6 +74,10 @@ export function CombatSystem({
   const isInSafetyZoneRef = useRef(isInSafetyZone);
   const laserAmmoRef = useRef(laserAmmo);
   const onLaserAmmoConsumeRef = useRef(onLaserAmmoConsume);
+  const rocketAmmoRef = useRef(rocketAmmo);
+  const onRocketAmmoConsumeRef = useRef(onRocketAmmoConsume);
+  const playerFiringRocketRef = useRef(playerFiringRocket);
+  const onRocketFiredRef = useRef(onRocketFired);
 
   // Update refs when props change
   useEffect(() => {
@@ -104,6 +124,22 @@ export function CombatSystem({
     onLaserAmmoConsumeRef.current = onLaserAmmoConsume;
   }, [onLaserAmmoConsume]);
 
+  useEffect(() => {
+    rocketAmmoRef.current = rocketAmmo;
+  }, [rocketAmmo]);
+
+  useEffect(() => {
+    onRocketAmmoConsumeRef.current = onRocketAmmoConsume;
+  }, [onRocketAmmoConsume]);
+
+  useEffect(() => {
+    playerFiringRocketRef.current = playerFiringRocket;
+  }, [playerFiringRocket]);
+
+  useEffect(() => {
+    onRocketFiredRef.current = onRocketFired;
+  }, [onRocketFired]);
+
   // Initialize enemy fire time when combat starts
   useEffect(() => {
     if (enemyState && enemyState.isEngaged && enemyLastFireTimeRef.current === 0) {
@@ -115,6 +151,7 @@ export function CombatSystem({
     if (!app || !cameraContainer) return;
 
     const lasers = lasersRef.current;
+    const rockets = rocketsRef.current;
 
     const createLaserGraphics = (x: number, y: number, angle: number): Graphics => {
       const graphics = new Graphics();
@@ -128,6 +165,33 @@ export function CombatSystem({
       // Add glow
       graphics.roundRect(-length / 2 - 2, -width / 2 - 2, length + 4, width + 4, (width + 4) / 2);
       graphics.fill({ color: COMBAT_CONFIG.LASER_COLOR, alpha: 0.5 });
+      
+      graphics.rotation = angle;
+      graphics.x = x;
+      graphics.y = y;
+      
+      return graphics;
+    };
+
+    const createRocketGraphics = (x: number, y: number, angle: number): Graphics => {
+      const graphics = new Graphics();
+      const length = ROCKET_CONFIG.LENGTH;
+      const width = ROCKET_CONFIG.WIDTH;
+      
+      // Add glow first (behind everything)
+      graphics.roundRect(-length / 2 - 2, -width / 2 - 2, length + 4, width + 4, (width + 4) / 2);
+      graphics.fill({ color: ROCKET_CONFIG.COLOR, alpha: 0.5 });
+      
+      // Draw rocket body (rounded rectangle)
+      graphics.roundRect(-length / 2, -width / 2, length, width, width / 2);
+      graphics.fill({ color: ROCKET_CONFIG.COLOR, alpha: 1.0 });
+      
+      // Rocket nose cone (triangle at front, pointing forward)
+      graphics.moveTo(length / 2, 0);
+      graphics.lineTo(length / 2 + width, -width / 2);
+      graphics.lineTo(length / 2 + width, width / 2);
+      graphics.lineTo(length / 2, 0);
+      graphics.fill({ color: ROCKET_CONFIG.COLOR, alpha: 1.0 });
       
       graphics.rotation = angle;
       graphics.x = x;
@@ -221,9 +285,61 @@ export function CombatSystem({
       lasers.set(projectile.id, { graphics, projectile });
     };
 
+    const createRocket = (
+      fromX: number,
+      fromY: number,
+      toX: number,
+      toY: number,
+      ownerId: string,
+      targetId: string,
+      damage: number,
+      targetVx: number = 0,
+      targetVy: number = 0
+    ): void => {
+      // Predict where target will be when rocket arrives (using same logic as lasers)
+      const predictedTarget = predictTargetPosition(fromX, fromY, toX, toY, targetVx, targetVy);
+      
+      const dx = predictedTarget.x - fromX;
+      const dy = predictedTarget.y - fromY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance < 1) return; // Don't create rocket if target is too close
+      
+      const angle = Math.atan2(dy, dx);
+      
+      // Spawn rocket at source position
+      const spawnX = fromX;
+      const spawnY = fromY;
+
+      const projectile: RocketProjectile = {
+        id: `rocket-${rocketIdCounterRef.current++}`,
+        x: spawnX,
+        y: spawnY,
+        vx: Math.cos(angle) * ROCKET_CONFIG.SPEED,
+        vy: Math.sin(angle) * ROCKET_CONFIG.SPEED,
+        rotation: angle,
+        damage,
+        ownerId,
+        targetId,
+        spawnTime: Date.now(),
+      };
+
+      const graphics = createRocketGraphics(spawnX, spawnY, angle);
+      cameraContainer.addChild(graphics);
+      
+      rockets.set(projectile.id, { graphics, projectile });
+    };
+
     const checkLaserHit = (laser: LaserProjectile, targetPos: { x: number; y: number }, targetRadius: number = 20): boolean => {
       const dx = laser.x - targetPos.x;
       const dy = laser.y - targetPos.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      return distance < targetRadius;
+    };
+
+    const checkRocketHit = (rocket: RocketProjectile, targetPos: { x: number; y: number }, targetRadius: number = 20): boolean => {
+      const dx = rocket.x - targetPos.x;
+      const dy = rocket.y - targetPos.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       return distance < targetRadius;
     };
@@ -238,7 +354,7 @@ export function CombatSystem({
       const currentEnemyState = enemyStateRef.current;
       const currentPlayerFiring = playerFiringRef.current;
 
-      // Player firing (only if ammo available)
+      // Player firing lasers (only if ammo available)
       if (currentPlayerFiring && currentEnemyState && currentEnemyState.isEngaged && laserAmmoRef.current > 0) {
         const timeSinceLastFire = (now - playerLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
@@ -256,6 +372,29 @@ export function CombatSystem({
           // Consume 1 ammo per shot
           onLaserAmmoConsumeRef.current?.();
           playerLastFireTimeRef.current = now;
+        }
+      }
+
+      // Player firing rockets (manual with SPACE key, only if ammo available)
+      if (playerFiringRocketRef.current && currentEnemyState && currentEnemyState.isEngaged && rocketAmmoRef.current > 0) {
+        const timeSinceLastRocketFire = (now - playerLastRocketFireTimeRef.current) / 1000;
+        if (timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
+          createRocket(
+            currentPlayerPos.x,
+            currentPlayerPos.y,
+            currentEnemyState.x,
+            currentEnemyState.y,
+            'player',
+            currentEnemyState.id,
+            ROCKET_CONFIG.DAMAGE,
+            currentEnemyState.vx,
+            currentEnemyState.vy
+          );
+          // Consume 1 ammo per shot
+          onRocketAmmoConsumeRef.current?.();
+          playerLastRocketFireTimeRef.current = now;
+          // Reset firing flag after rocket is fired
+          onRocketFiredRef.current?.();
         }
       }
 
@@ -328,6 +467,56 @@ export function CombatSystem({
           lasers.delete(id);
         }
       });
+
+      // Update all rockets
+      const rocketsToRemove: string[] = [];
+      
+      rockets.forEach(({ graphics, projectile }, id) => {
+        // Update projectile position
+        projectile.x += projectile.vx * delta;
+        projectile.y += projectile.vy * delta;
+        
+        // Update graphics position and rotation
+        graphics.x = projectile.x;
+        graphics.y = projectile.y;
+        graphics.rotation = projectile.rotation;
+
+        // Check timeout
+        if (now - projectile.spawnTime > ROCKET_CONFIG.TIMEOUT) {
+          rocketsToRemove.push(id);
+          return;
+        }
+
+        // Check collision - skip on first frame to avoid immediate hit
+        const age = now - projectile.spawnTime;
+        if (age < 50) {
+          return; // Skip collision check for first 50ms
+        }
+
+        if (projectile.targetId === 'player') {
+          if (checkRocketHit(projectile, currentPlayerPos)) {
+            const newHealth = Math.max(0, currentPlayerHealth - projectile.damage);
+            onPlayerHealthChangeRef.current?.(newHealth);
+            rocketsToRemove.push(id);
+          }
+        } else if (projectile.targetId === currentEnemyState?.id && currentEnemyState) {
+          if (checkRocketHit(projectile, { x: currentEnemyState.x, y: currentEnemyState.y })) {
+            const newHealth = Math.max(0, currentEnemyState.health - projectile.damage);
+            onEnemyHealthChangeRef.current?.(newHealth);
+            rocketsToRemove.push(id);
+          }
+        }
+      });
+
+      // Remove rockets
+      rocketsToRemove.forEach((id) => {
+        const rocketData = rockets.get(id);
+        if (rocketData) {
+          cameraContainer.removeChild(rocketData.graphics);
+          rocketData.graphics.destroy();
+          rockets.delete(id);
+        }
+      });
     };
 
     app.ticker.add(tickerCallback);
@@ -339,6 +528,11 @@ export function CombatSystem({
         graphics.destroy();
       });
       lasers.clear();
+      rockets.forEach(({ graphics }) => {
+        cameraContainer.removeChild(graphics);
+        graphics.destroy();
+      });
+      rockets.clear();
     };
   }, [app, cameraContainer]); // Only depend on app and cameraContainer
 

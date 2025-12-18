@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-interface LaserSlotProps {
+interface RocketSlotProps {
   slotNumber: number;
   ammo: number;
   onActionClick?: (key: number) => void;
@@ -23,7 +23,7 @@ const formatExactAmmo = (amount: number): string => {
   return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "'");
 };
 
-export function LaserSlot({ slotNumber, ammo, onActionClick }: LaserSlotProps) {
+export function RocketSlot({ slotNumber, ammo, onActionClick }: RocketSlotProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   const handleClick = () => {
@@ -43,15 +43,22 @@ export function LaserSlot({ slotNumber, ammo, onActionClick }: LaserSlotProps) {
         {/* Ammunition count display on top */}
         <span className="game-actionbar-ammo">{formatAmmo(ammo)}</span>
         
-        {/* Horizontal red laser icon */}
-        <div className="game-actionbar-laser-icon">
+        {/* Horizontal rocket icon */}
+        <div className="game-actionbar-rocket-icon">
           <svg width="24" height="8" viewBox="0 0 24 8" fill="none" xmlns="http://www.w3.org/2000/svg">
             {/* Outer glow */}
             <rect x="0" y="2" width="24" height="4" rx="2" fill="#ff0000" opacity="0.5" />
-            {/* Main laser beam */}
-            <rect x="0" y="3" width="24" height="2" rx="1" fill="#ff0000" />
+            {/* Main rocket body (cylindrical) */}
+            <rect x="2" y="2.5" width="16" height="3" rx="1.5" fill="#ff0000" />
             {/* Inner highlight */}
-            <rect x="0" y="3.5" width="24" height="1" rx="0.5" fill="#ff6666" />
+            <rect x="2" y="3" width="16" height="2" rx="1" fill="#ff6666" />
+            {/* Rocket nose cone (pointed front) */}
+            <path d="M18 1 L22 4 L18 7 Z" fill="#ff0000" />
+            {/* Rocket fins (at back) */}
+            <path d="M2 2.5 L0 0 L0 2.5 Z" fill="#cc0000" />
+            <path d="M2 5.5 L0 8 L0 5.5 Z" fill="#cc0000" />
+            {/* Rocket exhaust (small flame at back) */}
+            <rect x="0" y="3.5" width="2" height="1" fill="#ff8800" />
           </svg>
         </div>
         
@@ -62,7 +69,7 @@ export function LaserSlot({ slotNumber, ammo, onActionClick }: LaserSlotProps) {
       {/* Hover tooltip */}
       {isHovered && (
         <div className="game-actionbar-laser-tooltip">
-          <div className="game-actionbar-laser-tooltip-name">LC-10</div>
+          <div className="game-actionbar-laser-tooltip-name">RT-01</div>
           <div className="game-actionbar-laser-tooltip-amount">{formatExactAmmo(ammo)}</div>
         </div>
       )}
