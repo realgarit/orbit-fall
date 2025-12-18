@@ -16,6 +16,8 @@ interface WindowProps {
   minWidth?: number;
   minHeight?: number;
   borderGap?: number;
+  initialZIndex?: number;
+  fixed?: boolean; // If true, window cannot be moved or resized
 }
 
 export function Window({
@@ -33,23 +35,35 @@ export function Window({
   minWidth = 200,
   minHeight = 150,
   borderGap = 10,
+  initialZIndex,
+  fixed = false,
 }: WindowProps) {
   const { windows, registerWindow, updateWindow } = useWindowManager();
   const savedState = windows.get(id);
   
+  // For fixed windows, ignore savedState to ensure proper centering
   const [position, setPosition] = useState({ 
-    x: savedState?.x ?? initialX, 
-    y: savedState?.y ?? initialY 
+    x: fixed ? initialX : (savedState?.x ?? initialX), 
+    y: fixed ? initialY : (savedState?.y ?? initialY)
   });
   const [size, setSize] = useState({ 
-    width: savedState?.width ?? initialWidth, 
-    height: savedState?.height ?? initialHeight 
+    width: fixed ? initialWidth : (savedState?.width ?? initialWidth), 
+    height: fixed ? initialHeight : (savedState?.height ?? initialHeight)
   });
+
+  // For fixed windows, update position when initialX/initialY change (e.g., on window resize)
+  // This ensures fixed windows stay centered when the viewport changes
+  useEffect(() => {
+    if (fixed) {
+      setPosition({ x: initialX, y: initialY });
+      setSize({ width: initialWidth, height: initialHeight });
+    }
+  }, [fixed, initialX, initialY, initialWidth, initialHeight]);
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, width: 0, height: 0 });
-  const [zIndex, setZIndex] = useState(savedState?.zIndex ?? 1000);
+  const [zIndex, setZIndex] = useState(savedState?.zIndex ?? initialZIndex ?? 1000);
   const [minimized, setMinimized] = useState(savedState?.minimized ?? false);
   const windowRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
@@ -104,8 +118,10 @@ export function Window({
     };
   }, [borderGap]);
 
-  // Handle window resize
+  // Handle window resize (skip for fixed windows - they handle their own positioning)
   useEffect(() => {
+    if (fixed) return; // Fixed windows handle their own centering
+    
     const handleResize = () => {
       const constrained = constrainPosition(position.x, position.y, size.width, size.height);
       setPosition(constrained);
@@ -113,7 +129,7 @@ export function Window({
     
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [position, size, constrainPosition]);
+  }, [position, size, constrainPosition, fixed]);
 
   // Bring window to front on click
   const handleWindowClick = useCallback(() => {
@@ -123,6 +139,7 @@ export function Window({
 
   // Drag handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (fixed) return; // Don't allow dragging if fixed
     if (e.target !== headerRef.current && !headerRef.current?.contains(e.target as Node)) {
       return;
     }
@@ -137,7 +154,7 @@ export function Window({
       });
     }
     handleWindowClick();
-  }, [handleWindowClick]);
+  }, [handleWindowClick, fixed]);
 
   useEffect(() => {
     if (!isDragging) return;
@@ -164,6 +181,7 @@ export function Window({
 
   // Resize handlers
   const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+    if (fixed) return; // Don't allow resizing if fixed
     e.preventDefault();
     e.stopPropagation();
     setIsResizing(true);
@@ -177,7 +195,7 @@ export function Window({
       });
     }
     handleWindowClick();
-  }, [handleWindowClick]);
+  }, [handleWindowClick, fixed]);
 
   useEffect(() => {
     if (!isResizing) return;
@@ -262,7 +280,7 @@ export function Window({
         className="game-window-header"
         onMouseDown={handleMouseDown}
         style={{
-          cursor: isDragging ? 'grabbing' : 'grab',
+          cursor: fixed ? 'default' : (isDragging ? 'grabbing' : 'grab'),
           userSelect: 'none',
         }}
       >
@@ -270,43 +288,47 @@ export function Window({
           {icon && <span className="game-window-icon">{icon}</span>}
           <span className="game-window-title">{title}</span>
         </div>
-        <div className="game-window-controls">
-          <button
-            className="game-window-button minimize"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleMinimize();
-            }}
-            title="Minimize"
-          >
-            −
-          </button>
-          {onClose && (
+        {!fixed && (
+          <div className="game-window-controls">
             <button
-              className="game-window-button close"
+              className="game-window-button minimize"
               onClick={(e) => {
                 e.stopPropagation();
-                onClose(id);
+                handleMinimize();
               }}
-              title="Close"
+              title="Minimize"
             >
-              ×
+              −
             </button>
-          )}
-        </div>
+            {onClose && (
+              <button
+                className="game-window-button close"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose(id);
+                }}
+                title="Close"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Window Content */}
       <div className="game-window-content">{children}</div>
 
       {/* Resize Handle */}
-      <div
-        className="game-window-resize-handle"
-        onMouseDown={handleResizeMouseDown}
-        style={{
-          cursor: 'nwse-resize',
-        }}
-      />
+      {!fixed && (
+        <div
+          className="game-window-resize-handle"
+          onMouseDown={handleResizeMouseDown}
+          style={{
+            cursor: 'nwse-resize',
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -563,48 +563,32 @@
 }
 
 /* Death Window Styles */
-.death-window-content {
+.death-options-horizontal {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 8px;
-}
-
-.death-message {
-  text-align: center;
-  padding: 12px 0;
-}
-
-.death-message h2 {
-  color: #ef4444;
-  font-size: 18px;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-  text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
-}
-
-.death-message p {
-  color: #cbd5e1;
-  font-size: 13px;
-  margin: 0;
-}
-
-.death-options {
-  display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 12px;
+  width: 100%;
+}
+
+.death-options-horizontal .death-option-button {
+  flex: 1;
+  min-width: 0; /* Allow buttons to shrink if needed */
 }
 
 .death-option-button {
   width: 100%;
-  padding: 16px;
+  padding: 12px;
   background: linear-gradient(180deg, #1e3a8a 0%, #1e1b4b 100%);
   border: 2px solid #0ea5e9;
   border-radius: 4px;
   color: #e0e7ff;
   cursor: pointer;
   transition: all 0.2s ease;
-  text-align: left;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   box-shadow: 
     inset 0 1px 0 rgba(14, 165, 233, 0.3),
     0 2px 4px rgba(0, 0, 0, 0.5);
@@ -640,16 +624,20 @@
 }
 
 .death-option-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: #e0e7ff;
   margin-bottom: 6px;
+  font-family: 'Arial', sans-serif;
+  text-align: center;
 }
 
 .death-option-description {
   font-size: 11px;
   color: #94a3b8;
   line-height: 1.4;
+  font-family: 'Arial', sans-serif;
+  text-align: center;
 }
 
 .death-option-button.active .death-option-title {

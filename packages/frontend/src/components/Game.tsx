@@ -10,6 +10,7 @@ import { RepairRobot } from './RepairRobot';
 import { HPBar } from './HPBar';
 import { SelectionCircle } from './SelectionCircle';
 import { CombatSystem } from './CombatSystem';
+import { Shield } from './Shield';
 import { WindowManagerProvider } from '../hooks/useWindowManager';
 import { TopBar } from './windows/TopBar';
 import { ActionBar } from './windows/ActionBar';
@@ -18,6 +19,7 @@ import { BattleWindow } from './windows/BattleWindow';
 import { MinimapWindow } from './windows/MinimapWindow';
 import { SettingsWindow } from './windows/SettingsWindow';
 import { ShipWindow } from './windows/ShipWindow';
+import { DeathWindow } from './windows/DeathWindow';
 import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS } from '@shared/constants';
 import type { EnemyState } from '@shared/types';
 import '../styles/windows.css';
@@ -32,6 +34,14 @@ export function Game() {
   
   // Game state for Stats Window
   const [playerHealth, setPlayerHealth] = useState(PLAYER_STATS.MAX_HEALTH);
+  
+  // Death state
+  const [isDead, setIsDead] = useState(false);
+  const [deathPosition, setDeathPosition] = useState<{ x: number; y: number } | null>(null);
+  
+  // Insta-shield protection after revive
+  const [instaShieldActive, setInstaShieldActive] = useState(false);
+  const instaShieldEndTimeRef = useRef(0);
   
   // Laser ammunition state
   const [laserAmmo, setLaserAmmo] = useState(10000);
@@ -398,8 +408,8 @@ export function Game() {
           lastClickEnemyIdRef.current === enemyId;
         
         if (isDoubleClick) {
-          // Double-click: engage combat (but not if in safety zone)
-          if (!isInSafetyZone()) {
+          // Double-click: engage combat (but not if in safety zone or Insta-shield active)
+          if (!isInSafetyZone() && !instaShieldActive) {
             setInCombat(true);
             setPlayerFiring(true);
             setSelectedEnemyId(enemyId);
@@ -494,6 +504,11 @@ export function Game() {
   // Keyboard handler for ESC, "1" key, "2" key, and SPACE key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Block all keyboard input when dead
+      if (isDead) {
+        return;
+      }
+      
       if (e.key === 'Escape') {
         // ESC exits player combat state but does not pacify the enemy.
         // Enemy remains engaged and will continue firing
@@ -513,7 +528,7 @@ export function Game() {
         }
       } else if (e.key === '1' || e.key === 'Digit1') {
         // Press "1" to engage combat with selected enemy (same as double-click)
-        if (selectedEnemyId && enemies.has(selectedEnemyId) && !isInSafetyZone()) {
+        if (selectedEnemyId && enemies.has(selectedEnemyId) && !isInSafetyZone() && !instaShieldActive) {
           const enemy = enemies.get(selectedEnemyId);
           if (enemy && !deadEnemies.has(selectedEnemyId)) {
             setInCombat(true);
@@ -531,7 +546,7 @@ export function Game() {
         }
       } else if (e.key === '2' || e.key === 'Digit2') {
         // Press "2" to engage combat and fire rockets with selected enemy
-        if (selectedEnemyId && enemies.has(selectedEnemyId) && !isInSafetyZone()) {
+        if (selectedEnemyId && enemies.has(selectedEnemyId) && !isInSafetyZone() && !instaShieldActive) {
           const enemy = enemies.get(selectedEnemyId);
           if (enemy && !deadEnemies.has(selectedEnemyId)) {
             const now = Date.now();
@@ -555,7 +570,7 @@ export function Game() {
       } else if (e.key === ' ' || e.key === 'Space') {
         // SPACE key: engage combat and fire rocket immediately (if not in combat) or fire rocket (if already in combat)
         e.preventDefault(); // Prevent page scroll
-        if (selectedEnemyId && enemies.has(selectedEnemyId) && !isInSafetyZone()) {
+        if (selectedEnemyId && enemies.has(selectedEnemyId) && !isInSafetyZone() && !instaShieldActive) {
           const enemy = enemies.get(selectedEnemyId);
           if (enemy && !deadEnemies.has(selectedEnemyId)) {
             const now = Date.now();
@@ -589,7 +604,7 @@ export function Game() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedEnemyId, enemies, shipPosition, inCombat, rocketAmmo, deadEnemies]);
+  }, [selectedEnemyId, enemies, shipPosition, inCombat, rocketAmmo, deadEnemies, isDead, instaShieldActive]);
   
   // Update repair cooldown
   useEffect(() => {
@@ -623,6 +638,76 @@ export function Game() {
   const handleRepairHeal = (amount: number) => {
     setPlayerHealth((prev) => Math.min(PLAYER_STATS.MAX_HEALTH, prev + amount));
   };
+  
+  // Detect when player dies
+  useEffect(() => {
+    if (playerHealth <= 0 && !isDead) {
+      setIsDead(true);
+      setDeathPosition({ x: shipPosition.x, y: shipPosition.y });
+      // Stop all combat and movement
+      setInCombat(false);
+      setPlayerFiring(false);
+      setPlayerFiringRocket(false);
+      setTargetPosition(null);
+      // Clear any selected enemy
+      setSelectedEnemyId(null);
+    }
+  }, [playerHealth, isDead, shipPosition]);
+  
+  // Handle repair on the spot
+  const handleRepairOnSpot = () => {
+    if (deathPosition) {
+      // Restore 10% of base HP
+      const restoredHealth = Math.floor(PLAYER_STATS.MAX_HEALTH * 0.1);
+      setPlayerHealth(restoredHealth);
+      setIsDead(false);
+      
+      // Activate Insta-shield for 10 seconds
+      const shieldDuration = 10000; // 10 seconds in milliseconds
+      const endTime = Date.now() + shieldDuration;
+      instaShieldEndTimeRef.current = endTime;
+      setInstaShieldActive(true);
+      
+      // Clear all aggressions - set all enemies to not engaged
+      setEnemies((prev) => {
+        const next = new Map(prev);
+        prev.forEach((enemy, enemyId) => {
+          if (enemy.health > 0 && !deadEnemies.has(enemyId)) {
+            next.set(enemyId, { ...enemy, isEngaged: false });
+          }
+        });
+        return next;
+      });
+      
+      // Clear all combat states
+      setInCombat(false);
+      setPlayerFiring(false);
+      setPlayerFiringRocket(false);
+      setSelectedEnemyId(null);
+      inCombatRef.current = false;
+      
+      // Return to death position
+      // Note: We can't directly set ship position, but we can set a target
+      // The ship will auto-fly there
+      setTargetPosition(deathPosition);
+      setDeathPosition(null);
+    }
+  };
+  
+  // Handle Insta-shield expiration
+  useEffect(() => {
+    if (!instaShieldActive) return;
+    
+    const checkShield = () => {
+      const now = Date.now();
+      if (now >= instaShieldEndTimeRef.current) {
+        setInstaShieldActive(false);
+      }
+    };
+    
+    const interval = setInterval(checkShield, 100);
+    return () => clearInterval(interval);
+  }, [instaShieldActive]);
   
   // Cancel repair when entering combat or when any enemy becomes aggressive
   useEffect(() => {
@@ -658,8 +743,24 @@ export function Game() {
           overflow: 'hidden',
           margin: 0,
           padding: 0,
+          position: 'relative',
         }}
       >
+        {/* Death Overlay - darkened screen that blocks interactions */}
+        {isDead && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: 'rgba(0, 0, 0, 0.75)',
+              zIndex: 5000,
+              pointerEvents: 'auto',
+            }}
+          />
+        )}
         <TopBar />
         <ActionBar 
           laserAmmo={laserAmmo} 
@@ -740,6 +841,15 @@ export function Game() {
               maxHealth={PLAYER_STATS.MAX_HEALTH}
               visible={true}
             />
+            {/* Insta-Shield Visual Effect */}
+            {instaShieldActive && (
+              <Shield
+                app={app}
+                cameraContainer={cameraContainer}
+                position={shipPosition}
+                active={instaShieldActive}
+              />
+            )}
             {/* Enemy Selection Circle and HP Bar (HP bar must be after circle for z-order) */}
             {selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId) && enemyPositions.has(selectedEnemyId) && (() => {
               const enemy = enemies.get(selectedEnemyId);
@@ -799,6 +909,7 @@ export function Game() {
                       playerLastRocketFireTimeRef.current = Date.now();
                     }
                   }}
+                  instaShieldActive={instaShieldActive}
                 />
               ))}
             {/* Safety Zone Message */}
@@ -873,6 +984,12 @@ export function Game() {
               basePosition={basePosition}
             />
             <SettingsWindow />
+            {/* Death Window - shown when player is dead */}
+            {isDead && (
+              <DeathWindow
+                onRepairOnSpot={handleRepairOnSpot}
+              />
+            )}
           </>
         )}
       </div>

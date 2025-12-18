@@ -22,6 +22,7 @@ interface CombatSystemProps {
   onRocketAmmoConsume?: () => void;
   playerFiringRocket?: boolean;
   onRocketFired?: () => void;
+  instaShieldActive?: boolean;
 }
 
 interface LaserData {
@@ -57,6 +58,7 @@ export function CombatSystem({
   onRocketAmmoConsume,
   playerFiringRocket = false,
   onRocketFired,
+  instaShieldActive = false,
 }: CombatSystemProps) {
   const lasersRef = useRef<Map<string, LaserData>>(new Map());
   const rocketsRef = useRef<Map<string, RocketData>>(new Map());
@@ -82,6 +84,7 @@ export function CombatSystem({
   const onRocketAmmoConsumeRef = useRef(onRocketAmmoConsume);
   const playerFiringRocketRef = useRef(playerFiringRocket);
   const onRocketFiredRef = useRef(onRocketFired);
+  const instaShieldActiveRef = useRef(instaShieldActive);
 
   // Update refs when props change
   useEffect(() => {
@@ -143,6 +146,10 @@ export function CombatSystem({
   useEffect(() => {
     onRocketFiredRef.current = onRocketFired;
   }, [onRocketFired]);
+
+  useEffect(() => {
+    instaShieldActiveRef.current = instaShieldActive;
+  }, [instaShieldActive]);
 
   // Initialize enemy fire time when combat starts
   useEffect(() => {
@@ -532,8 +539,8 @@ export function CombatSystem({
         }
       }
 
-      // Enemy firing (disabled in safety zone and if enemy is dead)
-      if (currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && !isInSafetyZoneRef.current) {
+      // Enemy firing (disabled in safety zone, if enemy is dead, or if Insta-shield is active)
+      if (currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && !isInSafetyZoneRef.current && !instaShieldActiveRef.current) {
         const timeSinceLastFire = (now - enemyLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
           createLaser(
@@ -589,8 +596,12 @@ export function CombatSystem({
         // Use line-segment collision detection for accurate hits
         if (projectile.targetId === 'player') {
           if (checkLaserHitLineSegment(prevX, prevY, projectile.x, projectile.y, currentPlayerPos.x, currentPlayerPos.y)) {
-            const newHealth = Math.max(0, currentPlayerHealth - projectile.damage);
-            onPlayerHealthChangeRef.current?.(newHealth);
+            // Check if Insta-shield is active - if so, block damage
+            if (!instaShieldActiveRef.current) {
+              const newHealth = Math.max(0, currentPlayerHealth - projectile.damage);
+              onPlayerHealthChangeRef.current?.(newHealth);
+            }
+            // Always remove laser on hit (shield blocks damage but laser still hits)
             onLaserHitRef.current?.(projectile);
             lasersToRemove.push(id);
           } else {
@@ -665,8 +676,12 @@ export function CombatSystem({
         // Use line-segment collision detection for accurate hits
         if (projectile.targetId === 'player') {
           if (checkLaserHitLineSegment(prevX, prevY, projectile.x, projectile.y, currentPlayerPos.x, currentPlayerPos.y)) {
-            const newHealth = Math.max(0, currentPlayerHealth - projectile.damage);
-            onPlayerHealthChangeRef.current?.(newHealth);
+            // Check if Insta-shield is active - if so, block damage
+            if (!instaShieldActiveRef.current) {
+              const newHealth = Math.max(0, currentPlayerHealth - projectile.damage);
+              onPlayerHealthChangeRef.current?.(newHealth);
+            }
+            // Always remove rocket on hit (shield blocks damage but rocket still hits)
             rocketsToRemove.push(id);
           } else {
             // Update previous position for next frame

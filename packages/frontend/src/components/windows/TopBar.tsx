@@ -1,5 +1,6 @@
 import React from 'react';
 import { useWindowManager } from '../../hooks/useWindowManager';
+import { DeathIcon } from './DeathWindow';
 
 interface TopBarProps {
   windowIcons?: Map<string, React.ReactNode>;
@@ -69,6 +70,7 @@ const defaultIcons = new Map<string, React.ReactNode>([
   ['battle-window', <BattleIcon key="battle-icon" />],
   ['settings-window', <SettingsIcon key="settings-icon" />],
   ['ship-window', <ShipIcon key="ship-icon" />],
+  ['death-window', <DeathIcon key="death-icon" />],
 ]);
 
 export function TopBar({ windowIcons = new Map() }: TopBarProps) {
