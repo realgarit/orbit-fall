@@ -43,8 +43,9 @@ const BattleIcon = () => (
 const SettingsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
-      d="M8 1L9.5 3.5L12.5 3L13 5.5L15 6.5L13 7.5L12.5 10L9.5 9.5L8 12L6.5 9.5L3.5 10L3 7.5L1 6.5L3 5.5L3.5 3L6.5 3.5L8 1Z"
+      d="M8 0.5L9.5 3L12.5 2.5L13 5L15 6L13 7L12.5 10L9.5 9.5L8 12L6.5 9.5L3.5 10L3 7L1 6L3 5L3.5 2.5L6.5 3L8 0.5ZM8 4.5C6.1 4.5 4.5 6.1 4.5 8C4.5 9.9 6.1 11.5 8 11.5C9.9 11.5 11.5 9.9 11.5 8C11.5 6.1 9.9 4.5 8 4.5Z"
       fill="currentColor"
+      fillRule="evenodd"
     />
   </svg>
 );
