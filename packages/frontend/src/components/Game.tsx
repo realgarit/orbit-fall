@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Application, Container } from 'pixi.js';
 import { usePixiApp } from '../hooks/usePixiApp';
 import { Starfield } from './Starfield';
+import { MarsBackground } from './MarsBackground';
 import { Ship } from './Ship';
 import { Enemy } from './Enemy';
 import { Base } from './Base';
@@ -30,6 +31,14 @@ export function Game() {
   
   // Game state for Stats Window
   const [playerHealth, setPlayerHealth] = useState(PLAYER_STATS.MAX_HEALTH);
+  
+  // Laser ammunition state
+  const [laserAmmo, setLaserAmmo] = useState(10000);
+  
+  // Handle laser ammunition consumption
+  const handleLaserAmmoConsume = () => {
+    setLaserAmmo((prev) => Math.max(0, prev - 1));
+  };
   
   // Enemy state
   const [enemyState, setEnemyState] = useState<EnemyState | null>(null);
@@ -265,9 +274,10 @@ export function Game() {
         }}
       >
         <TopBar />
-        <ActionBar />
+        <ActionBar laserAmmo={laserAmmo} />
         {app && cameraContainer && (
           <>
+            <MarsBackground app={app} cameraContainer={cameraContainer} />
             <Starfield app={app} cameraContainer={cameraContainer} />
             <Base
               app={app}
@@ -336,6 +346,8 @@ export function Game() {
                 onPlayerHealthChange={setPlayerHealth}
                 onEnemyHealthChange={handleEnemyHealthChange}
                 isInSafetyZone={inSafetyZone}
+                laserAmmo={laserAmmo}
+                onLaserAmmoConsume={handleLaserAmmoConsume}
               />
             )}
             {/* Safety Zone Message */}

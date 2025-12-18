@@ -16,6 +16,8 @@ interface CombatSystemProps {
   onEnemyHealthChange: (health: number) => void;
   onLaserHit?: (laser: LaserProjectile) => void;
   isInSafetyZone?: boolean;
+  laserAmmo?: number;
+  onLaserAmmoConsume?: () => void;
 }
 
 interface LaserData {
@@ -36,6 +38,8 @@ export function CombatSystem({
   onEnemyHealthChange,
   onLaserHit,
   isInSafetyZone = false,
+  laserAmmo = 0,
+  onLaserAmmoConsume,
 }: CombatSystemProps) {
   const lasersRef = useRef<Map<string, LaserData>>(new Map());
   const playerLastFireTimeRef = useRef(0);
@@ -52,6 +56,8 @@ export function CombatSystem({
   const onEnemyHealthChangeRef = useRef(onEnemyHealthChange);
   const onLaserHitRef = useRef(onLaserHit);
   const isInSafetyZoneRef = useRef(isInSafetyZone);
+  const laserAmmoRef = useRef(laserAmmo);
+  const onLaserAmmoConsumeRef = useRef(onLaserAmmoConsume);
 
   // Update refs when props change
   useEffect(() => {
@@ -89,6 +95,14 @@ export function CombatSystem({
   useEffect(() => {
     isInSafetyZoneRef.current = isInSafetyZone;
   }, [isInSafetyZone]);
+
+  useEffect(() => {
+    laserAmmoRef.current = laserAmmo;
+  }, [laserAmmo]);
+
+  useEffect(() => {
+    onLaserAmmoConsumeRef.current = onLaserAmmoConsume;
+  }, [onLaserAmmoConsume]);
 
   // Initialize enemy fire time when combat starts
   useEffect(() => {
@@ -224,8 +238,8 @@ export function CombatSystem({
       const currentEnemyState = enemyStateRef.current;
       const currentPlayerFiring = playerFiringRef.current;
 
-      // Player firing
-      if (currentPlayerFiring && currentEnemyState && currentEnemyState.isEngaged) {
+      // Player firing (only if ammo available)
+      if (currentPlayerFiring && currentEnemyState && currentEnemyState.isEngaged && laserAmmoRef.current > 0) {
         const timeSinceLastFire = (now - playerLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
           createLaser(
@@ -239,6 +253,8 @@ export function CombatSystem({
             currentEnemyState.vx,
             currentEnemyState.vy
           );
+          // Consume 1 ammo per shot
+          onLaserAmmoConsumeRef.current?.();
           playerLastFireTimeRef.current = now;
         }
       }

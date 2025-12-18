@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Window } from './Window';
 import { useWindowManager } from '../../hooks/useWindowManager';
 import { MAP_WIDTH, MAP_HEIGHT, COORDINATE_SCALE } from '@shared/constants';
+import { generateMarsBackgroundCanvas } from '../../utils/marsBackgroundCanvas';
 
 interface MinimapWindowProps {
   playerPosition: { x: number; y: number };
@@ -32,7 +33,18 @@ export function MinimapWindow({
   const { minimizeWindow, restoreWindow, resetWindow, windows } = useWindowManager();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [marsBackgroundImage, setMarsBackgroundImage] = useState<HTMLImageElement | null>(null);
   
+  // Generate Mars background image once
+  useEffect(() => {
+    const marsCanvas = generateMarsBackgroundCanvas();
+    const img = new Image();
+    img.onload = () => {
+      setMarsBackgroundImage(img);
+    };
+    img.src = marsCanvas.toDataURL('image/jpeg', 0.8);
+  }, []);
+
   // Reset minimap window if it's off-screen or missing
   useEffect(() => {
     const savedState = windows.get(windowId);
@@ -82,9 +94,14 @@ export function MinimapWindow({
     // Clear
     ctx.clearRect(0, 0, width, height);
 
-    // Black background
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, width, height);
+    // Draw Mars background if available
+    if (marsBackgroundImage && marsBackgroundImage.complete) {
+      ctx.drawImage(marsBackgroundImage, 0, 0, MAP_WIDTH, MAP_HEIGHT, 0, 0, width, height);
+    } else {
+      // Fallback: black background
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, width, height);
+    }
 
     // Border
     ctx.strokeStyle = '#0ea5e9';
@@ -203,11 +220,11 @@ export function MinimapWindow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Redraw when player / target / enemy / base changes
+  // Redraw when player / target / enemy / base changes, or when Mars background loads
   useEffect(() => {
     drawMinimap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y, enemyPosition?.x, enemyPosition?.y, basePosition?.x, basePosition?.y]);
+  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y, enemyPosition?.x, enemyPosition?.y, basePosition?.x, basePosition?.y, marsBackgroundImage]);
 
   // Mouse down: start drag + set target
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
