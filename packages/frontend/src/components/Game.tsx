@@ -297,6 +297,7 @@ export function Game() {
                 app={app}
                 cameraContainer={cameraContainer}
                 playerPosition={shipPosition}
+                playerVelocity={shipVelocity}
                 playerRotation={shipRotation}
                 playerHealth={playerHealth}
                 enemyState={enemyState}

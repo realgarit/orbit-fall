@@ -7,6 +7,7 @@ interface CombatSystemProps {
   app: Application;
   cameraContainer: Container;
   playerPosition: { x: number; y: number };
+  playerVelocity: { vx: number; vy: number };
   playerRotation: number;
   playerHealth: number;
   enemyState: EnemyState | null;
@@ -25,6 +26,7 @@ export function CombatSystem({
   app,
   cameraContainer,
   playerPosition,
+  playerVelocity,
   playerRotation,
   playerHealth,
   enemyState,
@@ -40,6 +42,7 @@ export function CombatSystem({
   
   // Use refs to avoid recreating ticker on every prop change
   const playerPositionRef = useRef(playerPosition);
+  const playerVelocityRef = useRef(playerVelocity);
   const playerHealthRef = useRef(playerHealth);
   const enemyStateRef = useRef(enemyState);
   const playerFiringRef = useRef(playerFiring);
@@ -51,6 +54,10 @@ export function CombatSystem({
   useEffect(() => {
     playerPositionRef.current = playerPosition;
   }, [playerPosition]);
+
+  useEffect(() => {
+    playerVelocityRef.current = playerVelocity;
+  }, [playerVelocity]);
 
   useEffect(() => {
     playerHealthRef.current = playerHealth;
@@ -108,6 +115,46 @@ export function CombatSystem({
       return graphics;
     };
 
+    /**
+     * Predicts where a moving target will be when a laser fired from the source reaches it.
+     * Uses iterative approach to solve the intercept problem.
+     */
+    const predictTargetPosition = (
+      fromX: number,
+      fromY: number,
+      targetX: number,
+      targetY: number,
+      targetVx: number,
+      targetVy: number
+    ): { x: number; y: number } => {
+      // If target is stationary, return current position
+      if (Math.abs(targetVx) < 0.01 && Math.abs(targetVy) < 0.01) {
+        return { x: targetX, y: targetY };
+      }
+
+      // Iterative prediction: start with current position, refine based on time to intercept
+      let predictedX = targetX;
+      let predictedY = targetY;
+      
+      // Use a few iterations to converge on the intercept point
+      for (let i = 0; i < 5; i++) {
+        const dx = predictedX - fromX;
+        const dy = predictedY - fromY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 1) break; // Too close, use current prediction
+        
+        // Calculate time to reach predicted position (in frames, since LASER_SPEED is per frame)
+        const timeToReach = distance / COMBAT_CONFIG.LASER_SPEED;
+        
+        // Predict where target will be at that time
+        predictedX = targetX + targetVx * timeToReach;
+        predictedY = targetY + targetVy * timeToReach;
+      }
+      
+      return { x: predictedX, y: predictedY };
+    };
+
     const createLaser = (
       fromX: number,
       fromY: number,
@@ -115,10 +162,15 @@ export function CombatSystem({
       toY: number,
       ownerId: string,
       targetId: string,
-      damage: number
+      damage: number,
+      targetVx: number = 0,
+      targetVy: number = 0
     ): void => {
-      const dx = toX - fromX;
-      const dy = toY - fromY;
+      // Predict where target will be when laser arrives
+      const predictedTarget = predictTargetPosition(fromX, fromY, toX, toY, targetVx, targetVy);
+      
+      const dx = predictedTarget.x - fromX;
+      const dy = predictedTarget.y - fromY;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
       if (distance < 1) return; // Don't create laser if target is too close
@@ -160,6 +212,7 @@ export function CombatSystem({
       const delta = app.ticker.deltaTime;
       
       const currentPlayerPos = playerPositionRef.current;
+      const currentPlayerVel = playerVelocityRef.current;
       const currentPlayerHealth = playerHealthRef.current;
       const currentEnemyState = enemyStateRef.current;
       const currentPlayerFiring = playerFiringRef.current;
@@ -175,7 +228,9 @@ export function CombatSystem({
             currentEnemyState.y,
             'player',
             currentEnemyState.id,
-            PLAYER_STATS.DAMAGE
+            PLAYER_STATS.DAMAGE,
+            currentEnemyState.vx,
+            currentEnemyState.vy
           );
           playerLastFireTimeRef.current = now;
         }
@@ -192,7 +247,9 @@ export function CombatSystem({
             currentPlayerPos.y,
             currentEnemyState.id,
             'player',
-            ENEMY_STATS.DRIFTER.DAMAGE
+            ENEMY_STATS.DRIFTER.DAMAGE,
+            currentPlayerVel.vx,
+            currentPlayerVel.vy
           );
           enemyLastFireTimeRef.current = now;
         }
