@@ -55,12 +55,9 @@ const SettingsIcon = () => (
 // Default icon for ship window
 const ShipIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    {/* Simple spaceship: triangle pointing up with small base */}
     <path
-      d="M8 2L6 4H4L3 5V7L2 8L3 9V11L4 12H6L8 14L10 12H12L13 11V9L14 8L13 7V5L12 4H10L8 2Z"
-      fill="currentColor"
-    />
-    <path
-      d="M8 6L7 7V9L8 10L9 9V7L8 6Z"
+      d="M8 2L4 12H6L8 10L10 12H12L8 2Z"
       fill="currentColor"
     />
   </svg>
