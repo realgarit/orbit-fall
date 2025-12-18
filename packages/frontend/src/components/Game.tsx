@@ -85,12 +85,13 @@ export function Game() {
   const [enemies, setEnemies] = useState<Map<string, EnemyState>>(new Map());
   const [enemyPositions, setEnemyPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
   const [deadEnemies, setDeadEnemies] = useState<Set<string>>(new Set());
-  const [, setEnemyRespawnTimers] = useState<Map<string, number>>(new Map());
   
   // Refs to access latest state in callbacks (avoid stale closures)
   const enemiesRef = useRef(enemies);
   const enemyPositionsRef = useRef(enemyPositions);
   const deadEnemiesRef = useRef(deadEnemies);
+  const enemyRespawnTimersRef = useRef<Map<string, number>>(new Map());
+  const shipPositionRef = useRef(shipPosition);
   
   // Keep refs in sync with state
   useEffect(() => {
@@ -104,6 +105,10 @@ export function Game() {
   useEffect(() => {
     deadEnemiesRef.current = deadEnemies;
   }, [deadEnemies]);
+  
+  useEffect(() => {
+    shipPositionRef.current = shipPosition;
+  }, [shipPosition]);
   
   // Selection and combat state
   const [selectedEnemyId, setSelectedEnemyId] = useState<string | null>(null);
@@ -276,7 +281,7 @@ export function Game() {
     });
     
     // Check if enemy died
-    if (state.health <= 0 && !deadEnemies.has(enemyId)) {
+    if (state.health <= 0 && !deadEnemiesRef.current.has(enemyId)) {
       // Get dead enemy's last position before removing it
       const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
       
@@ -324,11 +329,8 @@ export function Game() {
         });
       }
       // Schedule respawn after 3 seconds
-      setEnemyRespawnTimers((prev) => {
-        const next = new Map(prev);
-        next.set(enemyId, Date.now() + 3000);
-        return next;
-      });
+      const respawnTime = Date.now() + 3000;
+      enemyRespawnTimersRef.current.set(enemyId, respawnTime);
     }
   };
 
@@ -358,7 +360,55 @@ export function Game() {
       const enemy = prev.get(enemyId);
       if (enemy) {
         const next = new Map(prev);
-        next.set(enemyId, { ...enemy, health });
+        const updatedEnemy = { ...enemy, health };
+        next.set(enemyId, updatedEnemy);
+        
+        // Check if enemy died (health <= 0 and not already marked as dead)
+        if (health <= 0 && !deadEnemiesRef.current.has(enemyId)) {
+          // Get dead enemy's last position before removing it
+          const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
+          
+          // Add message for enemy killed
+          addMessage('Enemy destroyed!', 'combat');
+          
+          // Remove position first to ensure enemyPosition prop becomes null immediately
+          setEnemyPositions((prevPos) => {
+            const nextPos = new Map(prevPos);
+            nextPos.delete(enemyId);
+            return nextPos;
+          });
+          
+          setDeadEnemies((prevDead) => new Set(prevDead).add(enemyId));
+          
+          // Clear enemy's engagement state
+          next.set(enemyId, { ...updatedEnemy, isEngaged: false });
+          
+          // Clear selection and combat if this was the selected enemy
+          if (selectedEnemyIdRef.current === enemyId) {
+            setInCombat(false);
+            setPlayerFiring(false);
+            setPlayerFiringRocket(false);
+            inCombatRef.current = false;
+            setSelectedEnemyId(null);
+            setTargetPosition(null);
+          }
+          
+          // Clear targetPosition if it's near where the dead enemy was
+          if (deadEnemyLastPos) {
+            setTargetPosition((currentTarget) => {
+              if (!currentTarget) return null;
+              const dx = currentTarget.x - deadEnemyLastPos.x;
+              const dy = currentTarget.y - deadEnemyLastPos.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              return distance < 100 ? null : currentTarget;
+            });
+          }
+          
+          // Schedule respawn after 3 seconds
+          const respawnTime = Date.now() + 3000;
+          enemyRespawnTimersRef.current.set(enemyId, respawnTime);
+        }
+        
         return next;
       }
       return prev;
@@ -369,58 +419,69 @@ export function Game() {
   useEffect(() => {
     const checkRespawns = () => {
       const now = Date.now();
-      setEnemyRespawnTimers((prevTimers) => {
-        const next = new Map(prevTimers);
-        const toRespawn: string[] = [];
+      const timers = enemyRespawnTimersRef.current;
+      const toRespawn: string[] = [];
+      
+      timers.forEach((respawnTime, enemyId) => {
+        if (now >= respawnTime) {
+          toRespawn.push(enemyId);
+          timers.delete(enemyId);
+        }
+      });
+      
+      if (toRespawn.length > 0) {
+        addMessage(`${toRespawn.length} Drifter${toRespawn.length > 1 ? 's' : ''} respawned`, 'warning');
         
-        prevTimers.forEach((respawnTime, enemyId) => {
-          if (now >= respawnTime) {
-            toRespawn.push(enemyId);
-            next.delete(enemyId);
-          }
+        // Remove from deadEnemies and update ref immediately
+        setDeadEnemies((dead) => {
+          const nextDead = new Set(dead);
+          toRespawn.forEach((id) => nextDead.delete(id));
+          return nextDead;
+        });
+        // Update ref immediately so handleEnemyPositionUpdate works right away
+        toRespawn.forEach((id) => {
+          deadEnemiesRef.current.delete(id);
         });
         
-        if (toRespawn.length > 0) {
-          addMessage(`Enemy respawned`, 'warning');
-          setDeadEnemies((dead) => {
-            const nextDead = new Set(dead);
-            toRespawn.forEach((id) => nextDead.delete(id));
-            return nextDead;
-          });
-          
-          setEnemies((prevEnemies) => {
-            const nextEnemies = new Map(prevEnemies);
-            toRespawn.forEach((enemyId) => {
-              const angle = Math.random() * Math.PI * 2;
-              const distance = 200 + Math.random() * 200;
-              const spawnX = shipPosition.x + Math.cos(angle) * distance;
-              const spawnY = shipPosition.y + Math.sin(angle) * distance;
-              
-              nextEnemies.set(enemyId, {
-                id: enemyId,
-                name: ENEMY_STATS.DRIFTER.NAME,
-                x: Math.max(0, Math.min(MAP_WIDTH, spawnX)),
-                y: Math.max(0, Math.min(MAP_HEIGHT, spawnY)),
-                vx: 0,
-                vy: 0,
-                health: ENEMY_STATS.DRIFTER.MAX_HEALTH,
-                maxHealth: ENEMY_STATS.DRIFTER.MAX_HEALTH,
-                rotation: 0,
-                isEngaged: false,
-                lastFireTime: 0,
-              });
+        setEnemies((prevEnemies) => {
+          const nextEnemies = new Map(prevEnemies);
+          toRespawn.forEach((enemyId) => {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 200 + Math.random() * 200;
+            const currentShipPos = shipPositionRef.current;
+            const spawnX = currentShipPos.x + Math.cos(angle) * distance;
+            const spawnY = currentShipPos.y + Math.sin(angle) * distance;
+            
+            const newEnemyState = {
+              id: enemyId,
+              name: ENEMY_STATS.DRIFTER.NAME,
+              x: Math.max(0, Math.min(MAP_WIDTH, spawnX)),
+              y: Math.max(0, Math.min(MAP_HEIGHT, spawnY)),
+              vx: 0,
+              vy: 0,
+              health: ENEMY_STATS.DRIFTER.MAX_HEALTH,
+              maxHealth: ENEMY_STATS.DRIFTER.MAX_HEALTH,
+              rotation: 0,
+              isEngaged: false,
+              lastFireTime: 0,
+            };
+            nextEnemies.set(enemyId, newEnemyState);
+            
+            // Also update position immediately so Enemy component can use it
+            setEnemyPositions((prev) => {
+              const next = new Map(prev);
+              next.set(enemyId, { x: newEnemyState.x, y: newEnemyState.y });
+              return next;
             });
-            return nextEnemies;
           });
-        }
-        
-        return next;
-      });
+          return nextEnemies;
+        });
+      }
     };
     
     const interval = setInterval(checkRespawns, 100);
     return () => clearInterval(interval);
-  }, [shipPosition, addMessage]);
+  }, [addMessage]);
 
   // Handle enemy click detection (called from Ship component)
   // Use refs to access latest state and avoid stale closures
@@ -868,7 +929,7 @@ export function Game() {
               targetPosition={targetPosition}
               onTargetReached={handleTargetReached}
               onEnemyClick={handleEnemyClick}
-              inCombat={inCombat && selectedEnemyId && !deadEnemies.has(selectedEnemyId)}
+              inCombat={!!(inCombat && selectedEnemyId && !deadEnemies.has(selectedEnemyId))}
               enemyPosition={(() => {
                 if (!selectedEnemyId || deadEnemies.has(selectedEnemyId)) {
                   return null;
@@ -948,7 +1009,7 @@ export function Game() {
                     cameraContainer={cameraContainer}
                     position={enemyPos}
                     selected={true}
-                    inCombat={inCombat && selectedEnemyId && !deadEnemies.has(selectedEnemyId)}
+                    inCombat={!!(inCombat && selectedEnemyId && !deadEnemies.has(selectedEnemyId))}
                   />
                   <HPBar
                     app={app}
@@ -1001,7 +1062,7 @@ export function Game() {
               <div
                 style={{
                   position: 'fixed',
-                  top: '175px', // Middle between top bar (ends ~42px) and HP bar area (~120px)
+                  top: '190px', // Middle between top bar (ends ~42px) and HP bar area (~120px)
                   left: '50%',
                   transform: 'translateX(-50%)',
                   color: '#ffffff',
