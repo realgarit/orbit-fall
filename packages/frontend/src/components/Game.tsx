@@ -376,6 +376,9 @@ export function Game() {
 
   // Handle enemy health change
   const handleEnemyHealthChange = (enemyId: string, health: number) => {
+    // Check if enemy died before updating state
+    const enemyDied = health <= 0 && !deadEnemiesRef.current.has(enemyId);
+    
     setEnemies((prev) => {
       const enemy = prev.get(enemyId);
       if (enemy) {
@@ -383,77 +386,80 @@ export function Game() {
         const updatedEnemy = { ...enemy, health };
         next.set(enemyId, updatedEnemy);
         
-        // Check if enemy died (health <= 0 and not already marked as dead)
-        if (health <= 0 && !deadEnemiesRef.current.has(enemyId)) {
-          // Mark as dead immediately to prevent duplicate messages if called multiple times
-          deadEnemiesRef.current.add(enemyId);
-          
-          // Get dead enemy's last position before removing it
-          const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
-          
-          // Award rewards
-          const reward = ENEMY_STATS.DRIFTER.REWARD;
-          setPlayerExperience((prevExp) => {
-            const newExp = prevExp + reward.experience;
-            // Check for level up
-            const newLevel = getLevelFromExp(newExp);
-            if (newLevel > playerLevel) {
-              queueMicrotask(() => addMessage(`Level up! You are now level ${newLevel}!`, 'success'));
-            }
-            return newExp;
-          });
-          setPlayerCredits((prev) => prev + reward.credits);
-          setPlayerHonor((prev) => prev + reward.honor);
-          setPlayerAetherium((prev) => prev + reward.aetherium);
-          
-          // Defer message to avoid updating state during render
-          queueMicrotask(() => addMessage(
-            `Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits, +${reward.honor} Honor, +${reward.aetherium} Aetherium`,
-            'combat'
-          ));
-          
-          // Remove position first to ensure enemyPosition prop becomes null immediately
-          setEnemyPositions((prevPos) => {
-            const nextPos = new Map(prevPos);
-            nextPos.delete(enemyId);
-            return nextPos;
-          });
-          
-          setDeadEnemies((prevDead) => new Set(prevDead).add(enemyId));
-          
-          // Clear enemy's engagement state
+        // If enemy died, clear engagement state
+        if (enemyDied) {
           next.set(enemyId, { ...updatedEnemy, isEngaged: false });
-          
-          // Clear selection and combat if this was the selected enemy
-          if (selectedEnemyIdRef.current === enemyId) {
-            setInCombat(false);
-            setPlayerFiring(false);
-            setPlayerFiringRocket(false);
-            inCombatRef.current = false;
-            setSelectedEnemyId(null);
-            setTargetPosition(null);
-          }
-          
-          // Clear targetPosition if it's near where the dead enemy was
-          if (deadEnemyLastPos) {
-            setTargetPosition((currentTarget) => {
-              if (!currentTarget) return null;
-              const dx = currentTarget.x - deadEnemyLastPos.x;
-              const dy = currentTarget.y - deadEnemyLastPos.y;
-              const distance = Math.sqrt(dx * dx + dy * dy);
-              return distance < 100 ? null : currentTarget;
-            });
-          }
-          
-          // Schedule respawn after 3 seconds
-          const respawnTime = Date.now() + 3000;
-          enemyRespawnTimersRef.current.set(enemyId, respawnTime);
         }
         
         return next;
       }
       return prev;
     });
+    
+    // Handle enemy death rewards and cleanup outside of setEnemies callback
+    if (enemyDied) {
+      // Mark as dead immediately to prevent duplicate messages if called multiple times
+      deadEnemiesRef.current.add(enemyId);
+      
+      // Get dead enemy's last position before removing it
+      const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
+      
+      // Award rewards - moved outside setEnemies to ensure proper state updates
+      const reward = ENEMY_STATS.DRIFTER.REWARD;
+      setPlayerExperience((prevExp) => {
+        const newExp = prevExp + reward.experience;
+        // Check for level up
+        const oldLevel = getLevelFromExp(prevExp);
+        const newLevel = getLevelFromExp(newExp);
+        if (newLevel > oldLevel) {
+          queueMicrotask(() => addMessage(`Level up! You are now level ${newLevel}!`, 'success'));
+        }
+        return newExp;
+      });
+      setPlayerCredits((prev) => prev + reward.credits);
+      setPlayerHonor((prev) => prev + reward.honor);
+      setPlayerAetherium((prev) => prev + reward.aetherium);
+      
+      // Defer message to avoid updating state during render
+      queueMicrotask(() => addMessage(
+        `Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits, +${reward.honor} Honor, +${reward.aetherium} Aetherium`,
+        'combat'
+      ));
+      
+      // Remove position first to ensure enemyPosition prop becomes null immediately
+      setEnemyPositions((prevPos) => {
+        const nextPos = new Map(prevPos);
+        nextPos.delete(enemyId);
+        return nextPos;
+      });
+      
+      setDeadEnemies((prevDead) => new Set(prevDead).add(enemyId));
+      
+      // Clear selection and combat if this was the selected enemy
+      if (selectedEnemyIdRef.current === enemyId) {
+        setInCombat(false);
+        setPlayerFiring(false);
+        setPlayerFiringRocket(false);
+        inCombatRef.current = false;
+        setSelectedEnemyId(null);
+        setTargetPosition(null);
+      }
+      
+      // Clear targetPosition if it's near where the dead enemy was
+      if (deadEnemyLastPos) {
+        setTargetPosition((currentTarget) => {
+          if (!currentTarget) return null;
+          const dx = currentTarget.x - deadEnemyLastPos.x;
+          const dy = currentTarget.y - deadEnemyLastPos.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          return distance < 100 ? null : currentTarget;
+        });
+      }
+      
+      // Schedule respawn after 3 seconds
+      const respawnTime = Date.now() + 3000;
+      enemyRespawnTimersRef.current.set(enemyId, respawnTime);
+    }
   };
   
   // Handle enemy respawn
