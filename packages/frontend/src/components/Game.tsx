@@ -25,7 +25,7 @@ import { DeathWindow } from './windows/DeathWindow';
 import { MessageSystem } from './MessageSystem';
 import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP } from '@shared/constants';
 import type { EnemyState, LaserAmmoType, LaserCannonType, RocketType } from '@shared/types';
-import { getLevelFromExp, getExpForLevel } from '@shared/utils/leveling';
+import { getLevelFromExp } from '@shared/utils/leveling';
 import '../styles/windows.css';
 
 export function Game() {
@@ -38,9 +38,9 @@ export function Game() {
   const [fps, setFps] = useState(0);
   
   // Game state for Stats Window
-  const [playerHealth, setPlayerHealth] = useState(SPARROW_SHIP.hitpoints);
+  const [playerHealth, setPlayerHealth] = useState<number>(SPARROW_SHIP.hitpoints);
   const [playerShield, setPlayerShield] = useState<number | undefined>(undefined);
-  const [playerMaxShield, setPlayerMaxShield] = useState<number | undefined>(undefined);
+  const [playerMaxShield, _setPlayerMaxShield] = useState<number | undefined>(undefined);
   
   // Player progression stats
   const [playerExperience, setPlayerExperience] = useState(0);
@@ -67,9 +67,9 @@ export function Game() {
   const instaShieldEndTimeRef = useRef(0);
   
   // Equipment state
-  const [currentLaserCannon, setCurrentLaserCannon] = useState<LaserCannonType>(PLAYER_STATS.STARTING_LASER_CANNON);
-  const [currentLaserAmmoType, setCurrentLaserAmmoType] = useState<LaserAmmoType>(PLAYER_STATS.STARTING_LASER_AMMO);
-  const [currentRocketType, setCurrentRocketType] = useState<RocketType>(PLAYER_STATS.STARTING_ROCKET);
+  const [currentLaserCannon, _setCurrentLaserCannon] = useState<LaserCannonType>(PLAYER_STATS.STARTING_LASER_CANNON);
+  const [currentLaserAmmoType, _setCurrentLaserAmmoType] = useState<LaserAmmoType>(PLAYER_STATS.STARTING_LASER_AMMO);
+  const [currentRocketType, _setCurrentRocketType] = useState<RocketType>(PLAYER_STATS.STARTING_ROCKET);
   
   // Laser ammunition state (by type)
   const [laserAmmo, setLaserAmmo] = useState<Record<LaserAmmoType, number>>({
