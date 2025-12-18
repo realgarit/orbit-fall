@@ -13,6 +13,7 @@ import { CombatSystem } from './CombatSystem';
 import { Shield } from './Shield';
 import { ShipExplosion } from './ShipExplosion';
 import { WindowManagerProvider } from '../hooks/useWindowManager';
+import { useMessageSystem } from '../hooks/useMessageSystem';
 import { TopBar } from './windows/TopBar';
 import { ActionBar } from './windows/ActionBar';
 import { StatsWindow } from './windows/StatsWindow';
@@ -21,11 +22,13 @@ import { MinimapWindow } from './windows/MinimapWindow';
 import { SettingsWindow } from './windows/SettingsWindow';
 import { ShipWindow } from './windows/ShipWindow';
 import { DeathWindow } from './windows/DeathWindow';
+import { MessageSystem } from './MessageSystem';
 import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS } from '@shared/constants';
 import type { EnemyState } from '@shared/types';
 import '../styles/windows.css';
 
 export function Game() {
+  const { addMessage } = useMessageSystem();
   const [app, setApp] = useState<Application | null>(null);
   const [cameraContainer, setCameraContainer] = useState<Container | null>(null);
   const [shipPosition, setShipPosition] = useState({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
@@ -50,7 +53,13 @@ export function Game() {
   
   // Handle laser ammunition consumption
   const handleLaserAmmoConsume = () => {
-    setLaserAmmo((prev) => Math.max(0, prev - 1));
+    setLaserAmmo((prev) => {
+      const newAmmo = Math.max(0, prev - 1);
+      if (newAmmo === 0 && prev > 0) {
+        addMessage('Laser ammunition depleted!', 'warning');
+      }
+      return newAmmo;
+    });
   };
   
   // Rocket ammunition state
@@ -58,7 +67,13 @@ export function Game() {
   
   // Handle rocket ammunition consumption
   const handleRocketAmmoConsume = () => {
-    setRocketAmmo((prev) => Math.max(0, prev - 1));
+    setRocketAmmo((prev) => {
+      const newAmmo = Math.max(0, prev - 1);
+      if (newAmmo === 0 && prev > 0) {
+        addMessage('Rocket ammunition depleted!', 'warning');
+      }
+      return newAmmo;
+    });
   };
   
   // Rocket firing state (manual with SPACE key)
@@ -135,6 +150,9 @@ export function Game() {
     );
   };
   
+  // Track previous safety zone state for messages
+  const prevSafetyZoneRef = useRef(inSafetyZone);
+  
   // Exit combat when entering safety zone
   useEffect(() => {
     if (inSafetyZone && inCombat) {
@@ -142,7 +160,26 @@ export function Game() {
       setPlayerFiring(false);
       // Don't clear selectedEnemyId - let player keep selection for when they leave
     }
-  }, [inSafetyZone, inCombat]);
+    
+    // Safety zone entry/exit messages
+    if (inSafetyZone && !prevSafetyZoneRef.current) {
+      addMessage('Entered safety zone', 'success');
+    } else if (!inSafetyZone && prevSafetyZoneRef.current) {
+      addMessage('Left safety zone', 'warning');
+    }
+    prevSafetyZoneRef.current = inSafetyZone;
+  }, [inSafetyZone, inCombat, addMessage]);
+  
+  // Track previous combat state for messages
+  const prevInCombatRef = useRef(inCombat);
+  
+  // Combat start message
+  useEffect(() => {
+    if (inCombat && !prevInCombatRef.current) {
+      addMessage('Combat engaged!', 'combat');
+    }
+    prevInCombatRef.current = inCombat;
+  }, [inCombat, addMessage]);
   
   // Double-click detection
   const lastClickTimeRef = useRef(0);
@@ -243,6 +280,9 @@ export function Game() {
       // Get dead enemy's last position before removing it
       const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
       
+      // Add message for enemy killed
+      addMessage('Enemy destroyed!', 'combat');
+      
       // Remove position first to ensure enemyPosition prop becomes null immediately
       setEnemyPositions((prev) => {
         const next = new Map(prev);
@@ -341,6 +381,7 @@ export function Game() {
         });
         
         if (toRespawn.length > 0) {
+          addMessage(`Enemy respawned`, 'warning');
           setDeadEnemies((dead) => {
             const nextDead = new Set(dead);
             toRespawn.forEach((id) => nextDead.delete(id));
@@ -379,7 +420,7 @@ export function Game() {
     
     const interval = setInterval(checkRespawns, 100);
     return () => clearInterval(interval);
-  }, [shipPosition]);
+  }, [shipPosition, addMessage]);
 
   // Handle enemy click detection (called from Ship component)
   // Use refs to access latest state and avoid stale closures
@@ -629,9 +670,21 @@ export function Game() {
     return () => clearInterval(interval);
   }, []);
   
+  // Track previous repair state for messages
+  const prevIsRepairingRef = useRef(isRepairing);
+  
+  // Repair start message
+  useEffect(() => {
+    if (isRepairing && !prevIsRepairingRef.current) {
+      addMessage('Repair robot activated', 'info');
+    }
+    prevIsRepairingRef.current = isRepairing;
+  }, [isRepairing, addMessage]);
+  
   // Handle repair completion
   const handleRepairComplete = () => {
     setIsRepairing(false);
+    addMessage('Repair completed', 'success');
     // Update last repair time to now (cooldown starts after repair completes)
     lastRepairTimeRef.current = Date.now();
   };
@@ -647,6 +700,7 @@ export function Game() {
       setIsDead(true);
       setDeathPosition({ x: shipPosition.x, y: shipPosition.y });
       setShowDeathWindow(false); // Don't show window yet - wait for explosion
+      addMessage('Ship destroyed!', 'error');
       // Stop all combat and movement immediately
       setInCombat(false);
       setPlayerFiring(false);
@@ -657,7 +711,7 @@ export function Game() {
       // Stop ship velocity immediately
       setShipVelocity({ vx: 0, vy: 0 });
     }
-  }, [playerHealth, isDead, shipPosition]);
+  }, [playerHealth, isDead, shipPosition, addMessage]);
   
   // Handle explosion completion - show death window after a short delay
   const handleExplosionComplete = () => {
@@ -675,12 +729,14 @@ export function Game() {
       setPlayerHealth(restoredHealth);
       setIsDead(false);
       setShowDeathWindow(false); // Hide death window
+      addMessage('Ship repaired on the spot', 'success');
       
       // Activate Insta-shield for 10 seconds
       const shieldDuration = 10000; // 10 seconds in milliseconds
       const endTime = Date.now() + shieldDuration;
       instaShieldEndTimeRef.current = endTime;
       setInstaShieldActive(true);
+      addMessage('Insta-shield activated for 10 seconds', 'success');
       
       // Clear all aggressions - set all enemies to not engaged
       setEnemies((prev) => {
@@ -716,20 +772,22 @@ export function Game() {
       const now = Date.now();
       if (now >= instaShieldEndTimeRef.current) {
         setInstaShieldActive(false);
+        addMessage('Insta-shield expired', 'warning');
       }
     };
     
     const interval = setInterval(checkShield, 100);
     return () => clearInterval(interval);
-  }, [instaShieldActive]);
+  }, [instaShieldActive, addMessage]);
   
   // Cancel repair when entering combat or when any enemy becomes aggressive
   useEffect(() => {
     if ((inCombat || hasAggressiveEnemies()) && isRepairing) {
       setIsRepairing(false);
+      addMessage('Repair cancelled - combat detected', 'warning');
       lastRepairTimeRef.current = Date.now();
     }
-  }, [inCombat, isRepairing, enemies, deadEnemies]);
+  }, [inCombat, isRepairing, enemies, deadEnemies, addMessage]);
   
   // Clear combat state if no engaged enemies remain
   useEffect(() => {
@@ -776,6 +834,7 @@ export function Game() {
           />
         )}
         <TopBar />
+        <MessageSystem />
         <ActionBar 
           laserAmmo={laserAmmo} 
           rocketAmmo={rocketAmmo}
