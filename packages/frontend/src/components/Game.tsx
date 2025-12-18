@@ -260,6 +260,7 @@ export function Game() {
               enemyState={enemyState}
               onStateUpdate={handleEnemyStateUpdate}
               onPositionUpdate={handleEnemyPositionUpdate}
+              inCombat={inCombat}
             />
             {/* Player HP Bar */}
             <HPBar
