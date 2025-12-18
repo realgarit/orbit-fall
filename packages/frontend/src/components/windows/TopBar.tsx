@@ -15,8 +15,19 @@ const StatsIcon = () => (
   </svg>
 );
 
+// Default icon for minimap window
+const MinimapIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M2 2h12v12H2V2zm1 1v10h10V3H3zm8 2l-2 4-2-2-2 3v3h8V5h-2z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
 const defaultIcons = new Map([
   ['stats-window', <StatsIcon key="stats-icon" />],
+  ['minimap-window', <MinimapIcon key="minimap-icon" />],
 ]);
 
 export function TopBar({ windowIcons = new Map() }: TopBarProps) {
