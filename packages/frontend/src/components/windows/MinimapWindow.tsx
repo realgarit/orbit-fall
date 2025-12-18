@@ -7,6 +7,7 @@ interface MinimapWindowProps {
   playerPosition: { x: number; y: number };
   targetPosition: { x: number; y: number } | null;
   onTargetChange: (target: { x: number; y: number } | null) => void;
+  enemyPosition?: { x: number; y: number } | null;
   windowId?: string;
 }
 
@@ -23,6 +24,7 @@ export function MinimapWindow({
   playerPosition,
   targetPosition,
   onTargetChange,
+  enemyPosition = null,
   windowId = 'minimap-window',
 }: MinimapWindowProps) {
   const { minimizeWindow, restoreWindow } = useWindowManager();
@@ -80,6 +82,18 @@ export function MinimapWindow({
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1;
     ctx.stroke();
+
+    // Enemy dot
+    if (enemyPosition) {
+      const enemyMinimap = worldToMinimap(enemyPosition.x, enemyPosition.y, width, height);
+      ctx.fillStyle = '#ff0000';
+      ctx.beginPath();
+      ctx.arc(enemyMinimap.x, enemyMinimap.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
 
     // Target + line
     if (targetPosition) {
@@ -143,11 +157,11 @@ export function MinimapWindow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Redraw when player / target changes
+  // Redraw when player / target / enemy changes
   useEffect(() => {
     drawMinimap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y]);
+  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y, enemyPosition?.x, enemyPosition?.y]);
 
   // Mouse down: start drag + set target
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {

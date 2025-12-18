@@ -5,19 +5,22 @@ import { SHIP_SPEED, MAP_WIDTH, MAP_HEIGHT } from '@shared/constants';
 interface ShipProps {
   app: Application;
   cameraContainer: Container;
-  onStateUpdate?: (position: { x: number; y: number }, velocity: { vx: number; vy: number }) => void;
+  onStateUpdate?: (position: { x: number; y: number }, velocity: { vx: number; vy: number }, rotation?: number) => void;
   targetPosition?: { x: number; y: number } | null;
   onTargetReached?: () => void;
+  onEnemyClick?: (worldX: number, worldY: number) => boolean;
 }
 
-export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached }: ShipProps) {
+export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick }: ShipProps) {
   const shipRef = useRef<Graphics | null>(null);
   const positionRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
+  const rotationRef = useRef(0);
   const isMouseDownRef = useRef(false);
   const mouseWorldPosRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
   const velocityRef = useRef({ vx: 0, vy: 0 });
   const targetPosRef = useRef<{ x: number; y: number } | null>(null);
   const onTargetReachedRef = useRef<(() => void) | undefined>(undefined);
+  const onEnemyClickRef = useRef<((worldX: number, worldY: number) => boolean) | undefined>(undefined);
 
   // Keep refs in sync with latest props without recreating Pixi objects
   useEffect(() => {
@@ -27,6 +30,10 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   useEffect(() => {
     onTargetReachedRef.current = onTargetReached;
   }, [onTargetReached]);
+
+  useEffect(() => {
+    onEnemyClickRef.current = onEnemyClick;
+  }, [onEnemyClick]);
 
   useEffect(() => {
     if (!app) return;
@@ -97,9 +104,15 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
 
     // Mouse event handlers
     const handleMouseDown = (e: MouseEvent) => {
-      isMouseDownRef.current = true;
       const canvasPos = getCanvasMousePos(e);
       const worldPos = screenToWorld(canvasPos.x, canvasPos.y);
+      
+      // Check if click is on enemy (prevent ship movement)
+      if (onEnemyClickRef.current && onEnemyClickRef.current(worldPos.x, worldPos.y)) {
+        return; // Don't start ship movement
+      }
+      
+      isMouseDownRef.current = true;
       mouseWorldPosRef.current = worldPos;
     };
 
@@ -151,7 +164,9 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
         if (distance > 0.1) {
           // Point ship toward mouse
           const angle = Math.atan2(dy, dx);
-          ship.rotation = angle + Math.PI / 2; // Adjust for top-down view
+          const rotation = angle + Math.PI / 2;
+          ship.rotation = rotation;
+          rotationRef.current = rotation;
 
           // Set velocity in direction of mouse (instant acceleration)
           const normalizedDx = dx / distance;
@@ -178,7 +193,9 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
           }
         } else if (distance > 0.1) {
           const angle = Math.atan2(dy, dx);
-          ship.rotation = angle + Math.PI / 2;
+          const rotation = angle + Math.PI / 2;
+          ship.rotation = rotation;
+          rotationRef.current = rotation;
 
           const normalizedDx = dx / distance;
           const normalizedDy = dy / distance;
@@ -211,7 +228,7 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
 
       // Notify parent component of state changes
       if (onStateUpdate) {
-        onStateUpdate({ x: pos.x, y: pos.y }, { vx: velocity.vx, vy: velocity.vy });
+        onStateUpdate({ x: pos.x, y: pos.y }, { vx: velocity.vx, vy: velocity.vy }, rotationRef.current);
       }
     };
 
