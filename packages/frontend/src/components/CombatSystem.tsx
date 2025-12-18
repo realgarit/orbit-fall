@@ -180,18 +180,76 @@ export function CombatSystem({
       
       // Add glow first (behind everything)
       graphics.roundRect(-length / 2 - 2, -width / 2 - 2, length + 4, width + 4, (width + 4) / 2);
-      graphics.fill({ color: ROCKET_CONFIG.COLOR, alpha: 0.5 });
+      graphics.fill({ color: ROCKET_CONFIG.COLOR, alpha: 0.3 });
       
-      // Draw rocket body (rounded rectangle)
-      graphics.roundRect(-length / 2, -width / 2, length, width, width / 2);
+      // Exhaust flame at the back (drawn first so it's behind the rocket)
+      const exhaustLength = length * 0.4;
+      const exhaustWidth = width * 0.8;
+      // Outer flame (orange/yellow)
+      graphics.moveTo(-length / 2, -exhaustWidth / 2);
+      graphics.lineTo(-length / 2 - exhaustLength, 0);
+      graphics.lineTo(-length / 2, exhaustWidth / 2);
+      graphics.lineTo(-length / 2, -exhaustWidth / 2);
+      graphics.fill({ color: 0xff8800, alpha: 0.9 }); // Orange exhaust
+      
+      // Inner flame (yellow/white)
+      graphics.moveTo(-length / 2, -exhaustWidth / 3);
+      graphics.lineTo(-length / 2 - exhaustLength * 0.6, 0);
+      graphics.lineTo(-length / 2, exhaustWidth / 3);
+      graphics.lineTo(-length / 2, -exhaustWidth / 3);
+      graphics.fill({ color: 0xffff00, alpha: 0.8 }); // Yellow inner flame
+      
+      // Rocket body - elongated and tapered (not a canister!)
+      const bodyStartX = -length / 2;
+      const bodyEndX = length / 2 - length * 0.25; // Leave room for nose cone
+      const bodyWidthStart = width;
+      const bodyWidthEnd = width * 0.85; // Slightly tapered
+      
+      // Main body shape (trapezoid for tapered effect)
+      graphics.moveTo(bodyStartX, -bodyWidthStart / 2);
+      graphics.lineTo(bodyEndX, -bodyWidthEnd / 2);
+      graphics.lineTo(bodyEndX, bodyWidthEnd / 2);
+      graphics.lineTo(bodyStartX, bodyWidthStart / 2);
+      graphics.lineTo(bodyStartX, -bodyWidthStart / 2);
       graphics.fill({ color: ROCKET_CONFIG.COLOR, alpha: 1.0 });
       
-      // Rocket nose cone (triangle at front, pointing forward)
-      graphics.moveTo(length / 2, 0);
-      graphics.lineTo(length / 2 + width, -width / 2);
-      graphics.lineTo(length / 2 + width, width / 2);
-      graphics.lineTo(length / 2, 0);
-      graphics.fill({ color: ROCKET_CONFIG.COLOR, alpha: 1.0 });
+      // Body detail - add a ring/segment near the middle for realism
+      const ringX = bodyStartX + (bodyEndX - bodyStartX) * 0.6;
+      graphics.rect(ringX - 1, -bodyWidthStart / 2 - 0.5, 2, bodyWidthStart + 1);
+      graphics.fill({ color: 0xcc0000, alpha: 1.0 }); // Darker red ring
+      
+      // Rocket nose cone - more prominent and pointed
+      const noseLength = length * 0.25;
+      const noseBaseX = bodyEndX;
+      const noseTipX = length / 2;
+      
+      graphics.moveTo(noseBaseX, -bodyWidthEnd / 2);
+      graphics.lineTo(noseTipX, 0); // Pointed tip
+      graphics.lineTo(noseBaseX, bodyWidthEnd / 2);
+      graphics.lineTo(noseBaseX, -bodyWidthEnd / 2);
+      graphics.fill({ color: 0xff3333, alpha: 1.0 }); // Slightly brighter red for nose
+      
+      // Rocket fins - more visible and properly shaped
+      const finSize = width * 0.6;
+      const finOffset = length * 0.15;
+      
+      // Top fin (left side when facing right)
+      graphics.moveTo(bodyStartX, -bodyWidthStart / 2);
+      graphics.lineTo(bodyStartX - finSize, -bodyWidthStart / 2 - finSize * 0.8);
+      graphics.lineTo(bodyStartX - finOffset, -bodyWidthStart / 2);
+      graphics.lineTo(bodyStartX, -bodyWidthStart / 2);
+      graphics.fill({ color: 0xaa0000, alpha: 1.0 }); // Darker red for fins
+      
+      // Bottom fin
+      graphics.moveTo(bodyStartX, bodyWidthStart / 2);
+      graphics.lineTo(bodyStartX - finSize, bodyWidthStart / 2 + finSize * 0.8);
+      graphics.lineTo(bodyStartX - finOffset, bodyWidthStart / 2);
+      graphics.lineTo(bodyStartX, bodyWidthStart / 2);
+      graphics.fill({ color: 0xaa0000, alpha: 1.0 }); // Darker red for fins
+      
+      // Add a highlight on the body for 3D effect
+      graphics.rect(bodyStartX + 1, -bodyWidthStart / 2 + 1, (bodyEndX - bodyStartX) * 0.5, 1);
+      graphics.fill({ color: 0xff6666, alpha: 0.6 }); // Light red highlight
       
       graphics.rotation = angle;
       graphics.x = x;
