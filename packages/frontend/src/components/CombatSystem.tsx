@@ -27,11 +27,15 @@ interface CombatSystemProps {
 interface LaserData {
   graphics: Graphics;
   projectile: LaserProjectile;
+  prevX: number; // Previous position for line-segment collision detection
+  prevY: number;
 }
 
 interface RocketData {
   graphics: Graphics;
   projectile: RocketProjectile;
+  prevX: number; // Previous position for line-segment collision detection
+  prevY: number;
 }
 
 export function CombatSystem({
@@ -316,7 +320,8 @@ export function CombatSystem({
       const dy = predictedTarget.y - fromY;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      if (distance < 1) return; // Don't create laser if target is too close
+      // Allow firing even at very close range (minimum distance check removed)
+      // The line-segment collision detection will handle close-range hits properly
       
       const angle = Math.atan2(dy, dx);
       
@@ -340,7 +345,12 @@ export function CombatSystem({
       const graphics = createLaserGraphics(spawnX, spawnY, angle);
       cameraContainer.addChild(graphics);
       
-      lasers.set(projectile.id, { graphics, projectile });
+      lasers.set(projectile.id, { 
+        graphics, 
+        projectile,
+        prevX: spawnX,
+        prevY: spawnY
+      });
     };
 
     const createRocket = (
@@ -361,7 +371,8 @@ export function CombatSystem({
       const dy = predictedTarget.y - fromY;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      if (distance < 1) return; // Don't create rocket if target is too close
+      // Allow firing even at very close range (minimum distance check removed)
+      // The line-segment collision detection will handle close-range hits properly
       
       const angle = Math.atan2(dy, dx);
       
@@ -385,9 +396,74 @@ export function CombatSystem({
       const graphics = createRocketGraphics(spawnX, spawnY, angle);
       cameraContainer.addChild(graphics);
       
-      rockets.set(projectile.id, { graphics, projectile });
+      rockets.set(projectile.id, { 
+        graphics, 
+        projectile,
+        prevX: spawnX,
+        prevY: spawnY
+      });
     };
 
+    /**
+     * Checks if a line segment (from prevPos to currentPos) intersects with a circle (target).
+     * This prevents lasers from passing through enemies when moving fast.
+     */
+    const checkLaserHitLineSegment = (
+      prevX: number,
+      prevY: number,
+      currentX: number,
+      currentY: number,
+      targetX: number,
+      targetY: number,
+      targetRadius: number = 20
+    ): boolean => {
+      // Check if current position is within radius (fast path for slow-moving lasers)
+      const dx = currentX - targetX;
+      const dy = currentY - targetY;
+      const currentDist = Math.sqrt(dx * dx + dy * dy);
+      if (currentDist < targetRadius) {
+        return true;
+      }
+      
+      // Check if previous position was within radius (laser might have started inside)
+      const prevDx = prevX - targetX;
+      const prevDy = prevY - targetY;
+      const prevDist = Math.sqrt(prevDx * prevDx + prevDy * prevDy);
+      if (prevDist < targetRadius) {
+        return true;
+      }
+      
+      // Line-segment to circle collision: check if the line segment intersects the circle
+      // Vector from start to end of line segment
+      const segDx = currentX - prevX;
+      const segDy = currentY - prevY;
+      const segLengthSq = segDx * segDx + segDy * segDy;
+      
+      // If segment has zero length, just check point distance
+      if (segLengthSq < 0.0001) {
+        return currentDist < targetRadius;
+      }
+      
+      // Vector from segment start to circle center
+      const toCircleDx = targetX - prevX;
+      const toCircleDy = targetY - prevY;
+      
+      // Project circle center onto line segment
+      const t = Math.max(0, Math.min(1, (toCircleDx * segDx + toCircleDy * segDy) / segLengthSq));
+      
+      // Closest point on line segment to circle center
+      const closestX = prevX + t * segDx;
+      const closestY = prevY + t * segDy;
+      
+      // Distance from closest point to circle center
+      const closestDx = closestX - targetX;
+      const closestDy = closestY - targetY;
+      const closestDist = Math.sqrt(closestDx * closestDx + closestDy * closestDy);
+      
+      return closestDist < targetRadius;
+    };
+    
+    // Keep the old function name for backward compatibility with rockets
     const checkLaserHit = (laser: LaserProjectile, targetPos: { x: number; y: number }, targetRadius: number = 20): boolean => {
       const dx = laser.x - targetPos.x;
       const dy = laser.y - targetPos.y;
@@ -478,7 +554,13 @@ export function CombatSystem({
       // Update all lasers
       const lasersToRemove: string[] = [];
       
-      lasers.forEach(({ graphics, projectile }, id) => {
+      lasers.forEach((laserData, id) => {
+        const { graphics, projectile, prevX, prevY } = laserData;
+        
+        // Store previous position before updating
+        const oldX = projectile.x;
+        const oldY = projectile.y;
+        
         // Update projectile position
         projectile.x += projectile.vx * delta;
         projectile.y += projectile.vy * delta;
@@ -493,26 +575,44 @@ export function CombatSystem({
           return;
         }
 
-        // Check collision - skip on first frame to avoid immediate hit
+        // Check collision - use line-segment detection for accurate close-range hits
+        // Reduced delay for close-range combat (only 16ms = ~1 frame at 60fps)
         const age = now - projectile.spawnTime;
-        if (age < 50) {
-          return; // Skip collision check for first 50ms
+        const minAge = 16; // Reduced from 50ms to allow immediate close-range detection
+        if (age < minAge) {
+          // Still update previous position even during delay
+          laserData.prevX = oldX;
+          laserData.prevY = oldY;
+          return;
         }
 
+        // Use line-segment collision detection for accurate hits
         if (projectile.targetId === 'player') {
-          if (checkLaserHit(projectile, currentPlayerPos)) {
+          if (checkLaserHitLineSegment(prevX, prevY, projectile.x, projectile.y, currentPlayerPos.x, currentPlayerPos.y)) {
             const newHealth = Math.max(0, currentPlayerHealth - projectile.damage);
             onPlayerHealthChangeRef.current?.(newHealth);
             onLaserHitRef.current?.(projectile);
             lasersToRemove.push(id);
+          } else {
+            // Update previous position for next frame
+            laserData.prevX = oldX;
+            laserData.prevY = oldY;
           }
         } else if (projectile.targetId === currentEnemyState?.id && currentEnemyState) {
-          if (checkLaserHit(projectile, { x: currentEnemyState.x, y: currentEnemyState.y })) {
+          if (checkLaserHitLineSegment(prevX, prevY, projectile.x, projectile.y, currentEnemyState.x, currentEnemyState.y)) {
             const newHealth = Math.max(0, currentEnemyState.health - projectile.damage);
             onEnemyHealthChangeRef.current?.(newHealth);
             onLaserHitRef.current?.(projectile);
             lasersToRemove.push(id);
+          } else {
+            // Update previous position for next frame
+            laserData.prevX = oldX;
+            laserData.prevY = oldY;
           }
+        } else {
+          // Update previous position for next frame
+          laserData.prevX = oldX;
+          laserData.prevY = oldY;
         }
       });
 
@@ -529,7 +629,13 @@ export function CombatSystem({
       // Update all rockets
       const rocketsToRemove: string[] = [];
       
-      rockets.forEach(({ graphics, projectile }, id) => {
+      rockets.forEach((rocketData, id) => {
+        const { graphics, projectile, prevX, prevY } = rocketData;
+        
+        // Store previous position before updating
+        const oldX = projectile.x;
+        const oldY = projectile.y;
+        
         // Update projectile position
         projectile.x += projectile.vx * delta;
         projectile.y += projectile.vy * delta;
@@ -545,24 +651,42 @@ export function CombatSystem({
           return;
         }
 
-        // Check collision - skip on first frame to avoid immediate hit
+        // Check collision - use line-segment detection for accurate close-range hits
+        // Reduced delay for close-range combat (only 16ms = ~1 frame at 60fps)
         const age = now - projectile.spawnTime;
-        if (age < 50) {
-          return; // Skip collision check for first 50ms
+        const minAge = 16; // Reduced from 50ms to allow immediate close-range detection
+        if (age < minAge) {
+          // Still update previous position even during delay
+          rocketData.prevX = oldX;
+          rocketData.prevY = oldY;
+          return;
         }
 
+        // Use line-segment collision detection for accurate hits
         if (projectile.targetId === 'player') {
-          if (checkRocketHit(projectile, currentPlayerPos)) {
+          if (checkLaserHitLineSegment(prevX, prevY, projectile.x, projectile.y, currentPlayerPos.x, currentPlayerPos.y)) {
             const newHealth = Math.max(0, currentPlayerHealth - projectile.damage);
             onPlayerHealthChangeRef.current?.(newHealth);
             rocketsToRemove.push(id);
+          } else {
+            // Update previous position for next frame
+            rocketData.prevX = oldX;
+            rocketData.prevY = oldY;
           }
         } else if (projectile.targetId === currentEnemyState?.id && currentEnemyState) {
-          if (checkRocketHit(projectile, { x: currentEnemyState.x, y: currentEnemyState.y })) {
+          if (checkLaserHitLineSegment(prevX, prevY, projectile.x, projectile.y, currentEnemyState.x, currentEnemyState.y)) {
             const newHealth = Math.max(0, currentEnemyState.health - projectile.damage);
             onEnemyHealthChangeRef.current?.(newHealth);
             rocketsToRemove.push(id);
+          } else {
+            // Update previous position for next frame
+            rocketData.prevX = oldX;
+            rocketData.prevY = oldY;
           }
+        } else {
+          // Update previous position for next frame
+          rocketData.prevX = oldX;
+          rocketData.prevY = oldY;
         }
       });
 
