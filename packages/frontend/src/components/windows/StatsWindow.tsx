@@ -28,6 +28,27 @@ export function StatsWindow() {
   const expForNextLevel = getExpForNextLevel(playerLevel);
   const levelProgress = getLevelProgress(playerExperience, playerLevel);
 
+  // Calculate experience within current level for display
+  const getExpForLevel = (level: number): number => {
+    if (level <= 1) return 0;
+    return 10000 * Math.pow(2, level - 2);
+  };
+
+  const expForCurrentLevel = getExpForLevel(playerLevel);
+  const expInCurrentLevel = playerExperience - expForCurrentLevel;
+  const expNeededForNextLevel = expForNextLevel !== null ? expForNextLevel - expForCurrentLevel : 0;
+
+  // Format number with K suffix
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    }
+    if (num >= 1000) {
+      return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    }
+    return num.toString();
+  };
+
   return (
     <Window
       id="stats-window"
@@ -41,30 +62,47 @@ export function StatsWindow() {
       onRestore={restoreWindow}
     >
       <div className="stats-window-content">
-        {/* Level and Experience */}
+        {/* Level */}
         <div className="stats-section">
           <div className="stats-label">Level</div>
           <div className="stats-value">{playerLevel}</div>
         </div>
 
+        {/* Level Progress Bar */}
         <div className="stats-section">
-          <div className="stats-label">Experience</div>
-          <div className="stats-value">
-            {playerExperience.toLocaleString()}
-            {expForNextLevel !== null && (
-              <span style={{ fontSize: '11px', color: '#888' }}>
-                {' '}/ {expForNextLevel.toLocaleString()}
-              </span>
+          <div className="stats-label">
+            {expForNextLevel !== null ? (
+              <>Level Progress ({Math.round(levelProgress)}%)</>
+            ) : (
+              <>Level Progress (MAX)</>
             )}
           </div>
           {expForNextLevel !== null && (
             <div className="stats-health-bar-container" style={{ marginTop: '4px' }}>
               <div
                 className="stats-health-bar"
-                style={{ width: `${levelProgress}%`, height: '4px' }}
+                style={{
+                  width: `${levelProgress}%`,
+                  background: 'linear-gradient(90deg, #a78bfa 0%, #8b5cf6 100%)',
+                  boxShadow: '0 0 8px rgba(167, 139, 250, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+                }}
               />
+              <div className="stats-health-text" style={{ whiteSpace: 'nowrap' }}>
+                {formatNumber(expInCurrentLevel)} / {formatNumber(expNeededForNextLevel)}
+              </div>
             </div>
           )}
+          {expForNextLevel === null && (
+            <div className="stats-value" style={{ color: '#a78bfa' }}>
+              Maximum Level Reached
+            </div>
+          )}
+        </div>
+
+        {/* Total Experience */}
+        <div className="stats-section">
+          <div className="stats-label">Experience</div>
+          <div className="stats-value">{playerExperience.toLocaleString()}</div>
         </div>
 
         {/* Currency */}
