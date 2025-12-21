@@ -4,11 +4,9 @@ interface HUDProps {
   position: { x: number; y: number };
   velocity: { vx: number; vy: number };
   fps: number;
-  cargo: number;
-  maxCargo: number;
 }
 
-export function HUD({ position, velocity, fps, cargo, maxCargo }: HUDProps) {
+export function HUD({ position, velocity, fps }: HUDProps) {
   const speed = Math.sqrt(velocity.vx * velocity.vx + velocity.vy * velocity.vy);
 
   return (
@@ -31,7 +29,6 @@ export function HUD({ position, velocity, fps, cargo, maxCargo }: HUDProps) {
       <div>Coordinates: ({Math.round(position.x / COORDINATE_SCALE)}, {Math.round(position.y / COORDINATE_SCALE)})</div>
       <div>Speed: {speed.toFixed(2)}</div>
       <div>Velocity: ({velocity.vx.toFixed(2)}, {velocity.vy.toFixed(2)})</div>
-      <div>Cargo: {cargo} / {maxCargo}</div>
       <div>FPS: {fps.toFixed(0)}</div>
     </div>
   );

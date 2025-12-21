@@ -311,7 +311,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   setPlayerCargo: (cargo) => set({ playerCargo: cargo }),
   addOreToCargo: (type, amount) => {
     const state = get();
-    const currentCargoAmount = Object.values(state.playerCargo).reduce((sum, val) => sum + val, 0);
+    const currentCargoAmount = (Object.entries(state.playerCargo) as [OreType, number][]).reduce((sum, [t, count]) => {
+      const space = (ORE_CONFIG as any)[t.toUpperCase()]?.cargoSpace || 1;
+      return sum + count * space;
+    }, 0);
     const addedSpace = (ORE_CONFIG as any)[type.toUpperCase()]?.cargoSpace || 1;
 
     if (currentCargoAmount + addedSpace * amount > state.playerMaxCargo) {
@@ -530,4 +533,7 @@ export const selectAliveEnemies = (state: GameState) =>
     (enemy) => !state.deadEnemies.has(enemy.id) && enemy.health > 0
   );
 export const selectCurrentCargoUsage = (state: GameState) =>
-  Object.values(state.playerCargo).reduce((sum, val) => sum + val, 0);
+  (Object.entries(state.playerCargo) as [OreType, number][]).reduce((sum, [type, amount]) => {
+    const space = (ORE_CONFIG as any)[type.toUpperCase()]?.cargoSpace || 1;
+    return sum + amount * space;
+  }, 0);

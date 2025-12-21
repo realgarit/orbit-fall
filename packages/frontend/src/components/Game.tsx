@@ -28,7 +28,8 @@ import { ShipWindow } from './windows/ShipWindow';
 import { DeathWindow } from './windows/DeathWindow';
 import { MessageSystem } from './MessageSystem';
 import { LevelUpAnimation } from './LevelUpAnimation';
-import { useGameStore, selectCurrentCargoUsage } from '../stores/gameStore';
+import { OreWindow } from './windows/OreWindow';
+import { useGameStore } from '../stores/gameStore';
 import { MAP_WIDTH, MAP_HEIGHT, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP, BONUS_BOX_CONFIG, ORE_CONFIG } from '@shared/constants';
 import type { EnemyState, BonusBoxState, OreState } from '@shared/types';
 import { getLevelFromExp } from '@shared/utils/leveling';
@@ -79,8 +80,6 @@ export function Game() {
   const targetBonusBoxId = useGameStore((state) => state.targetBonusBoxId);
   const ores = useGameStore((state) => state.ores);
   const targetOreId = useGameStore((state) => state.targetOreId);
-  const playerMaxCargo = useGameStore((state) => state.playerMaxCargo);
-  const currentCargoUsage = useGameStore(selectCurrentCargoUsage);
   const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
   const currentLaserAmmoType = useGameStore((state) => state.currentLaserAmmoType);
   const currentRocketType = useGameStore((state) => state.currentRocketType);
@@ -987,7 +986,7 @@ export function Game() {
           }}
         />
       )}
-      <HUD position={shipPosition} velocity={shipVelocity} fps={useGameStore.getState().fps} cargo={currentCargoUsage} maxCargo={playerMaxCargo} />
+      <HUD position={shipPosition} velocity={shipVelocity} fps={useGameStore.getState().fps} />
       <TopBar />
       <MessageSystem />
       <ActionBar
@@ -1213,6 +1212,7 @@ export function Game() {
             onTargetChange={(pos) => useGameStore.getState().setTargetPosition(pos)}
           />
           <SettingsWindow />
+          <OreWindow />
           {isDead && showDeathWindow && (
             <DeathWindow
               onRepairOnSpot={handleRepairOnSpot}

@@ -1,6 +1,6 @@
 import { Window } from './Window';
 import { useWindowStore } from '../../stores/windowStore';
-import { useGameStore } from '../../stores/gameStore';
+import { useGameStore, selectCurrentCargoUsage } from '../../stores/gameStore';
 import { SPARROW_SHIP } from '@shared/constants';
 
 const ShipIcon = () => (
@@ -24,6 +24,8 @@ export function ShipWindow() {
   const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
   const currentLaserAmmoType = useGameStore((state) => state.currentLaserAmmoType);
   const currentRocketType = useGameStore((state) => state.currentRocketType);
+  const playerMaxCargo = useGameStore((state) => state.playerMaxCargo);
+  const currentCargoUsage = useGameStore(selectCurrentCargoUsage);
 
   const maxHealth = SPARROW_SHIP.hitpoints;
   const healthPercentage = maxHealth > 0 ? (playerHealth / maxHealth) * 100 : 0;
@@ -71,7 +73,7 @@ export function ShipWindow() {
           <div className="stats-health-bar-container">
             <div
               className="stats-health-bar stats-shield-bar"
-              style={{ 
+              style={{
                 width: `${shieldPercentage}%`,
               }}
             />
@@ -85,10 +87,10 @@ export function ShipWindow() {
         <div className="stats-section">
           <div className="stats-label">Ship Stats</div>
           <div className="stats-value" style={{ fontSize: '12px' }}>
-            Speed: {SPARROW_SHIP.baseSpeed}<br/>
-            Cargo: {SPARROW_SHIP.cargo}<br/>
-            Laser Slots: {SPARROW_SHIP.laserSlots}<br/>
-            Generator Slots: {SPARROW_SHIP.generatorSlots}<br/>
+            Speed: {SPARROW_SHIP.baseSpeed}<br />
+            Cargo: {currentCargoUsage} / {playerMaxCargo}<br />
+            Laser Slots: {SPARROW_SHIP.laserSlots}<br />
+            Generator Slots: {SPARROW_SHIP.generatorSlots}<br />
             Extras Slots: {SPARROW_SHIP.extrasSlots}
           </div>
         </div>
@@ -97,8 +99,8 @@ export function ShipWindow() {
         <div className="stats-section">
           <div className="stats-label">Equipment</div>
           <div className="stats-value" style={{ fontSize: '12px' }}>
-            Laser: {currentLaserCannon}<br/>
-            Ammo: {currentLaserAmmoType}<br/>
+            Laser: {currentLaserCannon}<br />
+            Ammo: {currentLaserAmmoType}<br />
             Rocket: {currentRocketType}
           </div>
         </div>

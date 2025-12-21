@@ -56,9 +56,17 @@ const SettingsIcon = () => (
 // Default icon for ship window
 const ShipIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Simple spaceship: triangle pointing up with small base */}
     <path
       d="M8 2L4 12H6L8 10L10 12H12L8 2Z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+const OreIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M8 2L3 7L8 14L13 7L8 2Z"
       fill="currentColor"
     />
   </svg>
@@ -71,6 +79,7 @@ const defaultIcons = new Map<string, React.ReactNode>([
   ['settings-window', <SettingsIcon key="settings-icon" />],
   ['ship-window', <ShipIcon key="ship-icon" />],
   ['death-window', <DeathIcon key="death-icon" />],
+  ['ore-window', <OreIcon key="ore-icon" />],
 ]);
 
 export function TopBar({ windowIcons = new Map() }: TopBarProps) {
