@@ -927,6 +927,10 @@ export function Game() {
                   instaShieldActive={instaShieldActive}
                   onPlayerDamage={handlePlayerDamage}
                   onEnemyDamage={handleEnemyDamage}
+                  onOutOfRange={(weaponType) => {
+                    const weaponName = weaponType === 'laser' ? 'Laser' : 'Rocket';
+                    addMessage(`${weaponName} out of range!`, 'warning');
+                  }}
                 />
               ))}
             {app && cameraContainer && (

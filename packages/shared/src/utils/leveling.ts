@@ -1,4 +1,4 @@
-import { LEVELING_CONFIG, LEVEL_CHART } from '../constants';
+import { LEVELING_CONFIG } from '../constants';
 import type { LevelInfo } from '../types';
 
 /**
@@ -42,19 +42,9 @@ export function getLevelInfo(level: number): LevelInfo | null {
     return null;
   }
   
-  const levelData = LEVEL_CHART.find(l => l.level === level);
-  
-  if (!levelData) {
-    return {
-      level,
-      expRequired: getExpForLevel(level),
-    };
-  }
-  
   return {
-    level: levelData.level,
-    expRequired: levelData.expRequired,
-    unlocks: levelData.unlocks,
+    level,
+    expRequired: getExpForLevel(level),
   };
 }
 

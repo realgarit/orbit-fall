@@ -33,6 +33,7 @@ interface CombatSystemProps {
   instaShieldActive?: boolean;
   onPlayerDamage?: (event: { damage: number; position: { x: number; y: number } }) => void;
   onEnemyDamage?: (event: { damage: number; position: { x: number; y: number } }) => void;
+  onOutOfRange?: (weaponType: 'laser' | 'rocket') => void;
 }
 
 interface LaserData {
@@ -78,6 +79,7 @@ export function CombatSystem({
   instaShieldActive = false,
   onPlayerDamage,
   onEnemyDamage,
+  onOutOfRange,
 }: CombatSystemProps) {
   const lasersRef = useRef<Map<string, LaserData>>(new Map());
   const rocketsRef = useRef<Map<string, RocketData>>(new Map());
@@ -86,6 +88,7 @@ export function CombatSystem({
   const enemyLastFireTimeRef = useRef(0);
   const laserIdCounterRef = useRef(0);
   const rocketIdCounterRef = useRef(0);
+  const lastOutOfRangeMessageTimeRef = useRef(0);
   
   // Use refs to avoid recreating ticker on every prop change
   const playerPositionRef = useRef(playerPosition);
@@ -113,6 +116,7 @@ export function CombatSystem({
   const instaShieldActiveRef = useRef(instaShieldActive);
   const onPlayerDamageRef = useRef(onPlayerDamage);
   const onEnemyDamageRef = useRef(onEnemyDamage);
+  const onOutOfRangeRef = useRef(onOutOfRange);
 
   // Update refs when props change
   useEffect(() => {
@@ -214,6 +218,10 @@ export function CombatSystem({
   useEffect(() => {
     onEnemyDamageRef.current = onEnemyDamage;
   }, [onEnemyDamage]);
+
+  useEffect(() => {
+    onOutOfRangeRef.current = onOutOfRange;
+  }, [onOutOfRange]);
 
   // Initialize enemy fire time when combat starts
   useEffect(() => {
@@ -531,6 +539,29 @@ export function CombatSystem({
       return closestDist < targetRadius;
     };
 
+    /**
+     * Calculates the distance between two points
+     */
+    const calculateDistance = (x1: number, y1: number, x2: number, y2: number): number => {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      return Math.sqrt(dx * dx + dy * dy);
+    };
+
+    /**
+     * Checks if target is within combat range
+     * @param fromX - Source X position (pixels)
+     * @param fromY - Source Y position (pixels)
+     * @param toX - Target X position (pixels)
+     * @param toY - Target Y position (pixels)
+     * @param isPlayerFiring - Whether the player is firing (true) or enemy (false)
+     */
+    const isInRange = (fromX: number, fromY: number, toX: number, toY: number, isPlayerFiring: boolean): boolean => {
+      const distance = calculateDistance(fromX, fromY, toX, toY);
+      const maxRange = isPlayerFiring ? COMBAT_CONFIG.PLAYER_RANGE : COMBAT_CONFIG.ENEMY_RANGE;
+      return distance <= maxRange;
+    };
+
     const tickerCallback = () => {
       const now = Date.now();
       const delta = app.ticker.deltaTime;
@@ -545,27 +576,37 @@ export function CombatSystem({
       if (currentPlayerFiring && currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && laserAmmoRef.current > 0) {
         const timeSinceLastFire = (now - playerLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
-          // Calculate damage using new formula
-          const damage = calculateLaserDamage(
-            currentLaserCannonRef.current,
-            currentLaserAmmoTypeRef.current,
-            SPARROW_SHIP.laserSlots,
-            0 // No bonuses yet
-          );
-          createLaser(
-            currentPlayerPos.x,
-            currentPlayerPos.y,
-            currentEnemyState.x,
-            currentEnemyState.y,
-            'player',
-            currentEnemyState.id,
-            damage,
-            currentEnemyState.vx,
-            currentEnemyState.vy
-          );
-          // Consume 1 ammo per shot
-          onLaserAmmoConsumeRef.current?.();
-          playerLastFireTimeRef.current = now;
+          // Check if enemy is in range (player firing)
+          if (!isInRange(currentPlayerPos.x, currentPlayerPos.y, currentEnemyState.x, currentEnemyState.y, true)) {
+            // Throttle out-of-range messages to avoid spam (show once every 2 seconds)
+            if (now - lastOutOfRangeMessageTimeRef.current >= 2000) {
+              onOutOfRangeRef.current?.('laser');
+              lastOutOfRangeMessageTimeRef.current = now;
+            }
+            // Skip firing if out of range (don't update fire time so it can retry)
+          } else {
+            // Calculate damage using new formula
+            const damage = calculateLaserDamage(
+              currentLaserCannonRef.current,
+              currentLaserAmmoTypeRef.current,
+              SPARROW_SHIP.laserSlots,
+              0 // No bonuses yet
+            );
+            createLaser(
+              currentPlayerPos.x,
+              currentPlayerPos.y,
+              currentEnemyState.x,
+              currentEnemyState.y,
+              'player',
+              currentEnemyState.id,
+              damage,
+              currentEnemyState.vx,
+              currentEnemyState.vy
+            );
+            // Consume 1 ammo per shot
+            onLaserAmmoConsumeRef.current?.();
+            playerLastFireTimeRef.current = now;
+          }
         }
       }
 
@@ -573,24 +614,35 @@ export function CombatSystem({
       if (playerFiringRocketRef.current && currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && rocketAmmoRef.current > 0) {
         const timeSinceLastRocketFire = (now - playerLastRocketFireTimeRef.current) / 1000;
         if (timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
-          // Calculate rocket damage
-          const damage = calculateRocketDamage(currentRocketTypeRef.current);
-          createRocket(
-            currentPlayerPos.x,
-            currentPlayerPos.y,
-            currentEnemyState.x,
-            currentEnemyState.y,
-            'player',
-            currentEnemyState.id,
-            damage,
-            currentEnemyState.vx,
-            currentEnemyState.vy
-          );
-          // Consume 1 ammo per shot
-          onRocketAmmoConsumeRef.current?.();
-          playerLastRocketFireTimeRef.current = now;
-          // Reset firing flag after rocket is fired
-          onRocketFiredRef.current?.();
+          // Check if enemy is in range (player firing)
+          if (!isInRange(currentPlayerPos.x, currentPlayerPos.y, currentEnemyState.x, currentEnemyState.y, true)) {
+            // Throttle out-of-range messages to avoid spam (show once every 2 seconds)
+            if (now - lastOutOfRangeMessageTimeRef.current >= 2000) {
+              onOutOfRangeRef.current?.('rocket');
+              lastOutOfRangeMessageTimeRef.current = now;
+            }
+            // Reset firing flag if out of range
+            onRocketFiredRef.current?.();
+          } else {
+            // Calculate rocket damage
+            const damage = calculateRocketDamage(currentRocketTypeRef.current);
+            createRocket(
+              currentPlayerPos.x,
+              currentPlayerPos.y,
+              currentEnemyState.x,
+              currentEnemyState.y,
+              'player',
+              currentEnemyState.id,
+              damage,
+              currentEnemyState.vx,
+              currentEnemyState.vy
+            );
+            // Consume 1 ammo per shot
+            onRocketAmmoConsumeRef.current?.();
+            playerLastRocketFireTimeRef.current = now;
+            // Reset firing flag after rocket is fired
+            onRocketFiredRef.current?.();
+          }
         }
       }
 
@@ -598,20 +650,23 @@ export function CombatSystem({
       if (currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && !isInSafetyZoneRef.current && !instaShieldActiveRef.current) {
         const timeSinceLastFire = (now - enemyLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
-          // Enemy uses default damage (can be updated later with enemy equipment)
-          const enemyDamage = ENEMY_STATS.DRIFTER.DAMAGE;
-          createLaser(
-            currentEnemyState.x,
-            currentEnemyState.y,
-            currentPlayerPos.x,
-            currentPlayerPos.y,
-            currentEnemyState.id,
-            'player',
-            enemyDamage,
-            currentPlayerVel.vx,
-            currentPlayerVel.vy
-          );
-          enemyLastFireTimeRef.current = now;
+          // Check if player is in range (enemy firing)
+          if (isInRange(currentEnemyState.x, currentEnemyState.y, currentPlayerPos.x, currentPlayerPos.y, false)) {
+            // Enemy uses default damage (can be updated later with enemy equipment)
+            const enemyDamage = ENEMY_STATS.DRIFTER.DAMAGE;
+            createLaser(
+              currentEnemyState.x,
+              currentEnemyState.y,
+              currentPlayerPos.x,
+              currentPlayerPos.y,
+              currentEnemyState.id,
+              'player',
+              enemyDamage,
+              currentPlayerVel.vx,
+              currentPlayerVel.vy
+            );
+            enemyLastFireTimeRef.current = now;
+          }
         }
       }
 

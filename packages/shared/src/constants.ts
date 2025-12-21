@@ -95,7 +95,9 @@ export const COMBAT_CONFIG = {
   LASER_WIDTH: 3, // pixels
   LASER_COLOR: 0xff0000, // red
   LASER_GLOW_ALPHA: 0.8,
-  COMBAT_RANGE: 1000, // max distance for combat
+  COMBAT_RANGE: 1000, // max distance for combat (deprecated - use PLAYER_RANGE or ENEMY_RANGE)
+  PLAYER_RANGE: 600, // 6 coordinate units = 600 pixels (allows close combat, prevents cross-map firing)
+  ENEMY_RANGE: 450, // 4.5 coordinate units = 450 pixels (slightly shorter than player)
   LASER_TIMEOUT: 5000, // milliseconds before laser despawns
 };
 
@@ -145,54 +147,6 @@ export const LEVELING_CONFIG = {
   STARTING_LEVEL: 1,
   MAX_LEVEL: 44,
 } as const;
-
-// Pre-calculated level chart (Level 1-44)
-export const LEVEL_CHART: Array<{ level: number; expRequired: number; unlocks?: string[] }> = [
-  { level: 1, expRequired: 0, unlocks: ['Start'] },
-  { level: 2, expRequired: 10000 },
-  { level: 3, expRequired: 20000 },
-  { level: 4, expRequired: 40000 },
-  { level: 5, expRequired: 80000 },
-  { level: 6, expRequired: 160000 },
-  { level: 7, expRequired: 320000 },
-  { level: 8, expRequired: 640000 },
-  { level: 9, expRequired: 1280000 },
-  { level: 10, expRequired: 2560000 },
-  { level: 11, expRequired: 5120000 },
-  { level: 12, expRequired: 10240000 },
-  { level: 13, expRequired: 20480000 },
-  { level: 14, expRequired: 40960000 },
-  { level: 15, expRequired: 81920000 },
-  { level: 16, expRequired: 163840000 },
-  { level: 17, expRequired: 327680000 },
-  { level: 18, expRequired: 655360000 },
-  { level: 19, expRequired: 1310720000 },
-  { level: 20, expRequired: 2621440000 },
-  { level: 21, expRequired: 5242880000 },
-  { level: 22, expRequired: 10485760000 },
-  { level: 23, expRequired: 20971520000 },
-  { level: 24, expRequired: 41943040000 },
-  { level: 25, expRequired: 83886080000 },
-  { level: 26, expRequired: 167772160000 },
-  { level: 27, expRequired: 335544320000 },
-  { level: 28, expRequired: 671088640000 },
-  { level: 29, expRequired: 1342177280000 },
-  { level: 30, expRequired: 2684354560000 },
-  { level: 31, expRequired: 5368709120000 },
-  { level: 32, expRequired: 10737418240000 },
-  { level: 33, expRequired: 21474836480000 },
-  { level: 34, expRequired: 42949672960000 },
-  { level: 35, expRequired: 85899345920000 },
-  { level: 36, expRequired: 171798691840000 },
-  { level: 37, expRequired: 343597383680000 },
-  { level: 38, expRequired: 687194767360000 },
-  { level: 39, expRequired: 1374389534720000 },
-  { level: 40, expRequired: 2748779069440000 },
-  { level: 41, expRequired: 5497558138880000 },
-  { level: 42, expRequired: 10995116277760000 },
-  { level: 43, expRequired: 21990232555520000 },
-  { level: 44, expRequired: 43980465111040000 },
-];
 
 // Damage Numbers configuration
 export const DAMAGE_NUMBER_CONFIG = {

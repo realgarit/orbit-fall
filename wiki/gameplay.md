@@ -44,7 +44,7 @@ Your ship rotates toward your mouse cursor. Click and hold to move forward in th
 
 | Tip | Why |
 |:----|:-----|
-| 📏 **Stay at max range** (40 units) | Enemies have shorter range (30 units for Drifters) |
+| 📏 **Stay at max range** (6 units) | Enemies have shorter range (4.5 units for Drifters) |
 | 🎯 **Outrange them** | They can't hit you back |
 | 🔄 **Move in circles** | Kiting - they chase, you shoot |
 
@@ -202,7 +202,7 @@ Your ship rotates toward your mouse cursor. Click and hold to move forward in th
 ### ⚔️ Combat
 
 - 🔄 **Kite enemies in circles**: They chase, you shoot
-- 📏 **Use range advantage**: 40 vs 30 for Drifters
+- 📏 **Use range advantage**: 6 vs 4.5 for Drifters
 - 💣 **Fire rockets at start**: Burst damage
 - 💀 **Save rockets for finishing**: Quick kills
 

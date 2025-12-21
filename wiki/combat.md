@@ -126,8 +126,8 @@ Enemies have both shield and HP:
 
 | Entity | Range | Notes |
 |:-------|:------|:------|
-| 🚀 **You** | 40 units | Your attack range |
-| 👾 **Drifters** | 30 units | Shorter than yours |
+| 🚀 **You** | 6 units | Your attack range (600 pixels) |
+| 👾 **Drifters** | 4.5 units | Shorter than yours (450 pixels) |
 
 > 💡 **You can outrange some enemies.** Stay at max range and they can't hit you back.
 
@@ -229,7 +229,7 @@ When you die (HP hits 0):
 | 🎯 **Target Method** | Double-click enemy |
 | 🔫 **Laser Fire** | Auto (1/sec in combat) |
 | 💣 **Rocket Fire** | Manual (spacebar) |
-| 📏 **Your Range** | 40 units |
+| 📏 **Your Range** | 6 units (600 pixels) |
 | ⏱️ **Laser Cooldown** | 1 second |
 | ⏱️ **Rocket Cooldown** | 3 seconds |
 | 🛡️ **Shield System** | Absorbs damage first |

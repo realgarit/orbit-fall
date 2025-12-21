@@ -56,7 +56,7 @@
 | ⚡ **Speed** | 280 |
 | ⚔️ **Damage** | 20 per shot |
 | ⏱️ **Attack Cooldown** | 1.5s |
-| 📏 **Attack Range** | 30 units |
+| 📏 **Attack Range** | 4.5 units (450 pixels) |
 | 🎭 **Attitude** | Defensive |
 
 ### 💰 Rewards
@@ -163,7 +163,7 @@
 - 🎯 **Double-click** to start combat
 - 🔫 **Lasers auto-fire** in combat
 - 💣 **Rockets are manual** (spacebar)
-- 📏 **Stay at max range** (40 units)
+- 📏 **Stay at max range** (6 units / 600 pixels)
 - 🏃 **Move while fighting** (don't stand still)
 - 💣 **Use rockets for burst** damage
 

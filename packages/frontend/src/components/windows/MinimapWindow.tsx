@@ -32,15 +32,22 @@ export function MinimapWindow({ onTargetChange }: MinimapWindowProps) {
   const enemies = useGameStore((state) => state.enemies);
 
   // Filter out dead enemies - create array for canvas rendering
+  // Convert to array with stringified positions for proper change detection
   const aliveEnemyPositions: { x: number; y: number }[] = [];
-  for (const [enemyId, position] of enemyPositions.entries()) {
-    if (!deadEnemies.has(enemyId) && enemies.has(enemyId)) {
-      const enemy = enemies.get(enemyId);
-      if (enemy && enemy.health > 0 && position) {
-        aliveEnemyPositions.push({ ...position });
+  const enemyPositionsKey = Array.from(enemyPositions.entries())
+    .filter(([enemyId, position]) => {
+      if (!deadEnemies.has(enemyId) && enemies.has(enemyId)) {
+        const enemy = enemies.get(enemyId);
+        return enemy && enemy.health > 0 && position;
       }
-    }
-  }
+      return false;
+    })
+    .map(([enemyId, position]) => {
+      aliveEnemyPositions.push({ ...position });
+      return `${enemyId}:${position.x.toFixed(1)},${position.y.toFixed(1)}`;
+    })
+    .sort()
+    .join('|');
 
   const basePosition = { x: 200, y: 200 };
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -235,10 +242,11 @@ export function MinimapWindow({ onTargetChange }: MinimapWindowProps) {
   }, []);
 
   // Redraw when player / target / enemies / base changes, or when Mars background loads
+  // Use enemyPositionsKey to track actual position changes, not just count
   useEffect(() => {
     drawMinimap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y, aliveEnemyPositions.length, marsBackgroundImage]);
+  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y, enemyPositionsKey, marsBackgroundImage]);
 
   // Mouse down: start drag + set target
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {

@@ -234,11 +234,6 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
       const finalIsInCombat = inCombatRef.current;
       const finalEnemyPos = enemyPositionRef.current;
       
-      // Clear target if we're in combat (combat takes priority)
-      if (currentTarget && finalIsInCombat) {
-        targetPosRef.current = null;
-      }
-      
       // Only rotate if props and refs both indicate valid combat state
       if (shouldBeInCombat && shouldHaveEnemyPos &&
           finalIsInCombat && finalEnemyPos && 
@@ -327,18 +322,7 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
         }
       } else if (currentTarget) {
         // Auto-fly to minimap target
-        // But don't rotate if we're supposed to be in combat (combat takes priority)
-        if (isInCombat && currentEnemyPos) {
-          // Combat rotation takes priority over target movement
-          // Don't rotate towards target if in combat
-          return;
-        }
-        
-        // If we're in combat, combat rotation takes priority over target movement
-        if (inCombatRef.current) {
-          return;
-        }
-        
+        // Allow movement during combat, but combat rotation takes priority
         const dx = currentTarget.x - pos.x;
         const dy = currentTarget.y - pos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -351,11 +335,14 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
             onTargetReachedRef.current();
           }
         } else if (distance > 0.1) {
-          const angle = Math.atan2(dy, dx);
-          const rotation = angle + Math.PI / 2;
-          ship.rotation = rotation;
-          rotationRef.current = rotation;
-
+          // Only update rotation if not in combat (combat rotation takes priority)
+          if (!isInCombat && !inCombatRef.current) {
+            const angle = Math.atan2(dy, dx);
+            const rotation = angle + Math.PI / 2;
+            ship.rotation = rotation;
+            rotationRef.current = rotation;
+          }
+          // Always allow movement toward target, even during combat
           const normalizedDx = dx / distance;
           const normalizedDy = dy / distance;
           const shipSpeed = convertSpeedToDisplay(SPARROW_SHIP.baseSpeed);

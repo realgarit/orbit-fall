@@ -43,7 +43,7 @@
 | ⚡ **Base Speed** | 280 | Slower than you (320) |
 | ⚔️ **Damage** | 20 per shot | Low damage |
 | ⏱️ **Attack Cooldown** | 1.5 seconds | Between attacks |
-| 📏 **Attack Range** | 30 units | Shorter than yours (40) |
+| 📏 **Attack Range** | 4.5 units (450 pixels) | Shorter than yours (6 units) |
 
 #### 💰 Rewards
 
@@ -78,7 +78,7 @@ When you attack a Drifter:
 
 1. 🔄 It turns toward you
 2. 🏃 It starts chasing you
-3. ⚔️ It fires at you when in range (30 units)
+3. ⚔️ It fires at you when in range (4.5 units)
 4. 💥 It does 20 damage every 1.5 seconds
 
 > 🤖 **They're not smart.** They just chase and shoot. Use that to your advantage.
