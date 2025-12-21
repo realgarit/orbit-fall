@@ -41,6 +41,20 @@ export const TradeIcon = () => (
     </svg>
 );
 
+const buttonStyle: React.CSSProperties = {
+    padding: '6px 10px',
+    background: 'linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%)',
+    border: '1px solid #0ea5e9',
+    borderRadius: '4px',
+    color: '#e0e7ff',
+    cursor: 'pointer',
+    fontSize: '11px',
+    fontWeight: 600,
+    transition: 'all 0.15s ease',
+    flex: '1 1 auto',
+    minWidth: 0,
+};
+
 export function TradeWindow() {
     const [activeTab, setActiveTab] = useState<'trade' | 'refine'>('trade');
     const minimizeWindow = useWindowStore((state) => state.minimizeWindow);
@@ -135,13 +149,25 @@ export function TradeWindow() {
                                 <button
                                     onClick={() => sellOre(type, 1)}
                                     disabled={!inBase || amount <= 0}
-                                    className="game-button"
                                     style={{
-                                        padding: '2px 6px',
-                                        fontSize: '9px',
-                                        minWidth: '45px',
-                                        height: '24px',
-                                        opacity: (!inBase || amount <= 0) ? 0.3 : 1
+                                        ...buttonStyle,
+                                        padding: '4px 8px',
+                                        fontSize: '10px',
+                                        minWidth: '50px',
+                                        opacity: (!inBase || amount <= 0) ? 0.4 : 1,
+                                        cursor: (!inBase || amount <= 0) ? 'not-allowed' : 'pointer',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!(!inBase || amount <= 0)) {
+                                            e.currentTarget.style.background = 'linear-gradient(180deg, #2563eb 0%, #1e40af 100%)';
+                                            e.currentTarget.style.borderColor = '#06b6d4';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!(!inBase || amount <= 0)) {
+                                            e.currentTarget.style.background = 'linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%)';
+                                            e.currentTarget.style.borderColor = '#0ea5e9';
+                                        }
                                     }}
                                 >
                                     Sell 1
@@ -149,13 +175,25 @@ export function TradeWindow() {
                                 <button
                                     onClick={() => sellOre(type, amount)}
                                     disabled={!inBase || amount <= 0}
-                                    className="game-button"
                                     style={{
-                                        padding: '2px 6px',
-                                        fontSize: '9px',
-                                        minWidth: '45px',
-                                        height: '24px',
-                                        opacity: (!inBase || amount <= 0) ? 0.3 : 1
+                                        ...buttonStyle,
+                                        padding: '4px 8px',
+                                        fontSize: '10px',
+                                        minWidth: '50px',
+                                        opacity: (!inBase || amount <= 0) ? 0.4 : 1,
+                                        cursor: (!inBase || amount <= 0) ? 'not-allowed' : 'pointer',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!(!inBase || amount <= 0)) {
+                                            e.currentTarget.style.background = 'linear-gradient(180deg, #2563eb 0%, #1e40af 100%)';
+                                            e.currentTarget.style.borderColor = '#06b6d4';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!(!inBase || amount <= 0)) {
+                                            e.currentTarget.style.background = 'linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%)';
+                                            e.currentTarget.style.borderColor = '#0ea5e9';
+                                        }
                                     }}
                                 >
                                     All
@@ -185,15 +223,26 @@ export function TradeWindow() {
                 <button
                     onClick={sellAllOres}
                     disabled={!inBase || totalCargoValue <= 0}
-                    className="game-button"
                     style={{
-                        padding: '6px 12px',
-                        background: inBase ? 'linear-gradient(to bottom, #10b981, #059669)' : '#334155',
-                        borderColor: inBase ? '#10b981' : '#475569',
-                        color: '#fff',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        opacity: (!inBase || totalCargoValue <= 0) ? 0.5 : 1
+                        ...buttonStyle,
+                        padding: '8px 8px',
+                        fontSize: '12px',
+                        flex: '0 0 auto',
+                        minWidth: 'auto',
+                        opacity: (!inBase || totalCargoValue <= 0) ? 0.4 : 1,
+                        cursor: (!inBase || totalCargoValue <= 0) ? 'not-allowed' : 'pointer',
+                    }}
+                    onMouseEnter={(e) => {
+                        if (!(!inBase || totalCargoValue <= 0)) {
+                            e.currentTarget.style.background = 'linear-gradient(180deg, #2563eb 0%, #1e40af 100%)';
+                            e.currentTarget.style.borderColor = '#06b6d4';
+                        }
+                    }}
+                    onMouseLeave={(e) => {
+                        if (!(!inBase || totalCargoValue <= 0)) {
+                            e.currentTarget.style.background = 'linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%)';
+                            e.currentTarget.style.borderColor = '#0ea5e9';
+                        }
                     }}
                 >
                     SELL ALL
@@ -259,13 +308,24 @@ export function TradeWindow() {
                                 <button
                                     onClick={() => refineOre(resultType)}
                                     disabled={!canRefine}
-                                    className="game-button"
                                     style={{
+                                        ...buttonStyle,
                                         padding: '4px 10px',
                                         fontSize: '10px',
-                                        background: canRefine ? 'linear-gradient(to bottom, #10b981, #059669)' : '#334155',
-                                        borderColor: canRefine ? '#10b981' : '#475569',
-                                        opacity: canRefine ? 1 : 0.4
+                                        opacity: canRefine ? 1 : 0.4,
+                                        cursor: canRefine ? 'pointer' : 'not-allowed',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (canRefine) {
+                                            e.currentTarget.style.background = 'linear-gradient(180deg, #2563eb 0%, #1e40af 100%)';
+                                            e.currentTarget.style.borderColor = '#06b6d4';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (canRefine) {
+                                            e.currentTarget.style.background = 'linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%)';
+                                            e.currentTarget.style.borderColor = '#0ea5e9';
+                                        }
                                     }}
                                 >
                                     Refine
@@ -320,36 +380,24 @@ export function TradeWindow() {
             onRestore={restoreWindow}
         >
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '8px', padding: '12px' }}>
-                <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+                <div className="settings-tabs">
                     <button
                         onClick={() => setActiveTab('trade')}
-                        className={`game-button ${activeTab === 'trade' ? 'active' : ''}`}
-                        style={{
-                            flex: 1,
-                            background: activeTab === 'trade' ? 'rgba(30, 58, 95, 0.8)' : 'transparent',
-                            border: 'none',
-                            fontSize: '11px',
-                            padding: '6px'
-                        }}
+                        className={`settings-tab ${activeTab === 'trade' ? 'active' : ''}`}
                     >
-                        Ore Sales
+                        Sell
                     </button>
                     <button
                         onClick={() => setActiveTab('refine')}
-                        className={`game-button ${activeTab === 'refine' ? 'active' : ''}`}
-                        style={{
-                            flex: 1,
-                            background: activeTab === 'refine' ? 'rgba(30, 58, 95, 0.8)' : 'transparent',
-                            border: 'none',
-                            fontSize: '11px',
-                            padding: '6px'
-                        }}
+                        className={`settings-tab ${activeTab === 'refine' ? 'active' : ''}`}
                     >
-                        Refining
+                        Refine
                     </button>
                 </div>
 
-                {activeTab === 'trade' ? renderTradeTab() : renderRefineTab()}
+                <div className="settings-tab-content">
+                    {activeTab === 'trade' ? renderTradeTab() : renderRefineTab()}
+                </div>
             </div>
         </Window>
     );
