@@ -44,84 +44,100 @@ export function RepairRobot({ app, cameraContainer, shipPosition, onRepairComple
 
     // Create robot visual - better looking repair robot
     const robot = new Graphics();
-    
-    // Robot body (main chassis - larger and more detailed)
-    robot.roundRect(-8, -6, 16, 14, 3);
+
+    // 1. Main Drone Body (Top-down circular chassis)
+    robot.circle(0, 0, 10);
     robot.fill(0x4a9eff); // Blue body
-    
-    // Body detail - chest panel
-    robot.roundRect(-6, -4, 12, 8, 2);
-    robot.fill(0x2d7dd2); // Darker blue panel
-    
-    // Robot head (rounded top)
-    robot.roundRect(-6, -14, 12, 10, 2);
-    robot.fill(0x0ea5e9); // Cyan head
-    
-    // Head visor/face
-    robot.roundRect(-4, -12, 8, 6, 1);
-    robot.fill(0x1a3a5f); // Dark visor
-    
-    // Robot eyes (glowing)
-    robot.circle(-2.5, -10, 1.2);
-    robot.fill(0x00ff88); // Green glowing eye
-    robot.circle(2.5, -10, 1.2);
-    robot.fill(0x00ff88); // Green glowing eye
-    
-    // Robot shoulders
-    robot.circle(-10, -2, 3);
-    robot.fill(0x4a9eff); // Left shoulder
-    robot.circle(10, -2, 3);
-    robot.fill(0x4a9eff); // Right shoulder
-    
-    // Robot arms (extended for repair work)
-    robot.roundRect(-12, -2, 4, 10, 1.5);
-    robot.fill(0x2d7dd2); // Left arm
-    robot.roundRect(8, -2, 4, 10, 1.5);
-    robot.fill(0x2d7dd2); // Right arm
-    
-    // Robot hands/tools (repair tools)
-    robot.circle(-10, 6, 2);
-    robot.fill(0x0ea5e9); // Left tool
-    robot.circle(10, 6, 2);
-    robot.fill(0x0ea5e9); // Right tool
-    
-    // Robot legs (sturdy base)
-    robot.roundRect(-5, 8, 4, 8, 1.5);
-    robot.fill(0x2d7dd2); // Left leg
-    robot.roundRect(1, 8, 4, 8, 1.5);
-    robot.fill(0x2d7dd2); // Right leg
-    
-    // Robot feet
-    robot.roundRect(-6, 15, 3, 2, 0.5);
-    robot.fill(0x1a3a5f); // Left foot
-    robot.roundRect(3, 15, 3, 2, 0.5);
-    robot.fill(0x1a3a5f); // Right foot
-    
+    robot.stroke({ width: 1.5, color: 0x1a3a5f }); // Dark border
+
+    // 2. Inner Detail (Metallic plate)
+    robot.circle(0, 0, 7);
+    robot.fill(0x2d7dd2);
+
+    // 3. Central Sensor/Dome (The "Head" from above)
+    robot.circle(0, -2, 5);
+    robot.fill(0x0ea5e9);
+
+    // 4. Glowing Eye/Sensor
+    robot.circle(0, -4, 2);
+    robot.fill({ color: 0x00ffff, alpha: 0.9 }); // Cyan glow
+
+    // 5. Mechanical Arms (Extended toward ship)
+    const drawArm = (side: number) => {
+      const startX = 8 * side;
+      const startY = 2;
+
+      // Arm segments
+      robot.moveTo(startX, startY);
+      robot.lineTo(12 * side, -5); // Shoulder to elbow
+      robot.lineTo(8 * side, -15); // Elbow to hand
+      robot.stroke({ width: 3, color: 0x1e293b });
+
+      // Welder tool at end
+      robot.rect(6 * side, -18, 4, 3);
+      robot.fill(0x64748b);
+
+      // Welder tip (glow point)
+      robot.circle(8 * side, -18, 1);
+      robot.fill(0x00ffff);
+    };
+
+    drawArm(-1); // Left arm
+    drawArm(1);  // Right arm
+
+    // 6. Side Thrusters (for stability)
+    robot.ellipse(-10, 5, 3, 5);
+    robot.fill(0x1a3a5f);
+    robot.ellipse(10, 5, 3, 5);
+    robot.fill(0x1a3a5f);
+
+    // 7. Exhaust Ports
+    robot.circle(-10, 8, 2);
+    robot.fill({ color: 0x00ffff, alpha: 0.3 });
+    robot.circle(10, 8, 2);
+    robot.fill({ color: 0x00ffff, alpha: 0.3 });
+
     // Initial position (orbit around ship)
     const initialAngle = Math.random() * Math.PI * 2;
     angleRef.current = initialAngle;
     robot.x = shipPosition.x + Math.cos(initialAngle) * ORBIT_RADIUS;
     robot.y = shipPosition.y + Math.sin(initialAngle) * ORBIT_RADIUS;
-    
+
     // Face toward ship
     const dx = shipPosition.x - robot.x;
     const dy = shipPosition.y - robot.y;
     robot.rotation = Math.atan2(dy, dx) + Math.PI / 2;
-    
+
     cameraContainer.addChild(robot);
     robotRef.current = robot;
 
-    // Create sparks container
+    // Create electric spark/bolt
     const createSpark = (x: number, y: number) => {
       const spark = new Graphics();
-      const sparkSize = 2 + Math.random() * 2;
-      spark.circle(0, 0, sparkSize);
-      spark.fill({ color: 0xffff00, alpha: 0.8 }); // Yellow spark
+
+      // Draw a jagged electric bolt
+      const segments = 3;
+      const size = 6 + Math.random() * 8;
+      let curX = 0;
+      let curY = 0;
+
+      spark.moveTo(0, 0);
+      for (let i = 0; i < segments; i++) {
+        curX += (Math.random() - 0.5) * size;
+        curY += (Math.random() - 0.5) * size;
+        spark.lineTo(curX, curY);
+      }
+
+      // Electric blue glow
+      spark.stroke({ width: 1.5, color: 0x00ffff, alpha: 0.8 });
+      // White core
+      spark.stroke({ width: 0.5, color: 0xffffff, alpha: 1.0 });
+
       spark.x = x;
       spark.y = y;
       cameraContainer.addChild(spark);
       sparksRef.current.push(spark);
-      
+
       // Remove spark after animation
       setTimeout(() => {
         if (spark.parent) {
@@ -132,7 +148,7 @@ export function RepairRobot({ app, cameraContainer, shipPosition, onRepairComple
         if (index > -1) {
           sparksRef.current.splice(index, 1);
         }
-      }, 300);
+      }, 200);
     };
 
     // Animation ticker
@@ -165,17 +181,17 @@ export function RepairRobot({ app, cameraContainer, shipPosition, onRepairComple
         }
 
         const currentShipPos = shipPositionRef.current;
-        
+
         // Orbit around ship - use actual time elapsed for consistent slow speed
         // Calculate angle based on elapsed time in seconds
         const elapsedSeconds = elapsed / 1000;
         angleRef.current = (elapsedSeconds * ORBIT_SPEED) % (Math.PI * 2);
         const orbitX = currentShipPos.x + Math.cos(angleRef.current) * ORBIT_RADIUS;
         const orbitY = currentShipPos.y + Math.sin(angleRef.current) * ORBIT_RADIUS;
-        
+
         robot.x = orbitX;
         robot.y = orbitY;
-        
+
         // Face toward ship
         const dx = currentShipPos.x - robot.x;
         const dy = currentShipPos.y - robot.y;
@@ -194,7 +210,7 @@ export function RepairRobot({ app, cameraContainer, shipPosition, onRepairComple
             const sparkY = robot.y + Math.sin(sparkAngle) * sparkDistance;
             createSpark(sparkX, sparkY);
           }
-          
+
           // Also spawn sparks near ship (repair effect)
           const shipSparkCount = 1 + Math.floor(Math.random() * 2);
           for (let i = 0; i < shipSparkCount; i++) {
