@@ -39,12 +39,12 @@ export const LASER_CANNONS = {
   'PL-3': { maxDamage: 175, name: 'PL-3' },
 } as const;
 
-// Rocket Types (damage)
+// Rocket Types (max damage)
 export const ROCKETS = {
-  'RT-01': { damage: 1000, name: 'RT-01' },
-  'RT-02': { damage: 2000, name: 'RT-02' },
-  'RT-03': { damage: 4000, name: 'RT-03' },
-  'RT-04': { damage: 6000, name: 'RT-04' },
+  'RT-01': { maxDamage: 1000, name: 'RT-01' },
+  'RT-02': { maxDamage: 2000, name: 'RT-02' },
+  'RT-03': { maxDamage: 4000, name: 'RT-03' },
+  'RT-04': { maxDamage: 6000, name: 'RT-04' },
 } as const;
 
 // Ship Stats - Sparrow (Player's first ship)
@@ -193,4 +193,21 @@ export const LEVEL_CHART: Array<{ level: number; expRequired: number; unlocks?: 
   { level: 43, expRequired: 21990232555520000 },
   { level: 44, expRequired: 43980465111040000 },
 ];
+
+// Damage Numbers configuration
+export const DAMAGE_NUMBER_CONFIG = {
+  DURATION: 1500, // Animation duration in milliseconds (1.5 seconds)
+  FLOAT_DISTANCE: 40, // Pixels to float upward
+  START_SCALE: 1.0, // Initial scale
+  END_SCALE: 1.5, // Final scale (50% larger)
+  START_ALPHA: 1.0, // Initial opacity
+  END_ALPHA: 0.0, // Final opacity (fully transparent)
+  FONT_SIZE: 18, // Base font size
+  FONT_FAMILY: 'Arial, sans-serif',
+  FONT_WEIGHT: 'bold',
+  PLAYER_DAMAGE_COLOR: 0xff0000, // Red when player damages enemy
+  ENEMY_DAMAGE_COLOR: 0xff00ff, // Violet/pink when enemy damages player
+  OFFSET_Y: -30, // Initial offset above hit position
+  RANDOM_OFFSET_X: 10, // Random horizontal spread to prevent stacking
+} as const;
 

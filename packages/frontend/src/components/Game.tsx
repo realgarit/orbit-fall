@@ -12,6 +12,8 @@ import { SelectionCircle } from './SelectionCircle';
 import { CombatSystem } from './CombatSystem';
 import { Shield } from './Shield';
 import { ShipExplosion } from './ShipExplosion';
+import { DamageNumbers } from './DamageNumbers';
+import type { DamageNumbersHandle } from './DamageNumbers';
 import { WindowManagerProvider } from '../hooks/useWindowManager';
 import { useMessageSystem } from '../hooks/useMessageSystem';
 import { TopBar } from './windows/TopBar';
@@ -43,6 +45,9 @@ export function Game() {
   const prevSafetyZoneRef = useRef(false);
   const prevInCombatRef = useRef(false);
   const prevIsRepairingRef = useRef(false);
+
+  // Damage numbers ref
+  const damageNumbersRef = useRef<DamageNumbersHandle>(null);
 
   const { containerRef } = usePixiApp({
     width: window.innerWidth,
@@ -251,6 +256,23 @@ export function Game() {
       const respawnTime = Date.now() + 3000;
       state.setEnemyRespawnTimer(enemyId, respawnTime);
     }
+  };
+
+  // Handle damage events for floating numbers
+  const handlePlayerDamage = (event: { damage: number; position: { x: number; y: number } }) => {
+    damageNumbersRef.current?.addDamageNumber(
+      event.damage,
+      event.position,
+      true // isPlayerDamage = true (enemy damages player)
+    );
+  };
+
+  const handleEnemyDamage = (event: { damage: number; position: { x: number; y: number } }) => {
+    damageNumbersRef.current?.addDamageNumber(
+      event.damage,
+      event.position,
+      false // isPlayerDamage = false (player damages enemy)
+    );
   };
 
   // Handle enemy respawn
@@ -902,8 +924,18 @@ export function Game() {
                     }
                   }}
                   instaShieldActive={instaShieldActive}
+                  onPlayerDamage={handlePlayerDamage}
+                  onEnemyDamage={handleEnemyDamage}
                 />
               ))}
+            {app && cameraContainer && (
+              <DamageNumbers
+                ref={damageNumbersRef}
+                app={app}
+                cameraContainer={cameraContainer}
+                playerPosition={shipPosition}
+              />
+            )}
             {inSafetyZone && (
               <div
                 style={{

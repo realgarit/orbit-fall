@@ -35,19 +35,20 @@ export function calculateLaserDamage(
 }
 
 /**
- * Calculates rocket damage
+ * Calculates rocket damage (random between 0 and max damage)
  * @param rocketType - Type of rocket
- * @returns Damage value
+ * @returns Damage value (random between 0 and max damage)
  */
 export function calculateRocketDamage(rocketType: RocketType): number {
   const rocket = ROCKETS[rocketType];
   
   if (!rocket) {
     // Fallback to default value if invalid type
-    return 1000;
+    return Math.floor(Math.random() * 1000);
   }
   
-  return rocket.damage;
+  // Random damage between 0 and max damage (similar to laser cannons)
+  return Math.floor(Math.random() * rocket.maxDamage);
 }
 
 /**

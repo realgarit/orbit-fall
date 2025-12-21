@@ -31,6 +31,8 @@ interface CombatSystemProps {
   playerFiringRocket?: boolean;
   onRocketFired?: () => void;
   instaShieldActive?: boolean;
+  onPlayerDamage?: (event: { damage: number; position: { x: number; y: number } }) => void;
+  onEnemyDamage?: (event: { damage: number; position: { x: number; y: number } }) => void;
 }
 
 interface LaserData {
@@ -74,6 +76,8 @@ export function CombatSystem({
   playerFiringRocket = false,
   onRocketFired,
   instaShieldActive = false,
+  onPlayerDamage,
+  onEnemyDamage,
 }: CombatSystemProps) {
   const lasersRef = useRef<Map<string, LaserData>>(new Map());
   const rocketsRef = useRef<Map<string, RocketData>>(new Map());
@@ -107,6 +111,8 @@ export function CombatSystem({
   const playerFiringRocketRef = useRef(playerFiringRocket);
   const onRocketFiredRef = useRef(onRocketFired);
   const instaShieldActiveRef = useRef(instaShieldActive);
+  const onPlayerDamageRef = useRef(onPlayerDamage);
+  const onEnemyDamageRef = useRef(onEnemyDamage);
 
   // Update refs when props change
   useEffect(() => {
@@ -200,6 +206,14 @@ export function CombatSystem({
   useEffect(() => {
     onEnemyShieldChangeRef.current = onEnemyShieldChange;
   }, [onEnemyShieldChange]);
+
+  useEffect(() => {
+    onPlayerDamageRef.current = onPlayerDamage;
+  }, [onPlayerDamage]);
+
+  useEffect(() => {
+    onEnemyDamageRef.current = onEnemyDamage;
+  }, [onEnemyDamage]);
 
   // Initialize enemy fire time when combat starts
   useEffect(() => {
@@ -644,7 +658,7 @@ export function CombatSystem({
               let remainingDamage = projectile.damage;
               const currentShield = playerShieldRef.current;
               const maxShield = playerMaxShieldRef.current;
-              
+
               // Apply damage to shield first, then health
               if (currentShield > 0 && maxShield > 0) {
                 const shieldDamage = Math.min(remainingDamage, currentShield);
@@ -652,12 +666,18 @@ export function CombatSystem({
                 remainingDamage -= shieldDamage;
                 onPlayerShieldChangeRef.current?.(newShield);
               }
-              
+
               // Apply remaining damage to health
               if (remainingDamage > 0) {
                 const newHealth = Math.max(0, currentPlayerHealth - remainingDamage);
                 onPlayerHealthChangeRef.current?.(newHealth);
               }
+
+              // Trigger damage number (enemy damages player)
+              onPlayerDamageRef.current?.({
+                damage: projectile.damage,
+                position: { x: currentPlayerPos.x, y: currentPlayerPos.y }
+              });
             }
             // Always remove laser on hit (shield blocks damage but laser still hits)
             onLaserHitRef.current?.(projectile);
@@ -672,7 +692,7 @@ export function CombatSystem({
             let remainingDamage = projectile.damage;
             const currentEnemyShield = currentEnemyState.shield ?? 0;
             const maxEnemyShield = currentEnemyState.maxShield ?? 0;
-            
+
             // Apply damage to enemy shield first, then health
             if (currentEnemyShield > 0 && maxEnemyShield > 0) {
               const shieldDamage = Math.min(remainingDamage, currentEnemyShield);
@@ -680,13 +700,19 @@ export function CombatSystem({
               remainingDamage -= shieldDamage;
               onEnemyShieldChangeRef.current?.(newShield);
             }
-            
+
             // Apply remaining damage to enemy health
             if (remainingDamage > 0) {
               const newHealth = Math.max(0, currentEnemyState.health - remainingDamage);
               onEnemyHealthChangeRef.current?.(newHealth);
             }
-            
+
+            // Trigger damage number (player damages enemy)
+            onEnemyDamageRef.current?.({
+              damage: projectile.damage,
+              position: { x: currentEnemyState.x, y: currentEnemyState.y }
+            });
+
             onLaserHitRef.current?.(projectile);
             lasersToRemove.push(id);
           } else {
@@ -755,7 +781,7 @@ export function CombatSystem({
               let remainingDamage = projectile.damage;
               const currentShield = playerShieldRef.current;
               const maxShield = playerMaxShieldRef.current;
-              
+
               // Apply damage to shield first, then health
               if (currentShield > 0 && maxShield > 0) {
                 const shieldDamage = Math.min(remainingDamage, currentShield);
@@ -763,12 +789,18 @@ export function CombatSystem({
                 remainingDamage -= shieldDamage;
                 onPlayerShieldChangeRef.current?.(newShield);
               }
-              
+
               // Apply remaining damage to health
               if (remainingDamage > 0) {
                 const newHealth = Math.max(0, currentPlayerHealth - remainingDamage);
                 onPlayerHealthChangeRef.current?.(newHealth);
               }
+
+              // Trigger damage number (enemy damages player with rocket)
+              onPlayerDamageRef.current?.({
+                damage: projectile.damage,
+                position: { x: currentPlayerPos.x, y: currentPlayerPos.y }
+              });
             }
             // Always remove rocket on hit (shield blocks damage but rocket still hits)
             rocketsToRemove.push(id);
@@ -782,7 +814,7 @@ export function CombatSystem({
             let remainingDamage = projectile.damage;
             const currentEnemyShield = currentEnemyState.shield ?? 0;
             const maxEnemyShield = currentEnemyState.maxShield ?? 0;
-            
+
             // Apply damage to enemy shield first, then health
             if (currentEnemyShield > 0 && maxEnemyShield > 0) {
               const shieldDamage = Math.min(remainingDamage, currentEnemyShield);
@@ -790,13 +822,19 @@ export function CombatSystem({
               remainingDamage -= shieldDamage;
               onEnemyShieldChangeRef.current?.(newShield);
             }
-            
+
             // Apply remaining damage to enemy health
             if (remainingDamage > 0) {
               const newHealth = Math.max(0, currentEnemyState.health - remainingDamage);
               onEnemyHealthChangeRef.current?.(newHealth);
             }
-            
+
+            // Trigger damage number (player damages enemy with rocket)
+            onEnemyDamageRef.current?.({
+              damage: projectile.damage,
+              position: { x: currentEnemyState.x, y: currentEnemyState.y }
+            });
+
             rocketsToRemove.push(id);
           } else {
             // Update previous position for next frame
