@@ -100,50 +100,52 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
     const drawShipBody = (g: Graphics) => {
       g.clear();
 
-      // 1. Outer Wing/Armor Plates (Lower layer)
-      g.moveTo(-18, 15);
-      g.lineTo(-12, -5);
-      g.lineTo(-8, 10);
-      g.fill(0x2d7dd2); // Darker blue accent
+      // 1. Bottom Wings/Stabilizers (Silver/Red)
+      g.roundRect(-15, 6, 30, 4, 1.5);
+      g.fill(0xcccccc); // Metallic silver
 
-      g.moveTo(18, 15);
-      g.lineTo(12, -5);
-      g.lineTo(8, 10);
-      g.fill(0x2d7dd2); // Darker blue accent
+      // Wing details (red stripes)
+      g.rect(-12, 7, 7, 2);
+      g.fill(0x8b0000);
+      g.rect(5, 7, 7, 2);
+      g.fill(0x8b0000);
 
-      // 2. Main Hull (Sleek Interceptor)
-      g.moveTo(0, -25); // Long nose
-      g.lineTo(-10, 12); // Left back
-      g.lineTo(0, 5);   // Center back indent
-      g.lineTo(10, 12);  // Right back
-      g.lineTo(0, -25);  // Back to nose
-      g.fill(0x4a9eff);  // Primary blue body
+      // 2. Main Rounded Hull (Dark Red)
+      g.ellipse(0, 0, 14, 18);
+      g.fill(0x8b0000); // Phoenix Red
 
-      // 3. Hull Detail Plates (Top layer)
-      g.moveTo(0, -15);
-      g.lineTo(-5, 5);
-      g.lineTo(5, 5);
-      g.fill({ color: 0x66b2ff, alpha: 0.5 }); // Highlighted ridge
+      // 3. Metallic Side Panels (Silver)
+      g.moveTo(-10, -5);
+      g.bezierCurveTo(-14, -5, -14, 10, -10, 15);
+      g.lineTo(-6, 15);
+      g.lineTo(-6, -5);
+      g.fill(0x999999);
 
-      // 4. Cockpit (Glass effect)
-      g.ellipse(0, -8, 4, 7);
-      g.fill({ color: 0x00ffff, alpha: 0.8 }); // Cyan glow
+      g.moveTo(10, -5);
+      g.bezierCurveTo(14, -5, 14, 10, 10, 15);
+      g.lineTo(6, 15);
+      g.lineTo(6, -5);
+      g.fill(0x999999);
 
-      // Cockpit reflection
-      g.ellipse(-1.5, -10, 1.2, 3);
-      g.fill({ color: 0xffffff, alpha: 0.4 });
+      // 4. Large Cockpit Canopy (Dark Glass)
+      g.ellipse(0, -6, 9, 11);
+      g.fill({ color: 0x223344, alpha: 0.85 });
 
-      // 5. Engine Housings
-      g.rect(-8, 8, 4, 6);
-      g.fill(0x1a3a5f);
-      g.rect(4, 8, 4, 6);
-      g.fill(0x1a3a5f);
+      // Canopy glare
+      g.ellipse(-3, -11, 3, 5);
+      g.fill({ color: 0xffffff, alpha: 0.15 });
 
-      // 6. Fine Detail Lines
-      g.setStrokeStyle({ width: 0.5, color: 0x000000, alpha: 0.3 });
-      g.moveTo(0, -20);
-      g.lineTo(0, -12);
-      g.stroke();
+      // 5. Front Circular Port (Signature Phoenix feature)
+      g.circle(0, -17, 4.5);
+      g.fill(0x333333);
+      g.circle(0, -17, 2.5);
+      g.fill(0x666666);
+
+      // 6. Rear Thruster Housings
+      g.rect(-7, 14, 4, 4);
+      g.fill(0x222222);
+      g.rect(3, 14, 4, 4);
+      g.fill(0x222222);
     };
 
     drawShipBody(shipBody);
