@@ -14,107 +14,104 @@ function drawMarsPlanet(
   radius: number,
   seed: number
 ) {
-  // Mars colors - reddish-orange palette
-  const baseColor = '#cd5c5c'; // Mars red
-  const darkColor = '#8b3a3a'; // Darker red
-  const craterColor = '#7a2a2a'; // Deep crater color
-  
-  // Draw main planet circle
+  // 1. Atmosphere Glow
+  // Outer soft glow
+  const outerGlow = ctx.createRadialGradient(x, y, radius, x, y, radius + 25);
+  outerGlow.addColorStop(0, 'rgba(205, 92, 92, 0.4)');
+  outerGlow.addColorStop(1, 'rgba(205, 92, 92, 0)');
+  ctx.fillStyle = outerGlow;
+  ctx.beginPath();
+  ctx.arc(x, y, radius + 25, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Main Surface
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
-  ctx.fillStyle = baseColor;
+  ctx.fillStyle = '#cd5c5c'; // Mars Red
   ctx.fill();
-  
-  // Add procedural terrain features (craters, valleys, mountains)
-  const numFeatures = 20;
+
+  // 3. Procedural Terrain
+  const numFeatures = 40;
   for (let i = 0; i < numFeatures; i++) {
     const featureSeed = seed + i * 1000;
     const angle = seededRandom(featureSeed) * Math.PI * 2;
-    const distance = seededRandom(featureSeed + 1) * radius * 0.7; // Within 70% of radius
-    const featureX = x + Math.cos(angle) * distance;
-    const featureY = y + Math.sin(angle) * distance;
-    
+    const distance = seededRandom(featureSeed + 1) * radius * 0.85;
+    const fX = x + Math.cos(angle) * distance;
+    const fY = y + Math.sin(angle) * distance;
+
     const featureType = seededRandom(featureSeed + 2);
-    
-    if (featureType < 0.4) {
+
+    if (featureType < 0.45) {
       // Crater
-      const craterSize = seededRandom(featureSeed + 3) * 15 + 5;
+      const size = seededRandom(featureSeed + 3) * 12 + 4;
       ctx.beginPath();
-      ctx.arc(featureX, featureY, craterSize, 0, Math.PI * 2);
-      ctx.fillStyle = craterColor;
-      ctx.fill();
-      // Crater rim highlight
-      ctx.beginPath();
-      ctx.arc(featureX, featureY, craterSize * 0.7, 0, Math.PI * 2);
-      ctx.fillStyle = darkColor;
-      ctx.globalAlpha = 0.5;
-      ctx.fill();
-      ctx.globalAlpha = 1.0;
-    } else if (featureType < 0.7) {
-      // Mountain/ridge
-      const ridgeLength = seededRandom(featureSeed + 3) * 20 + 10;
-      const ridgeWidth = seededRandom(featureSeed + 4) * 3 + 1;
-      ctx.beginPath();
-      ctx.ellipse(featureX, featureY, ridgeLength, ridgeWidth, 0, 0, Math.PI * 2);
-      ctx.fillStyle = darkColor;
+      ctx.arc(fX, fY, size, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(122, 42, 42, 0.8)';
       ctx.fill();
     } else {
-      // Valley/depression
-      const valleySize = seededRandom(featureSeed + 3) * 12 + 4;
+      // Valley/Ridge
+      const length = seededRandom(featureSeed + 3) * 40 + 20;
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(139, 58, 58, 0.4)';
       ctx.beginPath();
-      ctx.arc(featureX, featureY, valleySize, 0, Math.PI * 2);
-      ctx.fillStyle = darkColor;
-      ctx.globalAlpha = 0.6;
-      ctx.fill();
-      ctx.globalAlpha = 1.0;
+      ctx.moveTo(fX, fY);
+      ctx.lineTo(fX + Math.cos(angle) * length, fY + Math.sin(angle) * length);
+      ctx.stroke();
     }
   }
-  
-  // Add terminator line (day/night boundary) with gradient effect
-  // Light source from the right
-  const terminatorOffset = radius * 0.3; // 30% of planet in shadow
-  for (let i = 0; i < 10; i++) {
-    const alpha = 0.1 + (i / 10) * 0.3;
-    ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-    ctx.fillRect(
-      x - radius,
-      y - radius + i * (radius * 2 / 10),
-      radius * 2,
-      radius * 2 / 10
-    );
-  }
-  
-  // Add city lights on the dark side (left side)
-  const numCityLights = 8;
+
+  // 4. City Lights (Left Side)
+  const numCityLights = 15;
   for (let i = 0; i < numCityLights; i++) {
-    const lightSeed = seed + i * 500;
-    const lightAngle = Math.PI + seededRandom(lightSeed) * Math.PI * 0.6; // Left side (180-240 degrees)
-    const lightDistance = seededRandom(lightSeed + 1) * radius * 0.6;
-    const lightX = x + Math.cos(lightAngle) * lightDistance;
-    const lightY = y + Math.sin(lightAngle) * lightDistance;
-    
-    // Outer glow
+    const lightSeed = seed + i * 777;
+    const lightAngle = Math.PI * 0.8 + seededRandom(lightSeed) * Math.PI * 0.5;
+    const lightDist = seededRandom(lightSeed + 1) * radius * 0.7;
+    const lX = x + Math.cos(lightAngle) * lightDist;
+    const lY = y + Math.sin(lightAngle) * lightDist;
+
     ctx.beginPath();
-    ctx.arc(lightX, lightY, 5, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 170, 0.3)';
+    ctx.arc(lX, lY, 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 255, 170, 0.8)';
     ctx.fill();
-    // City light glow
     ctx.beginPath();
-    ctx.arc(lightX, lightY, 3, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 170, 0.9)';
+    ctx.arc(lX, lY, 4, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255, 170, 0, 0.2)';
     ctx.fill();
   }
-  
-  // Add bright rim on the illuminated edge (right side)
-  for (let i = 0; i < 5; i++) {
-    const rimAngle = -Math.PI / 2 + seededRandom(seed + i) * Math.PI; // Right side
-    const rimX = x + Math.cos(rimAngle) * radius;
-    const rimY = y + Math.sin(rimAngle) * radius;
+
+  // 5. Cloud Layer (Soft Wispy Clouds)
+  for (let i = 0; i < 15; i++) {
+    const cloudSeed = seed + i * 888;
+    const cAngle = seededRandom(cloudSeed) * Math.PI * 2;
+    const cDist = seededRandom(cloudSeed + 1) * radius * 0.85;
+    const cX = x + Math.cos(cAngle) * cDist;
+    const cY = y + Math.sin(cAngle) * cDist;
+    const cSize = seededRandom(cloudSeed + 2) * 100 + 40;
+
+    // Create a soft radial gradient for a "puff" effect
+    const gradient = ctx.createRadialGradient(cX, cY, 0, cX, cY, cSize);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
+    gradient.addColorStop(0.4, 'rgba(255, 255, 255, 0.08)');
+    gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(rimX, rimY, 2, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 170, 68, ${0.8 - i * 0.15})`;
+    ctx.arc(cX, cY, cSize, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  // 6. Crescent Shadow
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, radius + 1, 0, Math.PI * 2);
+  ctx.clip();
+
+  ctx.beginPath();
+  ctx.arc(x + radius * 0.4, y, radius * 1.2, 0, Math.PI * 2);
+  ctx.rect(x + radius * 2, y - radius * 2, -radius * 4, radius * 4); // Invert fill
+  ctx.fillStyle = 'rgba(20, 5, 5, 0.5)';
+  ctx.fill();
+  ctx.restore();
 }
 
 // Generate asteroid on canvas
@@ -126,23 +123,23 @@ function drawAsteroid(
   size: number
 ) {
   const color = '#6b6b6b'; // Grey-brown
-  
+
   // Create irregular shape
   const points = 8;
   const angles: number[] = [];
   const radii: number[] = [];
-  
+
   for (let i = 0; i < points; i++) {
     angles.push((i / points) * Math.PI * 2);
     radii.push(size * (0.7 + seededRandom(seed + i) * 0.3));
   }
-  
+
   ctx.beginPath();
   ctx.moveTo(
     x + Math.cos(angles[0]) * radii[0],
     y + Math.sin(angles[0]) * radii[0]
   );
-  
+
   for (let i = 1; i < points; i++) {
     ctx.lineTo(
       x + Math.cos(angles[i]) * radii[i],
@@ -152,7 +149,7 @@ function drawAsteroid(
   ctx.closePath();
   ctx.fillStyle = color;
   ctx.fill();
-  
+
   // Add some surface detail
   for (let i = 0; i < 3; i++) {
     const detailSeed = seed + i * 100;
@@ -184,7 +181,7 @@ function drawNebula(
     const cloudY = y + (seededRandom(cloudSeed + 1) - 0.5) * height;
     const cloudSize = seededRandom(cloudSeed + 2) * 60 + 40;
     const alpha = seededRandom(cloudSeed + 3) * 0.2 + 0.1;
-    
+
     // Dark grey-blue nebula
     ctx.beginPath();
     ctx.arc(cloudX, cloudY, cloudSize, 0, Math.PI * 2);
@@ -202,24 +199,24 @@ export function generateMarsBackgroundCanvas(): HTMLCanvasElement {
   canvas.width = MAP_WIDTH;
   canvas.height = MAP_HEIGHT;
   const ctx = canvas.getContext('2d');
-  
+
   if (!ctx) {
     throw new Error('Failed to get canvas context');
   }
-  
+
   // Black background
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
-  
+
   // Mars position (center of map)
   const marsWorldX = MAP_WIDTH * 0.5;
   const marsWorldY = MAP_HEIGHT * 0.5;
-  const marsRadius = 400;
+  const marsRadius = 450;
   const marsSeed = 12345;
-  
+
   // Draw Mars planet
   drawMarsPlanet(ctx, marsWorldX, marsWorldY, marsRadius, marsSeed);
-  
+
   // Draw asteroids
   const numAsteroids = 5;
   for (let i = 0; i < numAsteroids; i++) {
@@ -229,14 +226,14 @@ export function generateMarsBackgroundCanvas(): HTMLCanvasElement {
     const asteroidY = MAP_HEIGHT * (0.1 + seededRandom(asteroidSeed + 2) * 0.2);
     drawAsteroid(ctx, asteroidX, asteroidY, asteroidSeed, asteroidSize);
   }
-  
+
   // Draw nebulae
   const numNebulae = 3;
   for (let i = 0; i < numNebulae; i++) {
     const nebulaSeed = 10000 + i * 2000;
     let nebulaX: number;
     let nebulaY: number;
-    
+
     if (i === 0) {
       // Upper-left
       nebulaX = MAP_WIDTH * 0.1;
@@ -250,10 +247,10 @@ export function generateMarsBackgroundCanvas(): HTMLCanvasElement {
       nebulaX = MAP_WIDTH * (0.6 + seededRandom(nebulaSeed) * 0.2);
       nebulaY = MAP_HEIGHT * (0.1 + seededRandom(nebulaSeed + 1) * 0.2);
     }
-    
+
     drawNebula(ctx, nebulaX, nebulaY, nebulaSeed, 200, 150);
   }
-  
+
   return canvas;
 }
 
