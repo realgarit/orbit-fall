@@ -7,7 +7,8 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@shared': path.resolve(__dirname, '../../packages/shared/src'),
+      // Point to compiled JS instead of TypeScript source
+      '@shared': path.resolve(__dirname, '../../packages/shared/dist'),
     },
   },
   server: {

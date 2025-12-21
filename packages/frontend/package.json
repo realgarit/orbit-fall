@@ -10,10 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@orbit-fall/shared": "*",
+    "pixi.js": "^8.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "pixi.js": "^8.0.0",
-    "@orbit-fall/shared": "*"
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
