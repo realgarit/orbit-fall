@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Window } from './Window';
 import { useWindowManager } from '../../hooks/useWindowManager';
+import { useGameStore } from '../../stores/gameStore';
 import { MAP_WIDTH, MAP_HEIGHT, COORDINATE_SCALE } from '@shared/constants';
 import { generateMarsBackgroundCanvas } from '../../utils/marsBackgroundCanvas';
 
 interface MinimapWindowProps {
-  playerPosition: { x: number; y: number };
-  targetPosition: { x: number; y: number } | null;
   onTargetChange: (target: { x: number; y: number } | null) => void;
-  enemyPositions?: { x: number; y: number }[] | Map<string, { x: number; y: number }>;
-  basePosition?: { x: number; y: number } | null;
-  windowId?: string;
 }
 
 const MinimapIcon = () => (
@@ -22,19 +18,34 @@ const MinimapIcon = () => (
   </svg>
 );
 
-export function MinimapWindow({
-  playerPosition,
-  targetPosition,
-  onTargetChange,
-  enemyPositions = [],
-  basePosition = null,
-  windowId = 'minimap-window',
-}: MinimapWindowProps) {
+export function MinimapWindow({ onTargetChange }: MinimapWindowProps) {
   const { minimizeWindow, restoreWindow, resetWindow, windows } = useWindowManager();
+
+  // Get state from Zustand
+  const playerPosition = useGameStore((state) => state.shipPosition);
+  const targetPosition = useGameStore((state) => state.targetPosition);
+  const enemyPositions = useGameStore((state) => state.enemyPositions);
+  const deadEnemies = useGameStore((state) => state.deadEnemies);
+  const enemies = useGameStore((state) => state.enemies);
+
+  // Filter out dead enemies - create array for canvas rendering
+  const aliveEnemyPositions: { x: number; y: number }[] = [];
+  for (const [enemyId, position] of enemyPositions.entries()) {
+    if (!deadEnemies.has(enemyId) && enemies.has(enemyId)) {
+      const enemy = enemies.get(enemyId);
+      if (enemy && enemy.health > 0 && position) {
+        aliveEnemyPositions.push({ ...position });
+      }
+    }
+  }
+
+  const basePosition = { x: 200, y: 200 };
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [marsBackgroundImage, setMarsBackgroundImage] = useState<HTMLImageElement | null>(null);
-  
+
+  const windowId = 'minimap-window';
+
   // Generate Mars background image once
   useEffect(() => {
     const marsCanvas = generateMarsBackgroundCanvas();
@@ -49,17 +60,17 @@ export function MinimapWindow({
   useEffect(() => {
     const savedState = windows.get(windowId);
     if (savedState) {
-      const isOffScreen = 
+      const isOffScreen =
         savedState.x + savedState.width < -100 ||
         savedState.x > window.innerWidth + 100 ||
         savedState.y + savedState.height < -100 ||
         savedState.y > window.innerHeight + 100;
-      
+
       if (isOffScreen) {
         resetWindow(windowId);
       }
     }
-  }, [windowId, windows, resetWindow]);
+  }, [windows, resetWindow]);
 
   // World -> minimap
   const worldToMinimap = (worldX: number, worldY: number, canvasWidth: number, canvasHeight: number) => {
@@ -146,13 +157,8 @@ export function MinimapWindow({
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Enemy dots - render all enemies
-    // Handle both Map and Array formats
-    const enemyPositionsArray = enemyPositions instanceof Map 
-      ? Array.from(enemyPositions.values())
-      : (enemyPositions || []);
-    
-    enemyPositionsArray.forEach((enemyPosition) => {
+    // Enemy dots - render alive enemies
+    aliveEnemyPositions.forEach((enemyPosition) => {
       const enemyMinimap = worldToMinimap(enemyPosition.x, enemyPosition.y, width, height);
       ctx.fillStyle = '#ff0000';
       ctx.beginPath();
@@ -229,7 +235,7 @@ export function MinimapWindow({
   useEffect(() => {
     drawMinimap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y, enemyPositions, basePosition?.x, basePosition?.y, marsBackgroundImage]);
+  }, [playerPosition.x, playerPosition.y, targetPosition?.x, targetPosition?.y, aliveEnemyPositions.length, marsBackgroundImage]);
 
   // Mouse down: start drag + set target
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {

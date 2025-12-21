@@ -23,8 +23,9 @@ import { SettingsWindow } from './windows/SettingsWindow';
 import { ShipWindow } from './windows/ShipWindow';
 import { DeathWindow } from './windows/DeathWindow';
 import { MessageSystem } from './MessageSystem';
-import { MAP_WIDTH, MAP_HEIGHT, PLAYER_STATS, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP } from '@shared/constants';
-import type { EnemyState, LaserAmmoType, LaserCannonType, RocketType } from '@shared/types';
+import { useGameStore } from '../stores/gameStore';
+import { MAP_WIDTH, MAP_HEIGHT, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP } from '@shared/constants';
+import type { EnemyState } from '@shared/types';
 import { getLevelFromExp } from '@shared/utils/leveling';
 import '../styles/windows.css';
 
@@ -32,230 +33,48 @@ export function Game() {
   const { addMessage } = useMessageSystem();
   const [app, setApp] = useState<Application | null>(null);
   const [cameraContainer, setCameraContainer] = useState<Container | null>(null);
-  const [shipPosition, setShipPosition] = useState({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
-  const [shipVelocity, setShipVelocity] = useState({ vx: 0, vy: 0 });
-  const [shipRotation, setShipRotation] = useState(0);
-  const [fps, setFps] = useState(0);
-  
-  // Game state for Stats Window
-  const [playerHealth, setPlayerHealth] = useState<number>(SPARROW_SHIP.hitpoints);
-  const [playerShield, setPlayerShield] = useState<number | undefined>(undefined);
-  const [playerMaxShield, _setPlayerMaxShield] = useState<number | undefined>(undefined);
-  
-  // Player progression stats
-  const [playerExperience, setPlayerExperience] = useState(0);
-  const playerLevel = getLevelFromExp(playerExperience);
-  const [playerCredits, setPlayerCredits] = useState(0);
-  const [playerHonor, setPlayerHonor] = useState(0);
-  const [playerAetherium, setPlayerAetherium] = useState(0);
-  
-  // Update level when experience changes
-  useEffect(() => {
-    const newLevel = getLevelFromExp(playerExperience);
-    if (newLevel > 1 && newLevel !== getLevelFromExp(playerExperience - 1)) {
-      // Level up detected (handled in reward logic)
-    }
-  }, [playerExperience]);
-  
-  // Death state
-  const [isDead, setIsDead] = useState(false);
-  const [deathPosition, setDeathPosition] = useState<{ x: number; y: number } | null>(null);
-  const [showDeathWindow, setShowDeathWindow] = useState(false); // Delay window until explosion completes
-  
-  // Insta-shield protection after revive
-  const [instaShieldActive, setInstaShieldActive] = useState(false);
-  const instaShieldEndTimeRef = useRef(0);
-  
-  // Equipment state
-  const [currentLaserCannon, _setCurrentLaserCannon] = useState<LaserCannonType>(PLAYER_STATS.STARTING_LASER_CANNON);
-  const [currentLaserAmmoType, _setCurrentLaserAmmoType] = useState<LaserAmmoType>(PLAYER_STATS.STARTING_LASER_AMMO);
-  const [currentRocketType, _setCurrentRocketType] = useState<RocketType>(PLAYER_STATS.STARTING_ROCKET);
-  
-  // Laser ammunition state (by type)
-  const [laserAmmo, setLaserAmmo] = useState<Record<LaserAmmoType, number>>({
-    'LC-10': 10000,
-    'LC-25': 0,
-    'LC-50': 0,
-    'LC-100': 0,
-    'RS-75': 0,
-  });
-  
-  // Handle laser ammunition consumption
-  const handleLaserAmmoConsume = () => {
-    setLaserAmmo((prev) => {
-      const currentType = currentLaserAmmoType;
-      const currentQuantity = prev[currentType];
-      const newQuantity = Math.max(0, currentQuantity - 1);
-      
-      if (newQuantity === 0 && currentQuantity > 0) {
-        // Defer message to avoid updating state during render
-        queueMicrotask(() => addMessage(`Laser ammunition ${currentType} depleted!`, 'warning'));
-      }
-      
-      return {
-        ...prev,
-        [currentType]: newQuantity,
-      };
-    });
-  };
-  
-  // Rocket ammunition state (by type)
-  const [rocketAmmo, setRocketAmmo] = useState<Record<RocketType, number>>({
-    'RT-01': 100,
-    'RT-02': 0,
-    'RT-03': 0,
-    'RT-04': 0,
-  });
-  
-  // Handle rocket ammunition consumption
-  const handleRocketAmmoConsume = () => {
-    setRocketAmmo((prev) => {
-      const currentType = currentRocketType;
-      const currentQuantity = prev[currentType];
-      const newQuantity = Math.max(0, currentQuantity - 1);
-      
-      if (newQuantity === 0 && currentQuantity > 0) {
-        // Defer message to avoid updating state during render
-        queueMicrotask(() => addMessage(`Rocket ammunition ${currentType} depleted!`, 'warning'));
-      }
-      
-      return {
-        ...prev,
-        [currentType]: newQuantity,
-      };
-    });
-  };
-  
-  // Get current ammo quantities for display
-  const currentLaserAmmoQuantity = laserAmmo[currentLaserAmmoType];
-  const currentRocketAmmoQuantity = rocketAmmo[currentRocketType];
-  
-  // Rocket firing state (manual with SPACE key)
-  const [playerFiringRocket, setPlayerFiringRocket] = useState(false);
-  const playerLastRocketFireTimeRef = useRef(0);
-  const [rocketCooldown, setRocketCooldown] = useState(0);
-  
-  // Enemy state - now supports multiple enemies
-  const [enemies, setEnemies] = useState<Map<string, EnemyState>>(new Map());
-  const [enemyPositions, setEnemyPositions] = useState<Map<string, { x: number; y: number }>>(new Map());
-  const [deadEnemies, setDeadEnemies] = useState<Set<string>>(new Set());
-  
-  // Refs to access latest state in callbacks (avoid stale closures)
-  const enemiesRef = useRef(enemies);
-  const enemyPositionsRef = useRef(enemyPositions);
-  const deadEnemiesRef = useRef(deadEnemies);
-  const enemyRespawnTimersRef = useRef<Map<string, number>>(new Map());
-  const shipPositionRef = useRef(shipPosition);
-  
-  // Keep refs in sync with state
-  useEffect(() => {
-    enemiesRef.current = enemies;
-  }, [enemies]);
-  
-  useEffect(() => {
-    enemyPositionsRef.current = enemyPositions;
-  }, [enemyPositions]);
-  
-  useEffect(() => {
-    deadEnemiesRef.current = deadEnemies;
-  }, [deadEnemies]);
-  
-  useEffect(() => {
-    shipPositionRef.current = shipPosition;
-  }, [shipPosition]);
-  
-  // Selection and combat state
-  const [selectedEnemyId, setSelectedEnemyId] = useState<string | null>(null);
-  const [inCombat, setInCombat] = useState(false);
-  const [playerFiring, setPlayerFiring] = useState(false);
-  
-  // Refs to track state for immediate updates in callbacks (avoid stale closures)
-  const inCombatRef = useRef(false);
-  const selectedEnemyIdRef = useRef<string | null>(null);
-  
-  useEffect(() => {
-    inCombatRef.current = inCombat;
-  }, [inCombat]);
-  
-  useEffect(() => {
-    selectedEnemyIdRef.current = selectedEnemyId;
-  }, [selectedEnemyId]);
-  
-  // Repair system state
-  const [isRepairing, setIsRepairing] = useState(false);
-  const [repairCooldown, setRepairCooldown] = useState(0);
-  const lastRepairTimeRef = useRef(0);
-  
-  // Minimap auto-fly target
-  const [targetPosition, setTargetPosition] = useState<{ x: number; y: number } | null>(null);
-  
-  // Base position (top left of map)
-  const basePosition = { x: 200, y: 200 };
-  
-  // Check if player is in safety zone
-  const isInSafetyZone = () => {
-    const dx = shipPosition.x - basePosition.x;
-    const dy = shipPosition.y - basePosition.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance < BASE_SAFETY_ZONE.RADIUS;
-  };
-  
-  const inSafetyZone = isInSafetyZone();
 
-  // Check if any enemy is engaged/aggressive
-  const hasAggressiveEnemies = () => {
-    return Array.from(enemies.values()).some(
-      (enemy) => enemy.health > 0 && enemy.isEngaged && !deadEnemies.has(enemy.id)
-    );
-  };
-  
-  // Track previous safety zone state for messages
-  const prevSafetyZoneRef = useRef(inSafetyZone);
-  
-  // Exit combat when entering safety zone
-  useEffect(() => {
-    if (inSafetyZone && inCombat) {
-      setInCombat(false);
-      setPlayerFiring(false);
-      // Don't clear selectedEnemyId - let player keep selection for when they leave
-    }
-    
-    // Safety zone entry/exit messages
-    if (inSafetyZone && !prevSafetyZoneRef.current) {
-      addMessage('Entered safety zone', 'success');
-    } else if (!inSafetyZone && prevSafetyZoneRef.current) {
-      addMessage('Left safety zone', 'warning');
-    }
-    prevSafetyZoneRef.current = inSafetyZone;
-  }, [inSafetyZone, inCombat, addMessage]);
-  
-  // Track previous combat state for messages
-  const prevInCombatRef = useRef(inCombat);
-  
-  // Combat start message
-  useEffect(() => {
-    if (inCombat && !prevInCombatRef.current) {
-      addMessage('Combat engaged!', 'combat');
-    }
-    prevInCombatRef.current = inCombat;
-  }, [inCombat, addMessage]);
-  
-  // Double-click detection
+  // Double-click detection (keep as local state - UI only)
   const lastClickTimeRef = useRef(0);
   const lastClickEnemyIdRef = useRef<string | null>(null);
   const lastOutsideClickTimeRef = useRef(0);
+
+  // Track previous state for messages (keep as local refs - UI only)
+  const prevSafetyZoneRef = useRef(false);
+  const prevInCombatRef = useRef(false);
+  const prevIsRepairingRef = useRef(false);
+
   const { containerRef } = usePixiApp({
     width: window.innerWidth,
     height: window.innerHeight,
     backgroundColor: 0x000000,
     onAppReady: (app) => {
       setApp(app);
-      // Create camera container for world space
       const worldContainer = new Container();
       app.stage.addChild(worldContainer);
       setCameraContainer(worldContainer);
     },
   });
+
+  // Base position
+  const basePosition = { x: 200, y: 200 };
+
+  // Check if player is in safety zone
+  const isInSafetyZone = () => {
+    const state = useGameStore.getState();
+    const dx = state.shipPosition.x - basePosition.x;
+    const dy = state.shipPosition.y - basePosition.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    return distance < BASE_SAFETY_ZONE.RADIUS;
+  };
+
+  // Check if any enemy is engaged/aggressive
+  const hasAggressiveEnemies = () => {
+    const state = useGameStore.getState();
+    return Array.from(state.enemies.values()).some(
+      (enemy) => enemy.health > 0 && enemy.isEngaged && !state.deadEnemies.has(enemy.id)
+    );
+  };
 
   // Handle window resize
   useEffect(() => {
@@ -275,7 +94,7 @@ export function Game() {
 
     const tickerCallback = () => {
       if (app?.ticker) {
-        setFps(app.ticker.FPS);
+        useGameStore.getState().setFps(app.ticker.FPS);
       }
     };
 
@@ -287,25 +106,17 @@ export function Game() {
     };
   }, [app]);
 
-  // Handle ship state updates
-  const handleShipStateUpdate = (position: { x: number; y: number }, velocity: { vx: number; vy: number }, rotation?: number) => {
-    setShipPosition(position);
-    setShipVelocity(velocity);
-    if (rotation !== undefined) {
-      setShipRotation(rotation);
-    }
-  };
-
   // Initialize 4 enemies on mount
   useEffect(() => {
+    const state = useGameStore.getState();
     const initialEnemies = new Map<string, EnemyState>();
     for (let i = 1; i <= 4; i++) {
       const enemyId = `drifter-${i}`;
       const angle = Math.random() * Math.PI * 2;
       const distance = 200 + Math.random() * 200;
-      const spawnX = shipPosition.x + Math.cos(angle) * distance;
-      const spawnY = shipPosition.y + Math.sin(angle) * distance;
-      
+      const spawnX = state.shipPosition.x + Math.cos(angle) * distance;
+      const spawnY = state.shipPosition.y + Math.sin(angle) * distance;
+
       initialEnemies.set(enemyId, {
         id: enemyId,
         name: ENEMY_STATS.DRIFTER.NAME,
@@ -323,268 +134,215 @@ export function Game() {
         attitude: ENEMY_STATS.DRIFTER.ATTITUDE,
       });
     }
-    setEnemies(initialEnemies);
+    state.setEnemies(initialEnemies);
   }, []); // Only run once on mount
 
+  // Handle ship state updates
+  const handleShipStateUpdate = (position: { x: number; y: number }, velocity: { vx: number; vy: number }, rotation?: number) => {
+    const state = useGameStore.getState();
+    state.setShipPosition(position);
+    state.setShipVelocity(velocity);
+    if (rotation !== undefined) {
+      state.setShipRotation(rotation);
+    }
+  };
+
   // Handle enemy state updates
-  const handleEnemyStateUpdate = (enemyId: string, state: EnemyState) => {
-    setEnemies((prev) => {
-      const next = new Map(prev);
-      const existing = prev.get(enemyId);
-      // Preserve isEngaged state if it was already set to true
-      // Also preserve shield values if they exist in existing state
-      if (existing && existing.isEngaged && !state.isEngaged) {
-        // Don't reset isEngaged if it was already engaged
-        // Preserve shield values from existing state if not provided in new state
-        next.set(enemyId, { 
-          ...state, 
-          isEngaged: true,
-          shield: state.shield ?? existing.shield,
-          maxShield: state.maxShield ?? existing.maxShield,
-        });
-      } else {
-        // Preserve shield values from existing state if not provided in new state
-        next.set(enemyId, {
-          ...state,
-          shield: state.shield ?? existing?.shield,
-          maxShield: state.maxShield ?? existing?.maxShield,
-        });
-      }
-      return next;
-    });
+  const handleEnemyStateUpdate = (enemyId: string, enemyState: EnemyState) => {
+    const state = useGameStore.getState();
+    const existing = state.enemies.get(enemyId);
+
+    // Preserve isEngaged state if it was already set to true
+    if (existing && existing.isEngaged && !enemyState.isEngaged) {
+      state.updateEnemy(enemyId, {
+        ...enemyState,
+        isEngaged: true,
+        shield: enemyState.shield ?? existing.shield,
+        maxShield: enemyState.maxShield ?? existing.maxShield,
+      });
+    } else {
+      state.updateEnemy(enemyId, {
+        ...enemyState,
+        shield: enemyState.shield ?? existing?.shield,
+        maxShield: enemyState.maxShield ?? existing?.maxShield,
+      });
+    }
   };
 
   const handleEnemyPositionUpdate = (enemyId: string, position: { x: number; y: number }) => {
-    // Use ref to check latest deadEnemies state (avoids stale closure)
-    if (deadEnemiesRef.current.has(enemyId)) {
-      // Enemy is dead, ensure position is removed (defensive cleanup)
-      setEnemyPositions((prev) => {
-        if (!prev.has(enemyId)) return prev; // Already removed
-        const next = new Map(prev);
-        next.delete(enemyId);
-        return next;
-      });
-      return; // Don't update position for dead enemies
+    const state = useGameStore.getState();
+    if (state.deadEnemies.has(enemyId)) {
+      // Enemy is dead, remove position
+      const positions = new Map(state.enemyPositions);
+      positions.delete(enemyId);
+      state.setEnemyPositions(positions);
+      return;
     }
-    // Enemy is alive, update position
-    setEnemyPositions((prev) => {
-      const next = new Map(prev);
-      next.set(enemyId, position);
-      return next;
-    });
+    state.updateEnemyPosition(enemyId, position);
   };
 
   // Handle enemy health change
   const handleEnemyHealthChange = (enemyId: string, health: number) => {
-    // Check if enemy died before updating state
-    const enemyDied = health <= 0 && !deadEnemiesRef.current.has(enemyId);
-    
-    setEnemies((prev) => {
-      const enemy = prev.get(enemyId);
-      if (enemy) {
-        const next = new Map(prev);
-        const updatedEnemy = { ...enemy, health };
-        next.set(enemyId, updatedEnemy);
-        
-        // If enemy died, clear engagement state
-        if (enemyDied) {
-          next.set(enemyId, { ...updatedEnemy, isEngaged: false });
-        }
-        
-        return next;
-      }
-      return prev;
-    });
-    
-    // Handle enemy death rewards and cleanup outside of setEnemies callback
+    const state = useGameStore.getState();
+    const enemy = state.enemies.get(enemyId);
+    if (!enemy) return;
+
+    const enemyDied = health <= 0 && !state.deadEnemies.has(enemyId);
+
+    // Update enemy health
     if (enemyDied) {
-      // Mark as dead immediately to prevent duplicate messages if called multiple times
-      deadEnemiesRef.current.add(enemyId);
-      
-      // Get dead enemy's last position before removing it
-      const deadEnemyLastPos = enemyPositionsRef.current.get(enemyId);
-      
-      // Award rewards - moved outside setEnemies to ensure proper state updates
+      state.updateEnemy(enemyId, { ...enemy, health, isEngaged: false });
+    } else {
+      state.updateEnemy(enemyId, { ...enemy, health });
+    }
+
+    // Handle enemy death rewards and cleanup
+    if (enemyDied) {
+      const deadEnemyLastPos = state.enemyPositions.get(enemyId);
+
+      // Award rewards
       const reward = ENEMY_STATS.DRIFTER.REWARD;
-      setPlayerExperience((prevExp) => {
-        const newExp = prevExp + reward.experience;
-        // Check for level up
-        const oldLevel = getLevelFromExp(prevExp);
-        const newLevel = getLevelFromExp(newExp);
-        if (newLevel > oldLevel) {
-          queueMicrotask(() => addMessage(`Level up! You are now level ${newLevel}!`, 'success'));
-        }
-        return newExp;
-      });
-      setPlayerCredits((prev) => prev + reward.credits);
-      setPlayerHonor((prev) => prev + reward.honor);
-      setPlayerAetherium((prev) => prev + reward.aetherium);
-      
-      // Defer message to avoid updating state during render
+      const prevExp = state.playerExperience;
+      const newExp = prevExp + reward.experience;
+      const oldLevel = getLevelFromExp(prevExp);
+      const newLevel = getLevelFromExp(newExp);
+
+      state.addExperience(reward.experience);
+      state.addCredits(reward.credits);
+      state.addHonor(reward.honor);
+      state.addAetherium(reward.aetherium);
+
+      if (newLevel > oldLevel) {
+        queueMicrotask(() => addMessage(`Level up! You are now level ${newLevel}!`, 'success'));
+      }
+
       queueMicrotask(() => addMessage(
         `Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits, +${reward.honor} Honor, +${reward.aetherium} Aetherium`,
         'combat'
       ));
-      
-      // Remove position first to ensure enemyPosition prop becomes null immediately
-      setEnemyPositions((prevPos) => {
-        const nextPos = new Map(prevPos);
-        nextPos.delete(enemyId);
-        return nextPos;
-      });
-      
-      setDeadEnemies((prevDead) => new Set(prevDead).add(enemyId));
-      
+
+      // Remove position
+      const positions = new Map(state.enemyPositions);
+      positions.delete(enemyId);
+      state.setEnemyPositions(positions);
+
+      state.addDeadEnemy(enemyId);
+
       // Clear selection and combat if this was the selected enemy
-      if (selectedEnemyIdRef.current === enemyId) {
-        setInCombat(false);
-        setPlayerFiring(false);
-        setPlayerFiringRocket(false);
-        inCombatRef.current = false;
-        setSelectedEnemyId(null);
-        setTargetPosition(null);
+      if (state.selectedEnemyId === enemyId) {
+        state.setInCombat(false);
+        state.setPlayerFiring(false);
+        state.setPlayerFiringRocket(false);
+        state.setSelectedEnemyId(null);
+        state.setTargetPosition(null);
       }
-      
+
       // Clear targetPosition if it's near where the dead enemy was
-      if (deadEnemyLastPos) {
-        setTargetPosition((currentTarget) => {
-          if (!currentTarget) return null;
-          const dx = currentTarget.x - deadEnemyLastPos.x;
-          const dy = currentTarget.y - deadEnemyLastPos.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          return distance < 100 ? null : currentTarget;
-        });
+      if (deadEnemyLastPos && state.targetPosition) {
+        const dx = state.targetPosition.x - deadEnemyLastPos.x;
+        const dy = state.targetPosition.y - deadEnemyLastPos.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < 100) {
+          state.setTargetPosition(null);
+        }
       }
-      
+
       // Schedule respawn after 3 seconds
       const respawnTime = Date.now() + 3000;
-      enemyRespawnTimersRef.current.set(enemyId, respawnTime);
+      state.setEnemyRespawnTimer(enemyId, respawnTime);
     }
   };
-  
+
   // Handle enemy respawn
   useEffect(() => {
     const checkRespawns = () => {
+      const state = useGameStore.getState();
       const now = Date.now();
-      const timers = enemyRespawnTimersRef.current;
       const toRespawn: string[] = [];
-      
-      timers.forEach((respawnTime, enemyId) => {
+
+      state.enemyRespawnTimers.forEach((respawnTime, enemyId) => {
         if (now >= respawnTime) {
           toRespawn.push(enemyId);
-          timers.delete(enemyId);
         }
       });
-      
+
       if (toRespawn.length > 0) {
         addMessage(`${toRespawn.length} Drifter${toRespawn.length > 1 ? 's' : ''} respawned`, 'warning');
-        
-        // Remove from deadEnemies and update ref immediately
-        setDeadEnemies((dead) => {
-          const nextDead = new Set(dead);
-          toRespawn.forEach((id) => nextDead.delete(id));
-          return nextDead;
-        });
-        // Update ref immediately so handleEnemyPositionUpdate works right away
-        toRespawn.forEach((id) => {
-          deadEnemiesRef.current.delete(id);
-        });
-        
-        setEnemies((prevEnemies) => {
-          const nextEnemies = new Map(prevEnemies);
-          toRespawn.forEach((enemyId) => {
-            const angle = Math.random() * Math.PI * 2;
-            const distance = 200 + Math.random() * 200;
-            const currentShipPos = shipPositionRef.current;
-            const spawnX = currentShipPos.x + Math.cos(angle) * distance;
-            const spawnY = currentShipPos.y + Math.sin(angle) * distance;
-            
-            const newEnemyState = {
-              id: enemyId,
-              name: ENEMY_STATS.DRIFTER.NAME,
-              x: Math.max(0, Math.min(MAP_WIDTH, spawnX)),
-              y: Math.max(0, Math.min(MAP_HEIGHT, spawnY)),
-              vx: 0,
-              vy: 0,
-              health: ENEMY_STATS.DRIFTER.MAX_HEALTH,
-              maxHealth: ENEMY_STATS.DRIFTER.MAX_HEALTH,
-              shield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
-              maxShield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
-              rotation: 0,
-              isEngaged: false,
-              lastFireTime: 0,
-              attitude: ENEMY_STATS.DRIFTER.ATTITUDE,
-            };
-            nextEnemies.set(enemyId, newEnemyState);
-            
-            // Also update position immediately so Enemy component can use it
-            setEnemyPositions((prev) => {
-              const next = new Map(prev);
-              next.set(enemyId, { x: newEnemyState.x, y: newEnemyState.y });
-              return next;
-            });
-          });
-          return nextEnemies;
+
+        toRespawn.forEach((enemyId) => {
+          state.removeDeadEnemy(enemyId);
+          state.removeEnemyRespawnTimer(enemyId);
+
+          const angle = Math.random() * Math.PI * 2;
+          const distance = 200 + Math.random() * 200;
+          const spawnX = state.shipPosition.x + Math.cos(angle) * distance;
+          const spawnY = state.shipPosition.y + Math.sin(angle) * distance;
+
+          const newEnemyState: EnemyState = {
+            id: enemyId,
+            name: ENEMY_STATS.DRIFTER.NAME,
+            x: Math.max(0, Math.min(MAP_WIDTH, spawnX)),
+            y: Math.max(0, Math.min(MAP_HEIGHT, spawnY)),
+            vx: 0,
+            vy: 0,
+            health: ENEMY_STATS.DRIFTER.MAX_HEALTH,
+            maxHealth: ENEMY_STATS.DRIFTER.MAX_HEALTH,
+            shield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
+            maxShield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
+            rotation: 0,
+            isEngaged: false,
+            lastFireTime: 0,
+            attitude: ENEMY_STATS.DRIFTER.ATTITUDE,
+          };
+
+          state.updateEnemy(enemyId, newEnemyState);
+          state.updateEnemyPosition(enemyId, { x: newEnemyState.x, y: newEnemyState.y });
         });
       }
     };
-    
+
     const interval = setInterval(checkRespawns, 100);
     return () => clearInterval(interval);
   }, [addMessage]);
 
-  // Handle enemy click detection (called from Ship component)
-  // Use refs to access latest state and avoid stale closures
+  // Handle enemy click detection
   const handleEnemyClick = (worldX: number, worldY: number): boolean => {
-    // Use refs to get latest state (avoids stale closure issues)
-    const currentPositions = enemyPositionsRef.current;
-    const currentDead = deadEnemiesRef.current;
-    const currentEnemies = enemiesRef.current;
-    
-    // Check all enemies for click
-    for (const [enemyId, enemyPos] of currentPositions.entries()) {
-      // Skip dead enemies - use ref to get latest state
-      if (currentDead.has(enemyId)) continue;
-      
+    const state = useGameStore.getState();
+
+    for (const [enemyId, enemyPos] of state.enemyPositions.entries()) {
+      if (state.deadEnemies.has(enemyId)) continue;
+
       const dx = worldX - enemyPos.x;
       const dy = worldY - enemyPos.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const clickRadius = 30; // Click detection radius
-      
+      const clickRadius = 30;
+
       if (distance < clickRadius) {
-        const enemy = currentEnemies.get(enemyId);
-        // Double-check enemy exists and is alive
+        const enemy = state.enemies.get(enemyId);
         if (!enemy || enemy.health <= 0) continue;
-        
+
         const now = Date.now();
-        const isDoubleClick = 
-          now - lastClickTimeRef.current < 300 && 
+        const isDoubleClick =
+          now - lastClickTimeRef.current < 300 &&
           lastClickEnemyIdRef.current === enemyId;
-        
+
         if (isDoubleClick) {
           // Double-click: engage combat (but not if in safety zone or Insta-shield active)
-          if (!isInSafetyZone() && !instaShieldActive) {
-            setInCombat(true);
-            setPlayerFiring(true);
-            setSelectedEnemyId(enemyId);
-            setEnemies((prev) => {
-              const next = new Map(prev);
-              const updated = next.get(enemyId);
-              if (updated) {
-                next.set(enemyId, { ...updated, isEngaged: true });
-              }
-              return next;
-            });
+          if (!isInSafetyZone() && !state.instaShieldActive) {
+            state.setInCombat(true);
+            state.setPlayerFiring(true);
+            state.setSelectedEnemyId(enemyId);
+            state.updateEnemy(enemyId, { ...enemy, isEngaged: true });
           }
-          lastClickTimeRef.current = 0; // Reset
+          lastClickTimeRef.current = 0;
           lastClickEnemyIdRef.current = null;
         } else {
           // Single click: select enemy
-          setSelectedEnemyId(enemyId);
+          state.setSelectedEnemyId(enemyId);
           lastClickTimeRef.current = now;
           lastClickEnemyIdRef.current = enemyId;
         }
-        return true; // Click was on enemy, prevent ship movement
+        return true;
       }
     }
     return false;
@@ -592,161 +350,122 @@ export function Game() {
 
   // Clear minimap target when ship reports it reached
   const handleTargetReached = () => {
-    setTargetPosition(null);
+    useGameStore.getState().setTargetPosition(null);
   };
 
-  // Clicking on the main game canvas (outside windows / minimap) cancels auto-fly
-  // Only double-click outside clears selection/combat, single click does nothing
+  // Clicking on the main game canvas
   useEffect(() => {
     if (!app) return;
 
     const handleCanvasClick = (e: MouseEvent) => {
+      const state = useGameStore.getState();
       const target = e.target as HTMLElement;
       const isWindowClick = target.closest('.game-window') !== null;
       const canvas = app.canvas as HTMLCanvasElement;
 
       if (canvas && (target === canvas || canvas.contains(target)) && !isWindowClick) {
-        setTargetPosition(null);
-        
-        // Check if clicking on empty space (not on enemy)
+        state.setTargetPosition(null);
+
+        // Convert screen to world coordinates
         const rect = canvas.getBoundingClientRect();
         const clickX = e.clientX - rect.left;
         const clickY = e.clientY - rect.top;
-        // Convert screen to world coordinates
-        const cameraX = -shipPosition.x + app.screen.width / 2;
-        const cameraY = -shipPosition.y + app.screen.height / 2;
+        const cameraX = -state.shipPosition.x + app.screen.width / 2;
+        const cameraY = -state.shipPosition.y + app.screen.height / 2;
         const worldX = clickX - cameraX;
         const worldY = clickY - cameraY;
-        
-        // Check if click is on any enemy (use refs for latest state)
-        for (const [enemyId, enemyPos] of enemyPositionsRef.current.entries()) {
-          if (deadEnemiesRef.current.has(enemyId)) continue;
+
+        // Check if click is on any enemy
+        for (const [enemyId, enemyPos] of state.enemyPositions.entries()) {
+          if (state.deadEnemies.has(enemyId)) continue;
           const dx = worldX - enemyPos.x;
           const dy = worldY - enemyPos.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           if (distance < 30) {
-            // Clicked on enemy, don't clear selection
-            return;
+            return; // Clicked on enemy, don't clear selection
           }
         }
-        
+
         // Clicked outside enemy - check for double-click
         const now = Date.now();
         const isDoubleClick = now - lastOutsideClickTimeRef.current < 300;
-        
+
         if (isDoubleClick) {
-          // Double-click outside: clear selection and player combat state
-          // Enemy remains engaged/aggressive if it was already engaged - don't clear isEngaged
-          setSelectedEnemyId(null);
-          setInCombat(false);
-          setPlayerFiring(false);
+          state.setSelectedEnemyId(null);
+          state.setInCombat(false);
+          state.setPlayerFiring(false);
           lastOutsideClickTimeRef.current = 0;
         } else {
-          // Single click outside: do nothing (selection persists)
           lastOutsideClickTimeRef.current = now;
         }
       }
     };
 
-    // Use normal phase (not capture) so enemy clicks are handled first
     window.addEventListener('mousedown', handleCanvasClick);
     return () => {
       window.removeEventListener('mousedown', handleCanvasClick);
     };
-  }, [app, shipPosition, enemyPositions, enemies, deadEnemies]);
+  }, [app]);
 
-  // Keyboard handler for ESC, "1" key, "2" key, and SPACE key
+  // Keyboard handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Block all keyboard input when dead
-      if (isDead) {
-        return;
-      }
-      
+      const state = useGameStore.getState();
+
+      if (state.isDead) return;
+
       if (e.key === 'Escape') {
-        // ESC exits player combat state but does not pacify the enemy.
-        // Enemy remains engaged and will continue firing
-        setPlayerFiring(false);
-        setInCombat(false);
-        setSelectedEnemyId(null);
-        setPlayerFiringRocket(false);
+        state.setPlayerFiring(false);
+        state.setInCombat(false);
+        state.setSelectedEnemyId(null);
+        state.setPlayerFiringRocket(false);
       } else if (e.key === '0' || e.key === 'Digit0') {
-        // Press "0" to activate repair
         const now = Date.now();
-        const timeSinceLastRepair = (now - lastRepairTimeRef.current) / 1000;
-        // Use ref to get latest inCombat value (avoids stale closure)
-        // Also check if any enemy is engaged/aggressive - can't repair if enemy is aggressive
-        if (!inCombatRef.current && !hasAggressiveEnemies() && timeSinceLastRepair >= 5 && !isRepairing) {
-          setIsRepairing(true);
-          // Don't update lastRepairTimeRef here - it will be updated when repair completes
+        const timeSinceLastRepair = (now - state.lastRepairTime) / 1000;
+        if (!state.inCombat && !hasAggressiveEnemies() && timeSinceLastRepair >= 5 && !state.isRepairing) {
+          state.setIsRepairing(true);
         }
       } else if (e.key === '1' || e.key === 'Digit1') {
-        // Press "1" to engage combat with selected enemy (same as double-click)
-        if (selectedEnemyId && enemies.has(selectedEnemyId) && !isInSafetyZone() && !instaShieldActive) {
-          const enemy = enemies.get(selectedEnemyId);
-          if (enemy && !deadEnemies.has(selectedEnemyId)) {
-            setInCombat(true);
-            setPlayerFiring(true);
-            setSelectedEnemyId(selectedEnemyId);
-            setEnemies((prev) => {
-              const next = new Map(prev);
-              const updated = next.get(selectedEnemyId);
-              if (updated) {
-                next.set(selectedEnemyId, { ...updated, isEngaged: true });
-              }
-              return next;
-            });
+        if (state.selectedEnemyId && state.enemies.has(state.selectedEnemyId) && !isInSafetyZone() && !state.instaShieldActive) {
+          const enemy = state.enemies.get(state.selectedEnemyId);
+          if (enemy && !state.deadEnemies.has(state.selectedEnemyId)) {
+            state.setInCombat(true);
+            state.setPlayerFiring(true);
+            state.setSelectedEnemyId(state.selectedEnemyId);
+            state.updateEnemy(state.selectedEnemyId, { ...enemy, isEngaged: true });
           }
         }
       } else if (e.key === '2' || e.key === 'Digit2') {
-        // Press "2" to engage combat and fire rockets with selected enemy
-        if (selectedEnemyId && enemies.has(selectedEnemyId) && !isInSafetyZone() && !instaShieldActive) {
-          const enemy = enemies.get(selectedEnemyId);
-          if (enemy && !deadEnemies.has(selectedEnemyId)) {
+        if (state.selectedEnemyId && state.enemies.has(state.selectedEnemyId) && !isInSafetyZone() && !state.instaShieldActive) {
+          const enemy = state.enemies.get(state.selectedEnemyId);
+          if (enemy && !state.deadEnemies.has(state.selectedEnemyId)) {
             const now = Date.now();
-            const timeSinceLastRocketFire = (now - playerLastRocketFireTimeRef.current) / 1000;
-            // Check cooldown before allowing fire
-            if (currentRocketAmmoQuantity > 0 && timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
-              setInCombat(true);
-              setSelectedEnemyId(selectedEnemyId);
-              setEnemies((prev) => {
-                const next = new Map(prev);
-                const updated = next.get(selectedEnemyId);
-                if (updated) {
-                  next.set(selectedEnemyId, { ...updated, isEngaged: true });
-                }
-                return next;
-              });
-              setPlayerFiringRocket(true);
+            const timeSinceLastRocketFire = (now - state.playerLastRocketFireTime) / 1000;
+            const currentRocketAmmo = state.rocketAmmo[state.currentRocketType];
+            if (currentRocketAmmo > 0 && timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
+              state.setInCombat(true);
+              state.setSelectedEnemyId(state.selectedEnemyId);
+              state.updateEnemy(state.selectedEnemyId, { ...enemy, isEngaged: true });
+              state.setPlayerFiringRocket(true);
             }
           }
         }
       } else if (e.key === ' ' || e.key === 'Space') {
-        // SPACE key: engage combat and fire rocket immediately (if not in combat) or fire rocket (if already in combat)
-        e.preventDefault(); // Prevent page scroll
-        if (selectedEnemyId && enemies.has(selectedEnemyId) && !isInSafetyZone() && !instaShieldActive) {
-          const enemy = enemies.get(selectedEnemyId);
-          if (enemy && !deadEnemies.has(selectedEnemyId)) {
+        e.preventDefault();
+        if (state.selectedEnemyId && state.enemies.has(state.selectedEnemyId) && !isInSafetyZone() && !state.instaShieldActive) {
+          const enemy = state.enemies.get(state.selectedEnemyId);
+          if (enemy && !state.deadEnemies.has(state.selectedEnemyId)) {
             const now = Date.now();
-            const timeSinceLastRocketFire = (now - playerLastRocketFireTimeRef.current) / 1000;
-            // Check cooldown before allowing fire
-            if (currentRocketAmmoQuantity > 0 && timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
-              if (!inCombat) {
-                // Not in combat: engage combat and fire rocket immediately
-                setInCombat(true);
-                setSelectedEnemyId(selectedEnemyId);
-                setEnemies((prev) => {
-                  const next = new Map(prev);
-                  const updated = next.get(selectedEnemyId);
-                  if (updated) {
-                    next.set(selectedEnemyId, { ...updated, isEngaged: true });
-                  }
-                  return next;
-                });
-                setPlayerFiringRocket(true);
+            const timeSinceLastRocketFire = (now - state.playerLastRocketFireTime) / 1000;
+            const currentRocketAmmo = state.rocketAmmo[state.currentRocketType];
+            if (currentRocketAmmo > 0 && timeSinceLastRocketFire >= 1 / ROCKET_CONFIG.FIRING_RATE) {
+              if (!state.inCombat) {
+                state.setInCombat(true);
+                state.setSelectedEnemyId(state.selectedEnemyId);
+                state.updateEnemy(state.selectedEnemyId, { ...enemy, isEngaged: true });
+                state.setPlayerFiringRocket(true);
               } else {
-                // Already in combat: fire rockets manually
-                setPlayerFiringRocket(true);
+                state.setPlayerFiringRocket(true);
               }
             }
           }
@@ -758,163 +477,234 @@ export function Game() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedEnemyId, enemies, shipPosition, inCombat, currentRocketAmmoQuantity, deadEnemies, isDead, instaShieldActive]);
-  
+  }, []);
+
   // Update repair cooldown
   useEffect(() => {
     const interval = setInterval(() => {
+      const state = useGameStore.getState();
       const now = Date.now();
-      const timeSinceLastRepair = (now - lastRepairTimeRef.current) / 1000;
-      setRepairCooldown(Math.max(0, 5 - timeSinceLastRepair));
+      const timeSinceLastRepair = (now - state.lastRepairTime) / 1000;
+      state.setRepairCooldown(Math.max(0, 5 - timeSinceLastRepair));
     }, 100);
     return () => clearInterval(interval);
   }, []);
-  
+
   // Update rocket cooldown
   useEffect(() => {
     const interval = setInterval(() => {
+      const state = useGameStore.getState();
       const now = Date.now();
-      const timeSinceLastRocketFire = (now - playerLastRocketFireTimeRef.current) / 1000;
-      const cooldownDuration = 1 / ROCKET_CONFIG.FIRING_RATE; // 3 seconds
-      setRocketCooldown(Math.max(0, cooldownDuration - timeSinceLastRocketFire));
+      const timeSinceLastRocketFire = (now - state.playerLastRocketFireTime) / 1000;
+      const cooldownDuration = 1 / ROCKET_CONFIG.FIRING_RATE;
+      state.setRocketCooldown(Math.max(0, cooldownDuration - timeSinceLastRocketFire));
     }, 100);
     return () => clearInterval(interval);
   }, []);
-  
-  // Track previous repair state for messages
-  const prevIsRepairingRef = useRef(isRepairing);
-  
-  // Repair start message
+
+  // Safety zone messages and combat exit
   useEffect(() => {
-    if (isRepairing && !prevIsRepairingRef.current) {
+    const state = useGameStore.getState();
+    const inSafetyZone = isInSafetyZone();
+
+    if (inSafetyZone && state.inCombat) {
+      state.setInCombat(false);
+      state.setPlayerFiring(false);
+    }
+
+    if (inSafetyZone && !prevSafetyZoneRef.current) {
+      addMessage('Entered safety zone', 'success');
+    } else if (!inSafetyZone && prevSafetyZoneRef.current) {
+      addMessage('Left safety zone', 'warning');
+    }
+    prevSafetyZoneRef.current = inSafetyZone;
+  });
+
+  // Combat messages
+  useEffect(() => {
+    const state = useGameStore.getState();
+    if (state.inCombat && !prevInCombatRef.current) {
+      addMessage('Combat engaged!', 'combat');
+    }
+    prevInCombatRef.current = state.inCombat;
+  });
+
+  // Repair messages
+  useEffect(() => {
+    const state = useGameStore.getState();
+    if (state.isRepairing && !prevIsRepairingRef.current) {
       addMessage('Repair robot activated', 'info');
     }
-    prevIsRepairingRef.current = isRepairing;
-  }, [isRepairing, addMessage]);
-  
+    prevIsRepairingRef.current = state.isRepairing;
+  });
+
   // Handle repair completion
   const handleRepairComplete = () => {
-    setIsRepairing(false);
+    const state = useGameStore.getState();
+    state.setIsRepairing(false);
+    state.setLastRepairTime(Date.now());
     addMessage('Repair completed', 'success');
-    // Update last repair time to now (cooldown starts after repair completes)
-    lastRepairTimeRef.current = Date.now();
   };
-  
+
   // Handle gradual healing during repair
   const handleRepairHeal = (amount: number) => {
-    setPlayerHealth((prev) => Math.min(SPARROW_SHIP.hitpoints, prev + amount));
+    const state = useGameStore.getState();
+    state.setPlayerHealth(Math.min(SPARROW_SHIP.hitpoints, state.playerHealth + amount));
   };
-  
+
   // Detect when player dies
   useEffect(() => {
-    if (playerHealth <= 0 && !isDead) {
-      setIsDead(true);
-      setDeathPosition({ x: shipPosition.x, y: shipPosition.y });
-      setShowDeathWindow(false); // Don't show window yet - wait for explosion
+    const state = useGameStore.getState();
+    if (state.playerHealth <= 0 && !state.isDead) {
+      state.setIsDead(true);
+      state.setDeathPosition({ x: state.shipPosition.x, y: state.shipPosition.y });
+      state.setShowDeathWindow(false);
       addMessage('Ship destroyed!', 'error');
-      // Stop all combat and movement immediately
-      setInCombat(false);
-      setPlayerFiring(false);
-      setPlayerFiringRocket(false);
-      setTargetPosition(null);
-      // Clear any selected enemy
-      setSelectedEnemyId(null);
-      // Stop ship velocity immediately
-      setShipVelocity({ vx: 0, vy: 0 });
+      state.setInCombat(false);
+      state.setPlayerFiring(false);
+      state.setPlayerFiringRocket(false);
+      state.setTargetPosition(null);
+      state.setSelectedEnemyId(null);
+      state.setShipVelocity({ vx: 0, vy: 0 });
     }
-  }, [playerHealth, isDead, shipPosition, addMessage]);
-  
-  // Handle explosion completion - show death window after a short delay
+  });
+
+  // Handle explosion completion
   const handleExplosionComplete = () => {
-    // Wait 1 second before showing the death window after explosion completes
     setTimeout(() => {
-      setShowDeathWindow(true);
+      useGameStore.getState().setShowDeathWindow(true);
     }, 1000);
   };
-  
+
   // Handle repair on the spot
   const handleRepairOnSpot = () => {
-    if (deathPosition) {
-      // Restore 10% of base HP
+    const state = useGameStore.getState();
+    if (state.deathPosition) {
       const restoredHealth = Math.floor(SPARROW_SHIP.hitpoints * 0.1);
-      setPlayerHealth(restoredHealth);
-      setIsDead(false);
-      setShowDeathWindow(false); // Hide death window
+      state.setPlayerHealth(restoredHealth);
+      state.setIsDead(false);
+      state.setShowDeathWindow(false);
       addMessage('Ship repaired on the spot', 'success');
-      
-      // Activate Insta-shield for 10 seconds
-      const shieldDuration = 10000; // 10 seconds in milliseconds
+
+      const shieldDuration = 10000;
       const endTime = Date.now() + shieldDuration;
-      instaShieldEndTimeRef.current = endTime;
-      setInstaShieldActive(true);
+      state.setInstaShieldEndTime(endTime);
+      state.setInstaShieldActive(true);
       addMessage('Insta-shield activated for 10 seconds', 'success');
-      
-      // Clear all aggressions - set all enemies to not engaged
-      setEnemies((prev) => {
-        const next = new Map(prev);
-        prev.forEach((enemy, enemyId) => {
-          if (enemy.health > 0 && !deadEnemies.has(enemyId)) {
-            next.set(enemyId, { ...enemy, isEngaged: false });
-          }
-        });
-        return next;
+
+      // Clear all aggressions
+      state.enemies.forEach((enemy, enemyId) => {
+        if (enemy.health > 0 && !state.deadEnemies.has(enemyId)) {
+          state.updateEnemy(enemyId, { ...enemy, isEngaged: false });
+        }
       });
-      
-      // Clear all combat states
-      setInCombat(false);
-      setPlayerFiring(false);
-      setPlayerFiringRocket(false);
-      setSelectedEnemyId(null);
-      inCombatRef.current = false;
-      
-      // Return to death position
-      // Note: We can't directly set ship position, but we can set a target
-      // The ship will auto-fly there
-      setTargetPosition(deathPosition);
-      setDeathPosition(null);
+
+      state.setInCombat(false);
+      state.setPlayerFiring(false);
+      state.setPlayerFiringRocket(false);
+      state.setSelectedEnemyId(null);
+      state.setTargetPosition(state.deathPosition);
+      state.setDeathPosition(null);
     }
   };
-  
+
   // Handle Insta-shield expiration
   useEffect(() => {
-    if (!instaShieldActive) return;
-    
+    const state = useGameStore.getState();
+    if (!state.instaShieldActive) return;
+
     const checkShield = () => {
       const now = Date.now();
-      if (now >= instaShieldEndTimeRef.current) {
-        setInstaShieldActive(false);
+      if (now >= state.instaShieldEndTime) {
+        useGameStore.getState().setInstaShieldActive(false);
         addMessage('Insta-shield expired', 'warning');
       }
     };
-    
+
     const interval = setInterval(checkShield, 100);
     return () => clearInterval(interval);
-  }, [instaShieldActive, addMessage]);
-  
+  });
+
   // Cancel repair when entering combat or when any enemy becomes aggressive
   useEffect(() => {
-    if ((inCombat || hasAggressiveEnemies()) && isRepairing) {
-      setIsRepairing(false);
+    const state = useGameStore.getState();
+    if ((state.inCombat || hasAggressiveEnemies()) && state.isRepairing) {
+      state.setIsRepairing(false);
+      state.setLastRepairTime(Date.now());
       addMessage('Repair cancelled - combat detected', 'warning');
-      lastRepairTimeRef.current = Date.now();
     }
-  }, [inCombat, isRepairing, enemies, deadEnemies, addMessage]);
-  
+  });
+
   // Clear combat state if no engaged enemies remain
   useEffect(() => {
-    if (inCombat) {
-      const hasEngagedEnemies = Array.from(enemies.values()).some(
-        (enemy) => enemy.health > 0 && enemy.isEngaged && !deadEnemies.has(enemy.id)
+    const state = useGameStore.getState();
+    if (state.inCombat) {
+      const hasEngagedEnemies = Array.from(state.enemies.values()).some(
+        (enemy) => enemy.health > 0 && enemy.isEngaged && !state.deadEnemies.has(enemy.id)
       );
       if (!hasEngagedEnemies) {
-        // No engaged enemies left, clear combat state
-        setInCombat(false);
-        setPlayerFiring(false);
-        setPlayerFiringRocket(false);
-        inCombatRef.current = false;
+        state.setInCombat(false);
+        state.setPlayerFiring(false);
+        state.setPlayerFiringRocket(false);
       }
     }
-  }, [enemies, deadEnemies, inCombat]);
+  });
+
+  // Helper to consume laser ammo with messages
+  const handleLaserAmmoConsume = () => {
+    const state = useGameStore.getState();
+    const currentType = state.currentLaserAmmoType;
+    const currentQuantity = state.laserAmmo[currentType];
+
+    if (state.consumeLaserAmmo()) {
+      if (currentQuantity === 1) {
+        queueMicrotask(() => addMessage(`Laser ammunition ${currentType} depleted!`, 'warning'));
+      }
+    }
+  };
+
+  // Helper to consume rocket ammo with messages
+  const handleRocketAmmoConsume = () => {
+    const state = useGameStore.getState();
+    const currentType = state.currentRocketType;
+    const currentQuantity = state.rocketAmmo[currentType];
+
+    if (state.consumeRocketAmmo()) {
+      if (currentQuantity === 1) {
+        queueMicrotask(() => addMessage(`Rocket ammunition ${currentType} depleted!`, 'warning'));
+      }
+    }
+  };
+
+  // Subscribe to state for rendering (only what we need in JSX)
+  const shipPosition = useGameStore((state) => state.shipPosition);
+  const shipVelocity = useGameStore((state) => state.shipVelocity);
+  const shipRotation = useGameStore((state) => state.shipRotation);
+  const playerHealth = useGameStore((state) => state.playerHealth);
+  const playerShield = useGameStore((state) => state.playerShield);
+  const playerMaxShield = useGameStore((state) => state.playerMaxShield);
+  const enemies = useGameStore((state) => state.enemies);
+  const enemyPositions = useGameStore((state) => state.enemyPositions);
+  const deadEnemies = useGameStore((state) => state.deadEnemies);
+  const selectedEnemyId = useGameStore((state) => state.selectedEnemyId);
+  const inCombat = useGameStore((state) => state.inCombat);
+  const playerFiring = useGameStore((state) => state.playerFiring);
+  const playerFiringRocket = useGameStore((state) => state.playerFiringRocket);
+  const isRepairing = useGameStore((state) => state.isRepairing);
+  const isDead = useGameStore((state) => state.isDead);
+  const deathPosition = useGameStore((state) => state.deathPosition);
+  const showDeathWindow = useGameStore((state) => state.showDeathWindow);
+  const instaShieldActive = useGameStore((state) => state.instaShieldActive);
+  const targetPosition = useGameStore((state) => state.targetPosition);
+  const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
+  const currentLaserAmmoType = useGameStore((state) => state.currentLaserAmmoType);
+  const currentRocketType = useGameStore((state) => state.currentRocketType);
+  const rocketCooldown = useGameStore((state) => state.rocketCooldown);
+  const repairCooldown = useGameStore((state) => state.repairCooldown);
+
+  const inSafetyZone = isInSafetyZone();
+  const currentLaserAmmoQuantity = useGameStore.getState().laserAmmo[currentLaserAmmoType];
+  const currentRocketAmmoQuantity = useGameStore.getState().rocketAmmo[currentRocketType];
 
   return (
     <WindowManagerProvider>
@@ -929,7 +719,6 @@ export function Game() {
           position: 'relative',
         }}
       >
-        {/* Death Overlay - darkened screen that blocks interactions */}
         {isDead && (
           <div
             style={{
@@ -946,20 +735,18 @@ export function Game() {
         )}
         <TopBar />
         <MessageSystem />
-        <ActionBar 
-          laserAmmo={currentLaserAmmoQuantity} 
+        <ActionBar
+          laserAmmo={currentLaserAmmoQuantity}
           rocketAmmo={currentRocketAmmoQuantity}
           rocketCooldown={rocketCooldown}
           repairCooldown={repairCooldown}
           isRepairing={isRepairing}
           onRepairClick={() => {
+            const state = useGameStore.getState();
             const now = Date.now();
-            const timeSinceLastRepair = (now - lastRepairTimeRef.current) / 1000;
-            // Use ref to get latest inCombat value (avoids stale closure)
-            // Also check if any enemy is engaged/aggressive - can't repair if enemy is aggressive
-            if (!inCombatRef.current && !hasAggressiveEnemies() && timeSinceLastRepair >= 5 && !isRepairing) {
-              setIsRepairing(true);
-              // Don't update lastRepairTimeRef here - it will be updated when repair completes
+            const timeSinceLastRepair = (now - state.lastRepairTime) / 1000;
+            if (!state.inCombat && !hasAggressiveEnemies() && timeSinceLastRepair >= 5 && !state.isRepairing) {
+              state.setIsRepairing(true);
             }
           }}
         />
@@ -992,7 +779,6 @@ export function Game() {
               })()}
               isDead={isDead}
             />
-            {/* Ship Explosion */}
             {isDead && deathPosition && (
               <ShipExplosion
                 app={app}
@@ -1002,7 +788,6 @@ export function Game() {
                 onComplete={handleExplosionComplete}
               />
             )}
-            {/* Render all enemies */}
             {Array.from(enemies.entries()).map(([enemyId, enemyState]) => (
               <Enemy
                 key={enemyId}
@@ -1015,7 +800,6 @@ export function Game() {
                 isDead={deadEnemies.has(enemyId)}
               />
             ))}
-            {/* Repair Robot */}
             {isRepairing && app && cameraContainer && (
               <RepairRobot
                 app={app}
@@ -1027,7 +811,6 @@ export function Game() {
                 maxHealth={SPARROW_SHIP.hitpoints}
               />
             )}
-            {/* Player HP Bar */}
             <HPBar
               app={app}
               cameraContainer={cameraContainer}
@@ -1038,7 +821,6 @@ export function Game() {
               shield={playerShield ?? 0}
               maxShield={playerMaxShield ?? 0}
             />
-            {/* Insta-Shield Visual Effect */}
             {instaShieldActive && (
               <Shield
                 app={app}
@@ -1047,11 +829,9 @@ export function Game() {
                 active={instaShieldActive}
               />
             )}
-            {/* Enemy Selection Circle and HP Bar (HP bar must be after circle for z-order) */}
             {selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId) && enemyPositions.has(selectedEnemyId) && (() => {
               const enemy = enemies.get(selectedEnemyId);
               const enemyPos = enemyPositions.get(selectedEnemyId);
-              // Double-check enemy is alive and position exists
               if (!enemy || !enemyPos || enemy.health <= 0) return null;
               return (
                 <>
@@ -1076,11 +856,10 @@ export function Game() {
                 </>
               );
             })()}
-            {/* Combat System - for all engaged enemies (not just selected) */}
             {Array.from(enemies.entries())
-              .filter(([enemyId, enemy]) => 
-                !deadEnemies.has(enemyId) && 
-                enemy.health > 0 && 
+              .filter(([enemyId, enemy]) =>
+                !deadEnemies.has(enemyId) &&
+                enemy.health > 0 &&
                 enemy.isEngaged
               )
               .map(([enemyId, enemy]) => (
@@ -1094,18 +873,14 @@ export function Game() {
                   playerHealth={playerHealth}
                   enemyState={enemy}
                   playerFiring={playerFiring && selectedEnemyId === enemyId}
-                  onPlayerHealthChange={setPlayerHealth}
+                  onPlayerHealthChange={(health) => useGameStore.getState().setPlayerHealth(health)}
                   onEnemyHealthChange={(health) => handleEnemyHealthChange(enemyId, health)}
                   onEnemyShieldChange={(shield) => {
-                    setEnemies((prev) => {
-                      const enemy = prev.get(enemyId);
-                      if (enemy) {
-                        const next = new Map(prev);
-                        next.set(enemyId, { ...enemy, shield });
-                        return next;
-                      }
-                      return prev;
-                    });
+                    const state = useGameStore.getState();
+                    const enemy = state.enemies.get(enemyId);
+                    if (enemy) {
+                      state.updateEnemy(enemyId, { ...enemy, shield });
+                    }
                   }}
                   isInSafetyZone={inSafetyZone}
                   laserAmmo={currentLaserAmmoQuantity}
@@ -1117,23 +892,23 @@ export function Game() {
                   onRocketAmmoConsume={handleRocketAmmoConsume}
                   playerShield={playerShield}
                   playerMaxShield={playerMaxShield}
-                  onPlayerShieldChange={setPlayerShield}
+                  onPlayerShieldChange={(shield) => useGameStore.getState().setPlayerShield(shield)}
                   playerFiringRocket={playerFiringRocket && selectedEnemyId === enemyId}
                   onRocketFired={() => {
                     if (selectedEnemyId === enemyId) {
-                      setPlayerFiringRocket(false);
-                      playerLastRocketFireTimeRef.current = Date.now();
+                      const state = useGameStore.getState();
+                      state.setPlayerFiringRocket(false);
+                      state.setPlayerLastRocketFireTime(Date.now());
                     }
                   }}
                   instaShieldActive={instaShieldActive}
                 />
               ))}
-            {/* Safety Zone Message */}
             {inSafetyZone && (
               <div
                 style={{
                   position: 'fixed',
-                  top: '190px', // Middle between top bar (ends ~42px) and HP bar area (~120px)
+                  top: '190px',
                   left: '50%',
                   transform: 'translateX(-50%)',
                   color: '#ffffff',
@@ -1148,71 +923,14 @@ export function Game() {
                 Safety Zone - Combat Disabled
               </div>
             )}
-            <ShipWindow
-              playerHealth={playerHealth}
-              maxHealth={SPARROW_SHIP.hitpoints}
-              playerShield={playerShield}
-              playerMaxShield={playerMaxShield}
-              currentLaserCannon={currentLaserCannon}
-              currentLaserAmmo={currentLaserAmmoType}
-              currentRocket={currentRocketType}
-            />
-            <StatsWindow
-              shipPosition={shipPosition}
-              shipVelocity={shipVelocity}
-              fps={fps}
-              playerLevel={playerLevel}
-              playerExperience={playerExperience}
-              playerCredits={playerCredits}
-              playerHonor={playerHonor}
-              playerAetherium={playerAetherium}
-            />
-            <BattleWindow
-              selectedEnemy={selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId) ? (() => {
-                const enemy = enemies.get(selectedEnemyId);
-                // Double-check enemy exists and is alive
-                if (!enemy || enemy.health <= 0) return null;
-                return {
-                  name: enemy.name,
-                  health: enemy.health,
-                  maxHealth: enemy.maxHealth,
-                  shield: enemy.shield,
-                  maxShield: enemy.maxShield,
-                };
-              })() : null}
-              inCombat={(() => {
-                // Only show in combat if we have a selected enemy that is alive
-                if (!selectedEnemyId || !enemies.has(selectedEnemyId) || deadEnemies.has(selectedEnemyId)) {
-                  return false;
-                }
-                const enemy = enemies.get(selectedEnemyId);
-                return inCombat && enemy !== undefined && enemy.health > 0;
-              })()}
-            />
+            <ShipWindow />
+            <StatsWindow />
+            <BattleWindow />
             <MinimapWindow
               key={`minimap-${Array.from(deadEnemies).join(',')}`}
-              playerPosition={shipPosition}
-              targetPosition={targetPosition}
-              onTargetChange={setTargetPosition}
-              enemyPositions={(() => {
-                // Filter out dead enemies and ensure positions are valid
-                // Create a new array each time to ensure React detects changes
-                const alivePositions: { x: number; y: number }[] = [];
-                for (const [enemyId, position] of enemyPositions.entries()) {
-                  if (!deadEnemies.has(enemyId) && enemies.has(enemyId)) {
-                    const enemy = enemies.get(enemyId);
-                    // Double-check enemy is alive
-                    if (enemy && enemy.health > 0 && position) {
-                      alivePositions.push({ ...position }); // Create new object to ensure reference change
-                    }
-                  }
-                }
-                return alivePositions;
-              })()}
-              basePosition={basePosition}
+              onTargetChange={(pos) => useGameStore.getState().setTargetPosition(pos)}
             />
             <SettingsWindow />
-            {/* Death Window - shown when player is dead and explosion is complete */}
             {isDead && showDeathWindow && (
               <DeathWindow
                 onRepairOnSpot={handleRepairOnSpot}
@@ -1224,4 +942,3 @@ export function Game() {
     </WindowManagerProvider>
   );
 }
-

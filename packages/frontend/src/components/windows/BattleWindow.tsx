@@ -1,17 +1,6 @@
 import { Window } from './Window';
 import { useWindowManager } from '../../hooks/useWindowManager';
-
-interface BattleWindowProps {
-  selectedEnemy?: {
-    name: string;
-    health?: number;
-    maxHealth?: number;
-    shield?: number;
-    maxShield?: number;
-  } | null;
-  inCombat?: boolean;
-  windowId?: string;
-}
+import { useGameStore } from '../../stores/gameStore';
 
 const BattleIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -26,20 +15,44 @@ const BattleIcon = () => (
   </svg>
 );
 
-export function BattleWindow({
-  selectedEnemy = null,
-  inCombat = false,
-  windowId = 'battle-window',
-}: BattleWindowProps) {
+export function BattleWindow() {
   const { minimizeWindow, restoreWindow } = useWindowManager();
-  
+
+  // Get state from Zustand
+  const selectedEnemyId = useGameStore((state) => state.selectedEnemyId);
+  const enemies = useGameStore((state) => state.enemies);
+  const deadEnemies = useGameStore((state) => state.deadEnemies);
+  const inCombat = useGameStore((state) => state.inCombat);
+
+  // Get selected enemy data
+  const selectedEnemy = selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId)
+    ? (() => {
+        const enemy = enemies.get(selectedEnemyId);
+        if (!enemy || enemy.health <= 0) return null;
+        return {
+          name: enemy.name,
+          health: enemy.health,
+          maxHealth: enemy.maxHealth,
+          shield: enemy.shield,
+          maxShield: enemy.maxShield,
+        };
+      })()
+    : null;
+
+  const isInCombat = selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId)
+    ? (() => {
+        const enemy = enemies.get(selectedEnemyId);
+        return inCombat && enemy !== undefined && enemy.health > 0;
+      })()
+    : false;
+
   // Calculate height based on whether enemy has shield
   const hasShield = selectedEnemy && selectedEnemy.maxShield !== undefined;
   const windowHeight = hasShield ? 240 : 180;
 
   return (
     <Window
-      id={windowId}
+      id="battle-window"
       title="Battle"
       icon={<BattleIcon />}
       initialX={320}
@@ -53,8 +66,8 @@ export function BattleWindow({
         {/* Combat Status */}
         <div className="stats-section">
           <div className="stats-label">Combat Status</div>
-          <div className={`stats-combat-status ${inCombat ? 'in-combat' : 'idle'}`}>
-            {inCombat ? 'In Combat' : 'Idle'}
+          <div className={`stats-combat-status ${isInCombat ? 'in-combat' : 'idle'}`}>
+            {isInCombat ? 'In Combat' : 'Idle'}
           </div>
         </div>
 

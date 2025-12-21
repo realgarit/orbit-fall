@@ -1,18 +1,7 @@
 import { Window } from './Window';
 import { useWindowManager } from '../../hooks/useWindowManager';
+import { useGameStore } from '../../stores/gameStore';
 import { getLevelProgress, getExpForNextLevel } from '@shared/utils/leveling';
-
-interface StatsWindowProps {
-  shipPosition?: { x: number; y: number };
-  shipVelocity?: { vx: number; vy: number };
-  fps?: number;
-  playerLevel?: number;
-  playerExperience?: number;
-  playerCredits?: number;
-  playerHonor?: number;
-  playerAetherium?: number;
-  windowId?: string;
-}
 
 const StatsIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -23,18 +12,17 @@ const StatsIcon = () => (
   </svg>
 );
 
-export function StatsWindow({
-  shipPosition = { x: 0, y: 0 },
-  shipVelocity = { vx: 0, vy: 0 },
-  fps = 0,
-  playerLevel = 1,
-  playerExperience = 0,
-  playerCredits = 0,
-  playerHonor = 0,
-  playerAetherium = 0,
-  windowId = 'stats-window',
-}: StatsWindowProps) {
+export function StatsWindow() {
   const { minimizeWindow, restoreWindow } = useWindowManager();
+
+  // Get state from Zustand
+  const shipVelocity = useGameStore((state) => state.shipVelocity);
+  const fps = useGameStore((state) => state.fps);
+  const playerLevel = useGameStore((state) => state.playerLevel);
+  const playerExperience = useGameStore((state) => state.playerExperience);
+  const playerCredits = useGameStore((state) => state.playerCredits);
+  const playerHonor = useGameStore((state) => state.playerHonor);
+  const playerAetherium = useGameStore((state) => state.playerAetherium);
 
   const speed = Math.sqrt(shipVelocity.vx * shipVelocity.vx + shipVelocity.vy * shipVelocity.vy);
   const expForNextLevel = getExpForNextLevel(playerLevel);
@@ -42,7 +30,7 @@ export function StatsWindow({
 
   return (
     <Window
-      id={windowId}
+      id="stats-window"
       title="Stats"
       icon={<StatsIcon />}
       initialX={20}

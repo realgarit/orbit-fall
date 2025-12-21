@@ -1,18 +1,7 @@
 import { Window } from './Window';
 import { useWindowManager } from '../../hooks/useWindowManager';
+import { useGameStore } from '../../stores/gameStore';
 import { SPARROW_SHIP } from '@shared/constants';
-import type { LaserCannonType, LaserAmmoType, RocketType } from '@shared/types';
-
-interface ShipWindowProps {
-  playerHealth?: number;
-  maxHealth?: number;
-  playerShield?: number;
-  playerMaxShield?: number;
-  currentLaserCannon?: LaserCannonType;
-  currentLaserAmmo?: LaserAmmoType;
-  currentRocket?: RocketType;
-  windowId?: string;
-}
 
 const ShipIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -24,27 +13,27 @@ const ShipIcon = () => (
   </svg>
 );
 
-export function ShipWindow({
-  playerHealth = 100,
-  maxHealth = 100,
-  playerShield,
-  playerMaxShield,
-  currentLaserCannon = 'PL-1',
-  currentLaserAmmo = 'LC-10',
-  currentRocket = 'RT-01',
-  windowId = 'ship-window',
-}: ShipWindowProps) {
+export function ShipWindow() {
   const { minimizeWindow, restoreWindow } = useWindowManager();
 
+  // Get state from Zustand
+  const playerHealth = useGameStore((state) => state.playerHealth);
+  const playerShield = useGameStore((state) => state.playerShield);
+  const playerMaxShield = useGameStore((state) => state.playerMaxShield);
+  const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
+  const currentLaserAmmoType = useGameStore((state) => state.currentLaserAmmoType);
+  const currentRocketType = useGameStore((state) => state.currentRocketType);
+
+  const maxHealth = SPARROW_SHIP.hitpoints;
   const healthPercentage = maxHealth > 0 ? (playerHealth / maxHealth) * 100 : 0;
-  const shieldPercentage = playerMaxShield && playerMaxShield > 0 
-    ? ((playerShield ?? 0) / playerMaxShield) * 100 
+  const shieldPercentage = playerMaxShield && playerMaxShield > 0
+    ? ((playerShield ?? 0) / playerMaxShield) * 100
     : 0;
   const hasShield = playerMaxShield && playerMaxShield > 0;
 
   return (
     <Window
-      id={windowId}
+      id="ship-window"
       title="Ship"
       icon={<ShipIcon />}
       initialX={20}
@@ -108,8 +97,8 @@ export function ShipWindow({
           <div className="stats-label">Equipment</div>
           <div className="stats-value" style={{ fontSize: '12px' }}>
             Laser: {currentLaserCannon}<br/>
-            Ammo: {currentLaserAmmo}<br/>
-            Rocket: {currentRocket}
+            Ammo: {currentLaserAmmoType}<br/>
+            Rocket: {currentRocketType}
           </div>
         </div>
       </div>
