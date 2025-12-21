@@ -240,3 +240,18 @@ export const ORE_CONFIG = {
     size: 'small' as const,
   },
 } as const;
+
+export const ORE_REFINING_RECIPES = {
+  ROSEON: {
+    ingredients: { PYRITE: 20, BERYL: 10 } as Record<string, number>,
+    result: 'Roseon' as const,
+  },
+  VERIDIAN: {
+    ingredients: { BERYL: 10, CITRINE: 20 } as Record<string, number>,
+    result: 'Veridian' as const,
+  },
+  AURUM: {
+    ingredients: { ROSEON: 10, VERIDIAN: 10, ARGENT: 1 } as Record<string, number>,
+    result: 'Aurum' as const,
+  },
+} as const;

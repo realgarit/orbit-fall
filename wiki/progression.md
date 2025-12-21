@@ -107,7 +107,8 @@ You earn three types of currency:
 | Source | Amount | Notes |
 |:-------|:-------|:------|
 | 👾 Killing enemies | 400 per Drifter | Main source |
-| 💎 Selling ores | TBD | Varies by ore |
+| 💎 Selling ores | Varies | Trading at base |
+| 🔨 Refining ores | - | Create high-tier resources |
 | 🎁 Bonus boxes | Varies | Random drops |
 
 **Used for:**

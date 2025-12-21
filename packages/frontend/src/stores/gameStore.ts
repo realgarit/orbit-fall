@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { EnemyState, LaserAmmoType, LaserCannonType, RocketType, BonusBoxState, OreState, OreType } from '@shared/types';
-import { SPARROW_SHIP, PLAYER_STATS, ORE_CONFIG } from '@shared/constants';
+import { SPARROW_SHIP, PLAYER_STATS, ORE_CONFIG, ORE_REFINING_RECIPES } from '@shared/constants';
 import { getLevelFromExp } from '@shared/utils/leveling';
 
 interface Position {
@@ -178,6 +178,7 @@ interface GameState {
   collectOre: (id: string) => boolean;
   sellOre: (type: OreType, amount: number) => void;
   sellAllOres: () => void;
+  refineOre: (targetType: OreType) => boolean;
   addAmmo: (type: LaserAmmoType, amount: number) => void;
 
   // Actions - Utility
@@ -535,6 +536,42 @@ export const useGameStore = create<GameState>((set, get) => ({
       playerCargo: nextCargo,
       playerCredits: state.playerCredits + totalCredits,
     });
+  },
+  refineOre: (targetType) => {
+    const state = get();
+    const recipe = ORE_REFINING_RECIPES[targetType.toUpperCase() as keyof typeof ORE_REFINING_RECIPES];
+
+    if (!recipe) return false;
+
+    // Check ingredients
+    const currentCargo = { ...state.playerCargo };
+    for (const [ingredientName, requiredAmount] of Object.entries(recipe.ingredients)) {
+      const ingredientType = ingredientName.charAt(0) + ingredientName.toLowerCase().slice(1) as OreType;
+      const currentAmount = currentCargo[ingredientType] || 0;
+      if (currentAmount < requiredAmount) {
+        return false;
+      }
+    }
+
+    // Subtract ingredients
+    for (const [ingredientName, requiredAmount] of Object.entries(recipe.ingredients)) {
+      const ingredientType = ingredientName.charAt(0) + ingredientName.toLowerCase().slice(1) as OreType;
+      currentCargo[ingredientType] -= requiredAmount;
+    }
+
+    // Add target ore (using addOreToCargo to reuse cargo limit logic)
+    // Temporarily update cargo to check if target fits
+    // This is a bit tricky since addOreToCargo uses get().
+    // Let's just manually check space.
+
+    set({ playerCargo: currentCargo });
+    if (get().addOreToCargo(targetType, 1)) {
+      return true;
+    } else {
+      // Rollback if didn't fit
+      set({ playerCargo: state.playerCargo });
+      return false;
+    }
   },
   addAmmo: (type, amount) => {
     const state = get();
