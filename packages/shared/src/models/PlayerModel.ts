@@ -55,7 +55,7 @@ export function createDefaultPlayerModel(): PlayerModel {
   return {
     id: '',
     level: 1,
-    experience: 0,
+    experience: 9700,
     credits: 0,
     honor: 0,
     aetherium: 0,

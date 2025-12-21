@@ -159,7 +159,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   playerHealth: SPARROW_SHIP.hitpoints,
   playerShield: undefined,
   playerMaxShield: undefined,
-  playerExperience: 0,
+  playerExperience: 9700,
   playerCredits: 0,
   playerHonor: 0,
   playerAetherium: 0,

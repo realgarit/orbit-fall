@@ -49,6 +49,11 @@ export function StatsWindow() {
     return num.toString();
   };
 
+  // Format number with apostrophe thousands separator (e.g., 1'000)
+  const formatNumberWithApostrophe = (num: number): string => {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, "'");
+  };
+
   return (
     <Window
       id="stats-window"
@@ -102,7 +107,7 @@ export function StatsWindow() {
         {/* Total Experience */}
         <div className="stats-section">
           <div className="stats-label">Experience</div>
-          <div className="stats-value">{playerExperience.toLocaleString()}</div>
+          <div className="stats-value">{formatNumberWithApostrophe(playerExperience)}</div>
         </div>
 
         {/* Currency */}
