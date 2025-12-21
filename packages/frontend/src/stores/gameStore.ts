@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { EnemyState, LaserAmmoType, LaserCannonType, RocketType } from '@shared/types';
+import type { EnemyState, LaserAmmoType, LaserCannonType, RocketType, BonusBoxState } from '@shared/types';
 import { SPARROW_SHIP, PLAYER_STATS } from '@shared/constants';
 import { getLevelFromExp } from '@shared/utils/leveling';
 
@@ -78,6 +78,10 @@ interface GameState {
   // Respawn timers (stored separately from React refs)
   enemyRespawnTimers: Map<string, number>;
 
+  // Bonus Box state
+  bonusBoxes: Map<string, BonusBoxState>;
+  bonusBoxRespawnTimers: Map<string, number>;
+
   // Actions - Ship
   setShipPosition: (position: Position) => void;
   setShipVelocity: (velocity: Velocity) => void;
@@ -147,6 +151,14 @@ interface GameState {
   // Actions - Respawn
   setEnemyRespawnTimer: (id: string, time: number) => void;
   removeEnemyRespawnTimer: (id: string) => void;
+
+  // Actions - Bonus Boxes
+  setBonusBoxes: (boxes: Map<string, BonusBoxState>) => void;
+  addBonusBox: (box: BonusBoxState) => void;
+  removeBonusBox: (id: string) => void;
+  setBonusBoxRespawnTimer: (id: string, time: number) => void;
+  removeBonusBoxRespawnTimer: (id: string) => void;
+  addAmmo: (type: LaserAmmoType, amount: number) => void;
 
   // Actions - Utility
   setFps: (fps: number) => void;
@@ -228,6 +240,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Respawn timers
   enemyRespawnTimers: new Map(),
+
+  // Bonus Box state
+  bonusBoxes: new Map(),
+  bonusBoxRespawnTimers: new Map(),
 
   // Actions - Ship
   setShipPosition: (position) => set({ shipPosition: position }),
@@ -371,6 +387,38 @@ export const useGameStore = create<GameState>((set, get) => ({
     const timers = new Map(get().enemyRespawnTimers);
     timers.delete(id);
     set({ enemyRespawnTimers: timers });
+  },
+
+  // Actions - Bonus Boxes
+  setBonusBoxes: (boxes) => set({ bonusBoxes: boxes }),
+  addBonusBox: (box) => {
+    const boxes = new Map(get().bonusBoxes);
+    boxes.set(box.id, box);
+    set({ bonusBoxes: boxes });
+  },
+  removeBonusBox: (id) => {
+    const boxes = new Map(get().bonusBoxes);
+    boxes.delete(id);
+    set({ bonusBoxes: boxes });
+  },
+  setBonusBoxRespawnTimer: (id, time) => {
+    const timers = new Map(get().bonusBoxRespawnTimers);
+    timers.set(id, time);
+    set({ bonusBoxRespawnTimers: timers });
+  },
+  removeBonusBoxRespawnTimer: (id) => {
+    const timers = new Map(get().bonusBoxRespawnTimers);
+    timers.delete(id);
+    set({ bonusBoxRespawnTimers: timers });
+  },
+  addAmmo: (type, amount) => {
+    const state = get();
+    set({
+      laserAmmo: {
+        ...state.laserAmmo,
+        [type]: (state.laserAmmo[type] || 0) + amount,
+      },
+    });
   },
 
   // Actions - Utility

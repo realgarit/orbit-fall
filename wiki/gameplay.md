@@ -123,6 +123,29 @@ Your ship rotates toward your mouse cursor. Click and hold to move forward in th
 
 ---
 
+## 🎁 Bonus Boxes
+
+Bonus Boxes are randomly spawning objects in the overworld that contain valuable rewards. They do not appear on the minimap, so you have to keep an eye out for them while exploring!
+
+### 🔍 How to Collect
+1. 🔦 Spot a yellow box with orange corners and a blue/violet glow.
+2. 🖱️ Single-click the box once.
+3. 🚀 Your ship will automatically fly to the box and "abduct" it from above.
+4. 🎉 You will receive one of the following rewards.
+
+### 🎁 Possible Rewards
+| Reward | Amounts |
+|:-------|:--------|
+| 💵 **Credits** | 200, 500, or 1000 |
+| 💎 **Aetherium** | 20, 50, or 100 |
+| 🔫 **LC-10 Ammo** | 10, 20, or 50 |
+| 🔫 **LC-25 Ammo** | 5, 10, or 20 |
+| 🔫 **LC-50 Ammo** | 5, 10, or 20 |
+
+> 💡 **Bonus Boxes respawn 5 seconds after collection.** They are a great way to top up your ammo and credits while traveling between combat zones.
+
+---
+
 ## ⬆️ Equipment Upgrades
 
 ### 📊 Priority Order

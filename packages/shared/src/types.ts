@@ -35,6 +35,11 @@ export interface EnemyState extends Position, Velocity {
   attitude?: 'defensive' | 'aggressive';
 }
 
+export interface BonusBoxState extends Position {
+  id: string;
+  type: 'standard';
+}
+
 // Combat types
 export interface CombatState {
   engagedEnemyId: string | null;

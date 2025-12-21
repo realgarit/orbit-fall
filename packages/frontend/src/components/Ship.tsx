@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import { Application, Graphics, Container } from 'pixi.js';
 import { MAP_WIDTH, MAP_HEIGHT, SPARROW_SHIP } from '@shared/constants';
 import { convertSpeedToDisplay } from '@shared/utils/speedConversion';
@@ -10,12 +10,13 @@ interface ShipProps {
   targetPosition?: { x: number; y: number } | null;
   onTargetReached?: () => void;
   onEnemyClick?: (worldX: number, worldY: number) => boolean;
+  onBonusBoxClick?: (worldX: number, worldY: number) => boolean;
   inCombat?: boolean;
   enemyPosition?: { x: number; y: number } | null;
   isDead?: boolean;
 }
 
-export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick, inCombat, enemyPosition, isDead = false }: ShipProps) {
+export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick, onBonusBoxClick, inCombat, enemyPosition, isDead = false }: ShipProps) {
   const shipRef = useRef<Graphics | null>(null);
   const positionRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
   const rotationRef = useRef(0);
@@ -26,10 +27,11 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   const targetPosRef = useRef<{ x: number; y: number } | null>(null);
   const onTargetReachedRef = useRef<(() => void) | undefined>(undefined);
   const onEnemyClickRef = useRef<((worldX: number, worldY: number) => boolean) | undefined>(undefined);
+  const onBonusBoxClickRef = useRef<((worldX: number, worldY: number) => boolean) | undefined>(undefined);
   const inCombatRef = useRef(inCombat ?? false);
   const enemyPositionRef = useRef<{ x: number; y: number } | null>(enemyPosition ?? null);
   const isDeadRef = useRef(isDead);
-  
+
   // Store latest prop values to compare against refs in ticker
   const inCombatPropRef = useRef(inCombat ?? false);
   const enemyPositionPropRef = useRef<{ x: number; y: number } | null>(enemyPosition ?? null);
@@ -48,10 +50,14 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   }, [onEnemyClick]);
 
   useEffect(() => {
+    onBonusBoxClickRef.current = onBonusBoxClick;
+  }, [onBonusBoxClick]);
+
+  useEffect(() => {
     // Update prop refs to track latest prop values
     inCombatPropRef.current = inCombat ?? false;
     enemyPositionPropRef.current = enemyPosition ?? null;
-    
+
     // Sync refs with props - props are the source of truth
     inCombatRef.current = inCombat ?? false;
     enemyPositionRef.current = enemyPosition ?? null;
@@ -86,7 +92,7 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
     // Create ship visual - simple space ship design
     // Draw centered at origin (0,0) for proper rotation
     const ship = new Graphics();
-    
+
     // Main body (triangle) - centered at origin
     // Ship points upward (toward negative Y in screen coordinates)
     ship.moveTo(0, -20); // Top point (nose)
@@ -95,22 +101,22 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
     ship.lineTo(12, 10); // Bottom right
     ship.lineTo(0, -20); // Close triangle
     ship.fill(0x4a9eff); // Blue body
-    
+
     // Add wings
     ship.moveTo(-12, 10);
     ship.lineTo(-18, 15);
     ship.lineTo(-12, 13);
     ship.fill(0x2d7dd2); // Darker blue wing
-    
+
     ship.moveTo(12, 10);
     ship.lineTo(18, 15);
     ship.lineTo(12, 13);
     ship.fill(0x2d7dd2); // Darker blue wing
-    
+
     // Add cockpit
     ship.circle(0, -8, 4);
     ship.fill(0x00ff88); // Green cockpit
-    
+
     // Add engine glow
     ship.circle(-6, 7, 2);
     ship.fill({ color: 0xffaa00, alpha: 0.8 }); // Orange engine
@@ -158,12 +164,17 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
       const canvasPos = getCanvasMousePos(e);
       mouseScreenPosRef.current = canvasPos; // Store screen position
       const worldPos = screenToWorld(canvasPos.x, canvasPos.y);
-      
+
       // Check if click is on enemy (prevent ship movement)
       if (onEnemyClickRef.current && onEnemyClickRef.current(worldPos.x, worldPos.y)) {
         return; // Don't start ship movement
       }
-      
+
+      // Check if click is on bonus box (prevent ship movement)
+      if (onBonusBoxClickRef.current && onBonusBoxClickRef.current(worldPos.x, worldPos.y)) {
+        return; // Don't start ship movement
+      }
+
       isMouseDownRef.current = true;
       mouseWorldPosRef.current = worldPos;
     };
@@ -219,7 +230,7 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
       const shouldHaveEnemyPos = enemyPositionPropRef.current;
       const isInCombat = inCombatRef.current;
       const currentEnemyPos = enemyPositionRef.current;
-      
+
       // Clear refs if props say we shouldn't have them (handles stale state)
       if (!shouldBeInCombat) {
         inCombatRef.current = false;
@@ -229,36 +240,36 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
         enemyPositionRef.current = null;
         if (isInCombat) inCombatRef.current = false;
       }
-      
+
       // Get final values after clearing stale refs
       const finalIsInCombat = inCombatRef.current;
       const finalEnemyPos = enemyPositionRef.current;
-      
+
       // Only rotate if props and refs both indicate valid combat state
       if (shouldBeInCombat && shouldHaveEnemyPos &&
-          finalIsInCombat && finalEnemyPos && 
-          typeof finalEnemyPos === 'object' &&
-          typeof finalEnemyPos.x === 'number' && 
-          typeof finalEnemyPos.y === 'number' &&
-          !isNaN(finalEnemyPos.x) &&
-          !isNaN(finalEnemyPos.y)) {
+        finalIsInCombat && finalEnemyPos &&
+        typeof finalEnemyPos === 'object' &&
+        typeof finalEnemyPos.x === 'number' &&
+        typeof finalEnemyPos.y === 'number' &&
+        !isNaN(finalEnemyPos.x) &&
+        !isNaN(finalEnemyPos.y)) {
         // Valid combat rotation - turn towards enemy
         const dx = finalEnemyPos.x - pos.x;
         const dy = finalEnemyPos.y - pos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (distance > 0.01) {
           const angle = Math.atan2(dy, dx);
           const targetRotation = angle + Math.PI / 2;
-          
+
           // Smoothly interpolate rotation
           const currentRotation = rotationRef.current;
           let rotationDiff = targetRotation - currentRotation;
-          
+
           // Normalize rotation difference to [-PI, PI]
           while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
           while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
-          
+
           // Smooth rotation update
           const rotationSpeed = 0.2;
           const newRotation = currentRotation + rotationDiff * rotationSpeed;
@@ -274,7 +285,7 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
         const screenPos = mouseScreenPosRef.current;
         const currentWorldPos = screenToWorld(screenPos.x, screenPos.y);
         mouseWorldPosRef.current = currentWorldPos;
-        
+
         // Calculate direction to mouse
         const dx = currentWorldPos.x - pos.x;
         const dy = currentWorldPos.y - pos.y;
@@ -284,7 +295,7 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
         // Use a minimum distance threshold to prevent rotation instability
         const MIN_DISTANCE_FOR_ROTATION = 5.0; // Don't update rotation when closer than this
         const MIN_DISTANCE_FOR_MOVEMENT = 0.5; // Stop movement when closer than this
-        
+
         if (distance > MIN_DISTANCE_FOR_MOVEMENT) {
           // Only update rotation if we're far enough away to prevent spinning
           // But don't override combat rotation if in combat
@@ -292,15 +303,15 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
             // Calculate target rotation
             const angle = Math.atan2(dy, dx);
             const targetRotation = angle + Math.PI / 2;
-            
+
             // Smoothly interpolate rotation to prevent rapid spinning
             const currentRotation = rotationRef.current;
             let rotationDiff = targetRotation - currentRotation;
-            
+
             // Normalize rotation difference to [-PI, PI]
             while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
             while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
-            
+
             // Smooth rotation update
             const rotationSpeed = 0.2; // Rotation interpolation speed
             const newRotation = currentRotation + rotationDiff * rotationSpeed;
@@ -407,5 +418,5 @@ export function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTa
   }, [app, cameraContainer]);
 
   return null;
-}
+});
 

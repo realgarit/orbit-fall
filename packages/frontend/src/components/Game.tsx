@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Application, Container } from 'pixi.js';
 import { usePixiApp } from '../hooks/usePixiApp';
 import { Starfield } from './Starfield';
@@ -13,6 +13,7 @@ import { CombatSystem } from './CombatSystem';
 import { Shield } from './Shield';
 import { ShipExplosion } from './ShipExplosion';
 import { DamageNumbers } from './DamageNumbers';
+import { BonusBox } from './BonusBox';
 import type { DamageNumbersHandle } from './DamageNumbers';
 import { useMessageStore } from '../stores/messageStore';
 import { TopBar } from './windows/TopBar';
@@ -26,8 +27,8 @@ import { DeathWindow } from './windows/DeathWindow';
 import { MessageSystem } from './MessageSystem';
 import { LevelUpAnimation } from './LevelUpAnimation';
 import { useGameStore } from '../stores/gameStore';
-import { MAP_WIDTH, MAP_HEIGHT, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP } from '@shared/constants';
-import type { EnemyState } from '@shared/types';
+import { MAP_WIDTH, MAP_HEIGHT, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP, BONUS_BOX_CONFIG } from '@shared/constants';
+import type { EnemyState, BonusBoxState } from '@shared/types';
 import { getLevelFromExp } from '@shared/utils/leveling';
 import '../styles/windows.css';
 
@@ -140,20 +141,33 @@ export function Game() {
       });
     }
     state.setEnemies(initialEnemies);
+
+    // Initialize Bonus Boxes
+    const initialBoxes = new Map<string, BonusBoxState>();
+    for (let i = 1; i <= BONUS_BOX_CONFIG.COUNT; i++) {
+      const boxId = `box-${i}`;
+      initialBoxes.set(boxId, {
+        id: boxId,
+        type: 'standard',
+        x: Math.random() * MAP_WIDTH,
+        y: Math.random() * MAP_HEIGHT,
+      });
+    }
+    state.setBonusBoxes(initialBoxes);
   }, []); // Only run once on mount
 
   // Handle ship state updates
-  const handleShipStateUpdate = (position: { x: number; y: number }, velocity: { vx: number; vy: number }, rotation?: number) => {
+  const handleShipStateUpdate = useCallback((position: { x: number; y: number }, velocity: { vx: number; vy: number }, rotation?: number) => {
     const state = useGameStore.getState();
     state.setShipPosition(position);
     state.setShipVelocity(velocity);
     if (rotation !== undefined) {
       state.setShipRotation(rotation);
     }
-  };
+  }, []);
 
   // Handle enemy state updates
-  const handleEnemyStateUpdate = (enemyId: string, enemyState: EnemyState) => {
+  const handleEnemyStateUpdate = useCallback((enemyId: string, enemyState: EnemyState) => {
     const state = useGameStore.getState();
     const existing = state.enemies.get(enemyId);
 
@@ -172,9 +186,10 @@ export function Game() {
         maxShield: enemyState.maxShield ?? existing?.maxShield,
       });
     }
-  };
+  }, []);
 
-  const handleEnemyPositionUpdate = (enemyId: string, position: { x: number; y: number }) => {
+  // Handle enemy position updates
+  const handleEnemyPositionUpdate = useCallback((enemyId: string, position: { x: number; y: number }) => {
     const state = useGameStore.getState();
     if (state.deadEnemies.has(enemyId)) {
       // Enemy is dead, remove position
@@ -184,10 +199,10 @@ export function Game() {
       return;
     }
     state.updateEnemyPosition(enemyId, position);
-  };
+  }, []);
 
   // Handle enemy health change
-  const handleEnemyHealthChange = (enemyId: string, health: number) => {
+  const handleEnemyHealthChange = useCallback((enemyId: string, health: number) => {
     const state = useGameStore.getState();
     const enemy = state.enemies.get(enemyId);
     if (!enemy) return;
@@ -258,24 +273,24 @@ export function Game() {
       const respawnTime = Date.now() + 3000;
       state.setEnemyRespawnTimer(enemyId, respawnTime);
     }
-  };
+  }, [addMessage]);
 
   // Handle damage events for floating numbers
-  const handlePlayerDamage = (event: { damage: number; position: { x: number; y: number } }) => {
+  const handlePlayerDamage = useCallback((event: { damage: number; position: { x: number; y: number } }) => {
     damageNumbersRef.current?.addDamageNumber(
       event.damage,
       event.position,
       true // isPlayerDamage = true (enemy damages player)
     );
-  };
+  }, []);
 
-  const handleEnemyDamage = (event: { damage: number; position: { x: number; y: number } }) => {
+  const handleEnemyDamage = useCallback((event: { damage: number; position: { x: number; y: number } }) => {
     damageNumbersRef.current?.addDamageNumber(
       event.damage,
       event.position,
       false // isPlayerDamage = false (player damages enemy)
     );
-  };
+  }, []);
 
   // Handle enemy respawn
   useEffect(() => {
@@ -329,8 +344,72 @@ export function Game() {
     return () => clearInterval(interval);
   }, [addMessage]);
 
+  // Handle bonus box collection and respawn
+  useEffect(() => {
+    const checkCollections = () => {
+      const state = useGameStore.getState();
+      const shipPos = state.shipPosition;
+      const now = Date.now();
+
+      // Check for collection
+      state.bonusBoxes.forEach((box) => {
+        const dx = shipPos.x - box.x;
+        const dy = shipPos.y - box.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 50) { // Collection range (increased to account for offset and ship stop threshold)
+          // Trigger reward
+          const rewardRoll = Math.random() * 100;
+          let currentWeight = 0;
+          let selectedReward: any = BONUS_BOX_CONFIG.REWARDS[0];
+
+          for (const reward of BONUS_BOX_CONFIG.REWARDS) {
+            currentWeight += reward.weight;
+            if (rewardRoll <= currentWeight) {
+              selectedReward = reward;
+              break;
+            }
+          }
+
+          const amount = selectedReward.amounts[Math.floor(Math.random() * selectedReward.amounts.length)];
+
+          if (selectedReward.type === 'credits') {
+            state.addCredits(amount);
+            addMessage(`Bonus Box: +${amount} Credits`, 'success');
+          } else if (selectedReward.type === 'aetherium') {
+            state.addAetherium(amount);
+            addMessage(`Bonus Box: +${amount} Aetherium`, 'success');
+          } else if (selectedReward.type === 'ammo' && selectedReward.ammoType) {
+            state.addAmmo(selectedReward.ammoType, amount);
+            addMessage(`Bonus Box: +${amount} ${selectedReward.ammoType} Ammo`, 'success');
+          }
+
+          // Remove box and set respawn timer
+          state.removeBonusBox(box.id);
+          state.setBonusBoxRespawnTimer(box.id, now + BONUS_BOX_CONFIG.RESPAWN_TIME);
+        }
+      });
+
+      // Check for respawns
+      state.bonusBoxRespawnTimers.forEach((respawnTime, boxId) => {
+        if (now >= respawnTime) {
+          state.removeBonusBoxRespawnTimer(boxId);
+          state.addBonusBox({
+            id: boxId,
+            type: 'standard',
+            x: Math.random() * MAP_WIDTH,
+            y: Math.random() * MAP_HEIGHT,
+          });
+        }
+      });
+    };
+
+    const interval = setInterval(checkCollections, 100);
+    return () => clearInterval(interval);
+  }, [addMessage]);
+
   // Handle enemy click detection
-  const handleEnemyClick = (worldX: number, worldY: number): boolean => {
+  const handleEnemyClick = useCallback((worldX: number, worldY: number): boolean => {
     const state = useGameStore.getState();
 
     for (const [enemyId, enemyPos] of state.enemyPositions.entries()) {
@@ -370,12 +449,30 @@ export function Game() {
       }
     }
     return false;
-  };
+  }, []);
+
+  // Handle bonus box click detection
+  const handleBonusBoxClick = useCallback((worldX: number, worldY: number): boolean => {
+    const state = useGameStore.getState();
+
+    for (const box of state.bonusBoxes.values()) {
+      const dx = worldX - box.x;
+      const dy = worldY - box.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < BONUS_BOX_CONFIG.CLICK_RADIUS) {
+        // Set ship target position (slightly above the box)
+        state.setTargetPosition({ x: box.x, y: box.y - 25 });
+        return true;
+      }
+    }
+    return false;
+  }, []);
 
   // Clear minimap target when ship reports it reached
-  const handleTargetReached = () => {
+  const handleTargetReached = useCallback(() => {
     useGameStore.getState().setTargetPosition(null);
-  };
+  }, []);
 
   // Clicking on the main game canvas
   useEffect(() => {
@@ -400,17 +497,16 @@ export function Game() {
         const worldY = clickY - cameraY;
 
         // Check if click is on any enemy
-        for (const [enemyId, enemyPos] of state.enemyPositions.entries()) {
-          if (state.deadEnemies.has(enemyId)) continue;
-          const dx = worldX - enemyPos.x;
-          const dy = worldY - enemyPos.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance < 30) {
-            return; // Clicked on enemy, don't clear selection
-          }
+        if (handleEnemyClick(worldX, worldY)) {
+          return;
         }
 
-        // Clicked outside enemy - check for double-click
+        // Check if click is on any bonus box
+        if (handleBonusBoxClick(worldX, worldY)) {
+          return;
+        }
+
+        // Clicked outside enemy or box - check for double-click
         const now = Date.now();
         const isDoubleClick = now - lastOutsideClickTimeRef.current < 300;
 
@@ -429,7 +525,7 @@ export function Game() {
     return () => {
       window.removeEventListener('mousedown', handleCanvasClick);
     };
-  }, [app]);
+  }, [app, handleEnemyClick, handleBonusBoxClick]);
 
   // Keyboard handler
   useEffect(() => {
@@ -563,18 +659,18 @@ export function Game() {
   });
 
   // Handle repair completion
-  const handleRepairComplete = () => {
+  const handleRepairComplete = useCallback(() => {
     const state = useGameStore.getState();
     state.setIsRepairing(false);
     state.setLastRepairTime(Date.now());
     addMessage('Repair completed', 'success');
-  };
+  }, [addMessage]);
 
   // Handle gradual healing during repair
-  const handleRepairHeal = (amount: number) => {
+  const handleRepairHeal = useCallback((amount: number) => {
     const state = useGameStore.getState();
     state.setPlayerHealth(Math.min(SPARROW_SHIP.hitpoints, state.playerHealth + amount));
-  };
+  }, []);
 
   // Detect when player dies
   useEffect(() => {
@@ -594,14 +690,14 @@ export function Game() {
   });
 
   // Handle explosion completion
-  const handleExplosionComplete = () => {
+  const handleExplosionComplete = useCallback(() => {
     setTimeout(() => {
       useGameStore.getState().setShowDeathWindow(true);
     }, 1000);
-  };
+  }, []);
 
   // Handle repair on the spot
-  const handleRepairOnSpot = () => {
+  const handleRepairOnSpot = useCallback(() => {
     const state = useGameStore.getState();
     if (state.deathPosition) {
       const restoredHealth = Math.floor(SPARROW_SHIP.hitpoints * 0.1);
@@ -630,7 +726,7 @@ export function Game() {
       state.setTargetPosition(state.deathPosition);
       state.setDeathPosition(null);
     }
-  };
+  }, [addMessage]);
 
   // Handle Insta-shield expiration
   useEffect(() => {
@@ -647,7 +743,7 @@ export function Game() {
 
     const interval = setInterval(checkShield, 100);
     return () => clearInterval(interval);
-  });
+  }, [addMessage]);
 
   // Cancel repair when entering combat or when any enemy becomes aggressive
   useEffect(() => {
@@ -675,7 +771,7 @@ export function Game() {
   });
 
   // Helper to consume laser ammo with messages
-  const handleLaserAmmoConsume = () => {
+  const handleLaserAmmoConsume = useCallback(() => {
     const state = useGameStore.getState();
     const currentType = state.currentLaserAmmoType;
     const currentQuantity = state.laserAmmo[currentType];
@@ -685,10 +781,10 @@ export function Game() {
         queueMicrotask(() => addMessage(`Laser ammunition ${currentType} depleted!`, 'warning'));
       }
     }
-  };
+  }, [addMessage]);
 
   // Helper to consume rocket ammo with messages
-  const handleRocketAmmoConsume = () => {
+  const handleRocketAmmoConsume = useCallback(() => {
     const state = useGameStore.getState();
     const currentType = state.currentRocketType;
     const currentQuantity = state.rocketAmmo[currentType];
@@ -698,7 +794,7 @@ export function Game() {
         queueMicrotask(() => addMessage(`Rocket ammunition ${currentType} depleted!`, 'warning'));
       }
     }
-  };
+  }, [addMessage]);
 
   // Subscribe to state for rendering (only what we need in JSX)
   const shipPosition = useGameStore((state) => state.shipPosition);
@@ -720,6 +816,16 @@ export function Game() {
   const showDeathWindow = useGameStore((state) => state.showDeathWindow);
   const instaShieldActive = useGameStore((state) => state.instaShieldActive);
   const targetPosition = useGameStore((state) => state.targetPosition);
+  const bonusBoxes = useGameStore((state) => state.bonusBoxes);
+
+  // Memoize entity lists to avoid re-calculating Every frame
+  const enemyList = useMemo(() => Array.from(enemies.entries()), [enemies]);
+  const bonusBoxList = useMemo(() => Array.from(bonusBoxes.values()), [bonusBoxes]);
+  const engagedEnemyList = useMemo(() =>
+    enemyList.filter(([enemyId, enemy]) =>
+      !deadEnemies.has(enemyId) && enemy.health > 0 && enemy.isEngaged
+    ), [enemyList, deadEnemies]);
+
   const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
   const currentLaserAmmoType = useGameStore((state) => state.currentLaserAmmoType);
   const currentRocketType = useGameStore((state) => state.currentRocketType);
@@ -732,250 +838,254 @@ export function Game() {
 
   return (
     <div
-        ref={containerRef}
-        style={{
-          width: '100vw',
-          height: '100vh',
-          overflow: 'hidden',
-          margin: 0,
-          padding: 0,
-          position: 'relative',
-        }}
-      >
-        {isDead && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100vw',
-              height: '100vh',
-              backgroundColor: 'rgba(0, 0, 0, 0.75)',
-              zIndex: 5000,
-              pointerEvents: 'auto',
-            }}
-          />
-        )}
-        <TopBar />
-        <MessageSystem />
-        <ActionBar
-          laserAmmo={currentLaserAmmoQuantity}
-          rocketAmmo={currentRocketAmmoQuantity}
-          rocketCooldown={rocketCooldown}
-          repairCooldown={repairCooldown}
-          isRepairing={isRepairing}
-          onRepairClick={() => {
-            const state = useGameStore.getState();
-            const now = Date.now();
-            const timeSinceLastRepair = (now - state.lastRepairTime) / 1000;
-            if (!state.inCombat && !hasAggressiveEnemies() && timeSinceLastRepair >= 5 && !state.isRepairing) {
-              state.setIsRepairing(true);
-            }
+      ref={containerRef}
+      style={{
+        width: '100vw',
+        height: '100vh',
+        overflow: 'hidden',
+        margin: 0,
+        padding: 0,
+        position: 'relative',
+      }}
+    >
+      {isDead && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            zIndex: 5000,
+            pointerEvents: 'auto',
           }}
         />
-        {app && cameraContainer && (
-          <>
-            <Starfield app={app} cameraContainer={cameraContainer} />
-            <MarsBackground app={app} cameraContainer={cameraContainer} />
-            <Base
+      )}
+      <TopBar />
+      <MessageSystem />
+      <ActionBar
+        laserAmmo={currentLaserAmmoQuantity}
+        rocketAmmo={currentRocketAmmoQuantity}
+        rocketCooldown={rocketCooldown}
+        repairCooldown={repairCooldown}
+        isRepairing={isRepairing}
+        onRepairClick={() => {
+          const state = useGameStore.getState();
+          const now = Date.now();
+          const timeSinceLastRepair = (now - state.lastRepairTime) / 1000;
+          if (!state.inCombat && !hasAggressiveEnemies() && timeSinceLastRepair >= 5 && !state.isRepairing) {
+            state.setIsRepairing(true);
+          }
+        }}
+      />
+      {app && cameraContainer && (
+        <>
+          <Starfield app={app} cameraContainer={cameraContainer} />
+          <MarsBackground app={app} cameraContainer={cameraContainer} />
+          <Base
+            app={app}
+            cameraContainer={cameraContainer}
+            position={basePosition}
+          />
+          {enemyList.map(([enemyId, enemyState]) => (
+            <Enemy
+              key={enemyId}
               app={app}
               cameraContainer={cameraContainer}
-              position={basePosition}
+              playerPosition={shipPosition}
+              enemyState={deadEnemies.has(enemyId) ? null : enemyState}
+              onStateUpdate={(state) => handleEnemyStateUpdate(enemyId, state)}
+              onPositionUpdate={(pos) => handleEnemyPositionUpdate(enemyId, pos)}
+              isDead={deadEnemies.has(enemyId)}
             />
-            {Array.from(enemies.entries()).map(([enemyId, enemyState]) => (
-              <Enemy
-                key={enemyId}
-                app={app}
-                cameraContainer={cameraContainer}
-                playerPosition={shipPosition}
-                enemyState={deadEnemies.has(enemyId) ? null : enemyState}
-                onStateUpdate={(state) => handleEnemyStateUpdate(enemyId, state)}
-                onPositionUpdate={(pos) => handleEnemyPositionUpdate(enemyId, pos)}
-                isDead={deadEnemies.has(enemyId)}
-              />
-            ))}
-            <Ship
+          ))}
+          {bonusBoxList.map((box) => (
+            <BonusBox
+              key={box.id}
               app={app}
               cameraContainer={cameraContainer}
-              onStateUpdate={handleShipStateUpdate}
-              targetPosition={targetPosition}
-              onTargetReached={handleTargetReached}
-              onEnemyClick={handleEnemyClick}
-              inCombat={!!(inCombat && selectedEnemyId && !deadEnemies.has(selectedEnemyId))}
-              enemyPosition={(() => {
-                if (!selectedEnemyId || deadEnemies.has(selectedEnemyId)) {
-                  return null;
-                }
-                const enemy = enemies.get(selectedEnemyId);
-                if (!enemy || enemy.health <= 0) {
-                  return null;
-                }
-                return enemyPositions.get(selectedEnemyId) || null;
-              })()}
-              isDead={isDead}
+              boxState={box}
+              isCollecting={Math.sqrt(Math.pow(shipPosition.x - box.x, 2) + Math.pow(shipPosition.y - box.y, 2)) < 50}
             />
-            {isDead && deathPosition && (
-              <ShipExplosion
-                app={app}
-                cameraContainer={cameraContainer}
-                position={deathPosition}
-                active={isDead}
-                onComplete={handleExplosionComplete}
-              />
-            )}
-            {isRepairing && app && cameraContainer && (
-              <RepairRobot
-                app={app}
-                cameraContainer={cameraContainer}
-                shipPosition={shipPosition}
-                onRepairComplete={handleRepairComplete}
-                onHealTick={handleRepairHeal}
-                playerHealth={playerHealth}
-                maxHealth={SPARROW_SHIP.hitpoints}
-              />
-            )}
-            <HPBar
+          ))}
+          <Ship
+            app={app}
+            cameraContainer={cameraContainer}
+            onStateUpdate={handleShipStateUpdate}
+            targetPosition={targetPosition}
+            onTargetReached={handleTargetReached}
+            onEnemyClick={handleEnemyClick}
+            onBonusBoxClick={handleBonusBoxClick}
+            inCombat={!!(inCombat && selectedEnemyId && !deadEnemies.has(selectedEnemyId))}
+            enemyPosition={(() => {
+              if (!selectedEnemyId || deadEnemies.has(selectedEnemyId)) {
+                return null;
+              }
+              const enemy = enemies.get(selectedEnemyId);
+              if (!enemy || enemy.health <= 0) {
+                return null;
+              }
+              return enemyPositions.get(selectedEnemyId) || null;
+            })()}
+            isDead={isDead}
+          />
+          {isDead && deathPosition && (
+            <ShipExplosion
+              app={app}
+              cameraContainer={cameraContainer}
+              position={deathPosition}
+              active={isDead}
+              onComplete={handleExplosionComplete}
+            />
+          )}
+          {isRepairing && app && cameraContainer && (
+            <RepairRobot
+              app={app}
+              cameraContainer={cameraContainer}
+              shipPosition={shipPosition}
+              onRepairComplete={handleRepairComplete}
+              onHealTick={handleRepairHeal}
+              playerHealth={playerHealth}
+              maxHealth={SPARROW_SHIP.hitpoints}
+            />
+          )}
+          <HPBar
+            app={app}
+            cameraContainer={cameraContainer}
+            position={shipPosition}
+            health={playerHealth}
+            maxHealth={SPARROW_SHIP.hitpoints}
+            visible={true}
+            shield={playerShield ?? 0}
+            maxShield={playerMaxShield ?? 0}
+          />
+          {instaShieldActive && (
+            <Shield
               app={app}
               cameraContainer={cameraContainer}
               position={shipPosition}
-              health={playerHealth}
-              maxHealth={SPARROW_SHIP.hitpoints}
-              visible={true}
-              shield={playerShield ?? 0}
-              maxShield={playerMaxShield ?? 0}
+              active={instaShieldActive}
             />
-            {instaShieldActive && (
-              <Shield
-                app={app}
-                cameraContainer={cameraContainer}
-                position={shipPosition}
-                active={instaShieldActive}
-              />
-            )}
-            {selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId) && enemyPositions.has(selectedEnemyId) && (() => {
-              const enemy = enemies.get(selectedEnemyId);
-              const enemyPos = enemyPositions.get(selectedEnemyId);
-              if (!enemy || !enemyPos || enemy.health <= 0) return null;
-              return (
-                <>
-                  <SelectionCircle
-                    key={`selection-${selectedEnemyId}`}
-                    app={app}
-                    cameraContainer={cameraContainer}
-                    position={enemyPos}
-                    selected={true}
-                    inCombat={!!(inCombat && selectedEnemyId && !deadEnemies.has(selectedEnemyId))}
-                  />
-                  <HPBar
-                    app={app}
-                    cameraContainer={cameraContainer}
-                    position={enemyPos}
-                    health={enemy.health}
-                    maxHealth={enemy.maxHealth}
-                    visible={true}
-                    shield={enemy.shield ?? 0}
-                    maxShield={enemy.maxShield ?? 0}
-                  />
-                </>
-              );
-            })()}
-            {Array.from(enemies.entries())
-              .filter(([enemyId, enemy]) =>
-                !deadEnemies.has(enemyId) &&
-                enemy.health > 0 &&
-                enemy.isEngaged
-              )
-              .map(([enemyId, enemy]) => (
-                <CombatSystem
-                  key={enemyId}
+          )}
+          {selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId) && enemyPositions.has(selectedEnemyId) && (() => {
+            const enemy = enemies.get(selectedEnemyId);
+            const enemyPos = enemyPositions.get(selectedEnemyId);
+            if (!enemy || !enemyPos || enemy.health <= 0) return null;
+            return (
+              <>
+                <SelectionCircle
+                  key={`selection-${selectedEnemyId}`}
                   app={app}
                   cameraContainer={cameraContainer}
-                  playerPosition={shipPosition}
-                  playerVelocity={shipVelocity}
-                  playerRotation={shipRotation}
-                  playerHealth={playerHealth}
-                  enemyState={enemy}
-                  playerFiring={playerFiring && selectedEnemyId === enemyId}
-                  onPlayerHealthChange={(health) => useGameStore.getState().setPlayerHealth(health)}
-                  onEnemyHealthChange={(health) => handleEnemyHealthChange(enemyId, health)}
-                  onEnemyShieldChange={(shield) => {
-                    const state = useGameStore.getState();
-                    const enemy = state.enemies.get(enemyId);
-                    if (enemy) {
-                      state.updateEnemy(enemyId, { ...enemy, shield });
-                    }
-                  }}
-                  isInSafetyZone={inSafetyZone}
-                  laserAmmo={currentLaserAmmoQuantity}
-                  currentLaserCannon={currentLaserCannon}
-                  currentLaserAmmoType={currentLaserAmmoType}
-                  onLaserAmmoConsume={handleLaserAmmoConsume}
-                  rocketAmmo={currentRocketAmmoQuantity}
-                  currentRocketType={currentRocketType}
-                  onRocketAmmoConsume={handleRocketAmmoConsume}
-                  playerShield={playerShield}
-                  playerMaxShield={playerMaxShield}
-                  onPlayerShieldChange={(shield) => useGameStore.getState().setPlayerShield(shield)}
-                  playerFiringRocket={playerFiringRocket && selectedEnemyId === enemyId}
-                  onRocketFired={() => {
-                    if (selectedEnemyId === enemyId) {
-                      const state = useGameStore.getState();
-                      state.setPlayerFiringRocket(false);
-                      state.setPlayerLastRocketFireTime(Date.now());
-                    }
-                  }}
-                  instaShieldActive={instaShieldActive}
-                  onPlayerDamage={handlePlayerDamage}
-                  onEnemyDamage={handleEnemyDamage}
-                  onOutOfRange={(weaponType) => {
-                    const weaponName = weaponType === 'laser' ? 'Laser' : 'Rocket';
-                    addMessage(`${weaponName} out of range!`, 'warning');
-                  }}
+                  position={enemyPos}
+                  selected={true}
+                  inCombat={!!(inCombat && selectedEnemyId && !deadEnemies.has(selectedEnemyId))}
                 />
-              ))}
-            {app && cameraContainer && (
-              <DamageNumbers
-                ref={damageNumbersRef}
-                app={app}
-                cameraContainer={cameraContainer}
-                playerPosition={shipPosition}
-              />
-            )}
-            {inSafetyZone && (
-              <div
-                style={{
-                  position: 'fixed',
-                  top: '190px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  color: '#ffffff',
-                  fontFamily: 'monospace',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  zIndex: 1000,
-                  pointerEvents: 'none',
-                  textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
-                }}
-              >
-                Safety Zone - Combat Disabled
-              </div>
-            )}
-            <ShipWindow />
-            <StatsWindow />
-            <BattleWindow />
-            <MinimapWindow
-              key={`minimap-${Array.from(deadEnemies).join(',')}`}
-              onTargetChange={(pos) => useGameStore.getState().setTargetPosition(pos)}
+                <HPBar
+                  app={app}
+                  cameraContainer={cameraContainer}
+                  position={enemyPos}
+                  health={enemy.health}
+                  maxHealth={enemy.maxHealth}
+                  visible={true}
+                  shield={enemy.shield ?? 0}
+                  maxShield={enemy.maxShield ?? 0}
+                />
+              </>
+            );
+          })()}
+          {engagedEnemyList.map(([enemyId, enemy]) => (
+            <CombatSystem
+              key={enemyId}
+              app={app}
+              cameraContainer={cameraContainer}
+              playerPosition={shipPosition}
+              playerVelocity={shipVelocity}
+              playerRotation={shipRotation}
+              playerHealth={playerHealth}
+              enemyState={enemy}
+              playerFiring={playerFiring && selectedEnemyId === enemyId}
+              onPlayerHealthChange={(health) => useGameStore.getState().setPlayerHealth(health)}
+              onEnemyHealthChange={(health) => handleEnemyHealthChange(enemyId, health)}
+              onEnemyShieldChange={(shield) => {
+                const state = useGameStore.getState();
+                const enemy = state.enemies.get(enemyId);
+                if (enemy) {
+                  state.updateEnemy(enemyId, { ...enemy, shield });
+                }
+              }}
+              isInSafetyZone={inSafetyZone}
+              laserAmmo={currentLaserAmmoQuantity}
+              currentLaserCannon={currentLaserCannon}
+              currentLaserAmmoType={currentLaserAmmoType}
+              onLaserAmmoConsume={handleLaserAmmoConsume}
+              rocketAmmo={currentRocketAmmoQuantity}
+              currentRocketType={currentRocketType}
+              onRocketAmmoConsume={handleRocketAmmoConsume}
+              playerShield={playerShield}
+              playerMaxShield={playerMaxShield}
+              onPlayerShieldChange={(shield) => useGameStore.getState().setPlayerShield(shield)}
+              playerFiringRocket={playerFiringRocket && selectedEnemyId === enemyId}
+              onRocketFired={() => {
+                if (selectedEnemyId === enemyId) {
+                  const state = useGameStore.getState();
+                  state.setPlayerFiringRocket(false);
+                  state.setPlayerLastRocketFireTime(Date.now());
+                }
+              }}
+              instaShieldActive={instaShieldActive}
+              onPlayerDamage={handlePlayerDamage}
+              onEnemyDamage={handleEnemyDamage}
+              onOutOfRange={(weaponType) => {
+                const weaponName = weaponType === 'laser' ? 'Laser' : 'Rocket';
+                addMessage(`${weaponName} out of range!`, 'warning');
+              }}
             />
-            <SettingsWindow />
-            {isDead && showDeathWindow && (
-              <DeathWindow
-                onRepairOnSpot={handleRepairOnSpot}
-              />
-            )}
-            <LevelUpAnimation />
-          </>
-        )}
-      </div>
+          ))}
+          {app && cameraContainer && (
+            <DamageNumbers
+              ref={damageNumbersRef}
+              app={app}
+              cameraContainer={cameraContainer}
+              playerPosition={shipPosition}
+            />
+          )}
+          {inSafetyZone && (
+            <div
+              style={{
+                position: 'fixed',
+                top: '190px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                color: '#ffffff',
+                fontFamily: 'monospace',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                zIndex: 1000,
+                pointerEvents: 'none',
+                textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)',
+              }}
+            >
+              Safety Zone - Combat Disabled
+            </div>
+          )}
+          <ShipWindow />
+          <StatsWindow />
+          <BattleWindow />
+          <MinimapWindow
+            key={`minimap-${Array.from(deadEnemies).join(',')}`}
+            onTargetChange={(pos) => useGameStore.getState().setTargetPosition(pos)}
+          />
+          <SettingsWindow />
+          {isDead && showDeathWindow && (
+            <DeathWindow
+              onRepairOnSpot={handleRepairOnSpot}
+            />
+          )}
+          <LevelUpAnimation />
+        </>
+      )}
+    </div>
   );
 }

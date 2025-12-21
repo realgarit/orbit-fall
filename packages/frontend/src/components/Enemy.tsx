@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import { Application, Graphics, Container, Text } from 'pixi.js';
 import { MAP_WIDTH, MAP_HEIGHT, ENEMY_STATS } from '@shared/constants';
 import type { EnemyState } from '@shared/types';
@@ -13,7 +13,7 @@ interface EnemyProps {
   isDead?: boolean;
 }
 
-export function Enemy({ app, cameraContainer, playerPosition, enemyState: externalState, onStateUpdate, onPositionUpdate, isDead = false }: EnemyProps) {
+export const Enemy = memo(function Enemy({ app, cameraContainer, playerPosition, enemyState: externalState, onStateUpdate, onPositionUpdate, isDead = false }: EnemyProps) {
   const enemyRef = useRef<Graphics | null>(null);
   const nameTextRef = useRef<Text | null>(null);
   const explosionRef = useRef<Graphics | null>(null);
@@ -53,29 +53,29 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
     onPositionUpdateRef.current = onPositionUpdate;
   }, [playerPosition, onStateUpdate, onPositionUpdate]);
 
-      // Sync external state when provided (for health, shield, engagement status)
-      // Don't sync position/velocity as those are managed internally
-      useEffect(() => {
-        // Initialize state from externalState on first mount if available
-        if (externalState && !spawnedRef.current) {
-          stateRef.current.id = externalState.id;
-          stateRef.current.name = externalState.name;
-          stateRef.current.x = externalState.x;
-          stateRef.current.y = externalState.y;
-          stateRef.current.health = externalState.health;
-          stateRef.current.maxHealth = externalState.maxHealth;
-          stateRef.current.shield = externalState.shield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
-          stateRef.current.maxShield = externalState.maxShield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
-          stateRef.current.rotation = externalState.rotation;
-          stateRef.current.isEngaged = externalState.isEngaged;
-          stateRef.current.lastFireTime = externalState.lastFireTime;
-          stateRef.current.attitude = externalState.attitude;
-          previousHealthRef.current = externalState.health;
-        }
-        
-        // Check for death even when externalState is null (enemy marked as dead in parent)
-        // This handles the case where death is detected in parent before externalState becomes null
-        if (!externalState) {
+  // Sync external state when provided (for health, shield, engagement status)
+  // Don't sync position/velocity as those are managed internally
+  useEffect(() => {
+    // Initialize state from externalState on first mount if available
+    if (externalState && !spawnedRef.current) {
+      stateRef.current.id = externalState.id;
+      stateRef.current.name = externalState.name;
+      stateRef.current.x = externalState.x;
+      stateRef.current.y = externalState.y;
+      stateRef.current.health = externalState.health;
+      stateRef.current.maxHealth = externalState.maxHealth;
+      stateRef.current.shield = externalState.shield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
+      stateRef.current.maxShield = externalState.maxShield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
+      stateRef.current.rotation = externalState.rotation;
+      stateRef.current.isEngaged = externalState.isEngaged;
+      stateRef.current.lastFireTime = externalState.lastFireTime;
+      stateRef.current.attitude = externalState.attitude;
+      previousHealthRef.current = externalState.health;
+    }
+
+    // Check for death even when externalState is null (enemy marked as dead in parent)
+    // This handles the case where death is detected in parent before externalState becomes null
+    if (!externalState) {
       // ExternalState is null - enemy is marked as dead
       // If isDead prop is true and we haven't set deathTimeRef yet, initialize death animation
       if (isDead && previousHealthRef.current > 0 && !deathTimeRef.current) {
@@ -103,7 +103,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
           // Inner core
           explosion.circle(0, 0, radius * 0.4);
           explosion.fill({ color: 0xffff00, alpha: 1.0 });
-          
+
           explosion.x = stateRef.current.x;
           explosion.y = stateRef.current.y;
           cameraContainer.addChild(explosion);
@@ -114,15 +114,15 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
       previousHealthRef.current = stateRef.current.health;
       return;
     }
-    
+
     if (externalState) {
       const wasAlive = stateRef.current.health > 0;
       const wasDead = stateRef.current.health <= 0;
       const isNowAlive = externalState.health > 0;
-      
+
       // Update previous health before changing current health
       previousHealthRef.current = stateRef.current.health;
-      
+
       stateRef.current.health = externalState.health;
       stateRef.current.maxHealth = externalState.maxHealth;
       stateRef.current.shield = externalState.shield;
@@ -130,7 +130,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
       stateRef.current.isEngaged = externalState.isEngaged;
       stateRef.current.lastFireTime = externalState.lastFireTime;
       stateRef.current.attitude = externalState.attitude;
-      
+
       // Check if enemy just died
       if (wasAlive && externalState.health <= 0 && !deathTimeRef.current) {
         deathTimeRef.current = Date.now();
@@ -155,21 +155,21 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
           // Inner core
           explosion.circle(0, 0, radius * 0.4);
           explosion.fill({ color: 0xffff00, alpha: 1.0 });
-          
+
           explosion.x = stateRef.current.x;
           explosion.y = stateRef.current.y;
           cameraContainer.addChild(explosion);
           explosionRef.current = explosion;
         }
       }
-      
+
       // Check if enemy just respawned (was dead, now alive)
       if (wasDead && isNowAlive) {
         // Reset death-related refs
         deathTimeRef.current = null;
         explosionTimeRef.current = null;
         fadeAlphaRef.current = 1;
-        
+
         // Show enemy model again
         if (enemyRef.current) {
           enemyRef.current.visible = true;
@@ -185,7 +185,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
           nameTextRef.current.x = externalState.x;
           nameTextRef.current.y = externalState.y + 35;
         }
-        
+
         // Clean up any existing explosion
         if (explosionRef.current) {
           if (explosionRef.current.parent) {
@@ -194,7 +194,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
           explosionRef.current.destroy();
           explosionRef.current = null;
         }
-        
+
         // Update internal state position and restore shield
         stateRef.current.x = externalState.x;
         stateRef.current.y = externalState.y;
@@ -203,7 +203,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         stateRef.current.rotation = 0;
         stateRef.current.shield = externalState.shield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
         stateRef.current.maxShield = externalState.maxShield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
-        
+
         // Force position update to parent immediately after respawn
         if (onPositionUpdateRef.current) {
           onPositionUpdateRef.current({ x: externalState.x, y: externalState.y });
@@ -229,7 +229,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         const distance = 200 + Math.random() * 200;
         const spawnX = playerPosition.x + Math.cos(angle) * distance;
         const spawnY = playerPosition.y + Math.sin(angle) * distance;
-        
+
         // Clamp to map bounds
         stateRef.current.x = Math.max(0, Math.min(MAP_WIDTH, spawnX));
         stateRef.current.y = Math.max(0, Math.min(MAP_HEIGHT, spawnY));
@@ -238,7 +238,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
 
       // Create enemy ship visual - similar size but weaker appearance
       const enemy = new Graphics();
-      
+
       // Main body (triangle) - similar to player but darker/simpler
       enemy.moveTo(0, -20); // Top point (nose)
       enemy.lineTo(-12, 10); // Bottom left
@@ -246,22 +246,22 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
       enemy.lineTo(12, 10); // Bottom right
       enemy.lineTo(0, -20); // Close triangle
       enemy.fill(0x2a4a7f); // Darker blue body (weaker appearance)
-      
+
       // Add wings (simpler than player)
       enemy.moveTo(-12, 10);
       enemy.lineTo(-18, 15);
       enemy.lineTo(-12, 13);
       enemy.fill(0x1a3a5f); // Even darker wing
-      
+
       enemy.moveTo(12, 10);
       enemy.lineTo(18, 15);
       enemy.lineTo(12, 13);
       enemy.fill(0x1a3a5f); // Even darker wing
-      
+
       // Add cockpit (darker)
       enemy.circle(0, -8, 4);
       enemy.fill(0x006644); // Darker green cockpit
-      
+
       // Add engine glow (weaker)
       enemy.circle(-6, 7, 2);
       enemy.fill({ color: 0xcc8800, alpha: 0.6 }); // Dimmer orange engine
@@ -315,7 +315,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
         const delta = ticker.deltaTime;
         const state = stateRef.current;
         const now = Date.now();
-        
+
         // Handle death and explosion
         // Enemy is dead if: health <= 0 OR deathTimeRef is set (death animation in progress)
         // After respawn, health > 0 and deathTimeRef is null, so enemy is alive
@@ -324,7 +324,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
           if (explosion && explosionTimeRef.current) {
             const explosionAge = now - explosionTimeRef.current;
             const explosionDuration = 500; // 500ms explosion
-            
+
             if (explosionAge < explosionDuration) {
               // Expand and fade explosion
               const progress = explosionAge / explosionDuration;
@@ -341,13 +341,13 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
               }
             }
           }
-          
+
           // Fade out enemy after explosion
           if (deathTimeRef.current) {
             const deathAge = now - deathTimeRef.current;
             const fadeStart = 500; // Start fading after explosion
             const fadeDuration = 1000; // 1 second fade
-            
+
             if (deathAge > fadeStart) {
               const fadeProgress = Math.min(1, (deathAge - fadeStart) / fadeDuration);
               fadeAlphaRef.current = 1 - fadeProgress;
@@ -355,7 +355,7 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
               nameText.alpha = fadeAlphaRef.current;
             }
           }
-          
+
           // Don't update position or rotation when dead
           return;
         }
@@ -469,8 +469,8 @@ export function Enemy({ app, cameraContainer, playerPosition, enemyState: extern
   // Expose method to update state from parent
   useEffect(() => {
     // This allows parent to update enemy state (e.g., health, engagement)
-    return () => {};
+    return () => { };
   }, []);
 
   return null;
-}
+});

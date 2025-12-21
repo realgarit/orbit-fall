@@ -165,3 +165,17 @@ export const DAMAGE_NUMBER_CONFIG = {
   RANDOM_OFFSET_X: 10, // Random horizontal spread to prevent stacking
 } as const;
 
+// Bonus Box configuration
+export const BONUS_BOX_CONFIG = {
+  COUNT: 5,
+  RESPAWN_TIME: 5000,
+  CLICK_RADIUS: 30,
+  REWARDS: [
+    { type: 'credits', amounts: [200, 500, 1000], weight: 40 },
+    { type: 'aetherium', amounts: [20, 50, 100], weight: 20 },
+    { type: 'ammo', ammoType: 'LC-10', amounts: [10, 20, 50], weight: 20 },
+    { type: 'ammo', ammoType: 'LC-25', amounts: [5, 10, 20], weight: 10 },
+    { type: 'ammo', ammoType: 'LC-50', amounts: [5, 10, 20], weight: 10 },
+  ],
+} as const;
+
