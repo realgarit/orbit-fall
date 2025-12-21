@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import '../styles/levelup.css';
 
@@ -8,9 +8,31 @@ export function LevelUpAnimation() {
   const setShowLevelUpAnimation = useGameStore((state) => state.setShowLevelUpAnimation);
   
   const [isVisible, setIsVisible] = useState(false);
-  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number; randomX: number; randomY: number }>>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const fadeOutTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Memoize particles generation to avoid recalculation
+  const particles = useMemo(() => {
+    if (!showLevelUpAnimation || levelUpNewLevel === null) return [];
+    
+    return Array.from({ length: 25 }, (_, i) => {
+      const angle = (Math.PI * 2 * i) / 25;
+      const distance = 20 + Math.random() * 30;
+      const startX = 50 + Math.cos(angle) * distance;
+      const startY = 50 + Math.sin(angle) * distance;
+      // Calculate direction vector for animation (in viewport units)
+      const dx = Math.cos(angle) * 15; // 15vw movement
+      const dy = Math.sin(angle) * 15; // 15vh movement
+      return {
+        id: i,
+        x: startX,
+        y: startY,
+        delay: Math.random() * 0.3,
+        dx,
+        dy,
+      };
+    });
+  }, [showLevelUpAnimation, levelUpNewLevel]);
 
   useEffect(() => {
     // Clear any existing timers
@@ -25,21 +47,6 @@ export function LevelUpAnimation() {
 
     if (showLevelUpAnimation && levelUpNewLevel !== null) {
       setIsVisible(true);
-      
-      // Generate random particles positioned around center
-      const newParticles = Array.from({ length: 50 }, (_, i) => {
-        const angle = (Math.PI * 2 * i) / 50;
-        const distance = 20 + Math.random() * 30;
-        return {
-          id: i,
-          x: 50 + Math.cos(angle) * distance,
-          y: 50 + Math.sin(angle) * distance,
-          delay: Math.random() * 0.5,
-          randomX: 50 + Math.cos(angle) * distance,
-          randomY: 50 + Math.sin(angle) * distance,
-        };
-      });
-      setParticles(newParticles);
 
       // Auto-hide after animation completes
       timerRef.current = setTimeout(() => {
@@ -90,8 +97,8 @@ export function LevelUpAnimation() {
               left: `${particle.x}%`,
               top: `${particle.y}%`,
               animationDelay: `${particle.delay}s`,
-              ['--random-x' as string]: particle.randomX,
-              ['--random-y' as string]: particle.randomY,
+              ['--dx' as string]: `${particle.dx}vw`,
+              ['--dy' as string]: `${particle.dy}vh`,
             }}
           />
         ))}
