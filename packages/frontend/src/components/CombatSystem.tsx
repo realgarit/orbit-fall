@@ -44,7 +44,8 @@ interface LaserData {
 }
 
 interface RocketData {
-  graphics: Graphics;
+  graphics: Container; // Pixi Container to hold body and animated exhaust
+  exhaust: Graphics;   // Reference to exhaust for animation
   projectile: RocketProjectile;
   prevX: number; // Previous position for line-segment collision detection
   prevY: number;
@@ -89,7 +90,7 @@ export function CombatSystem({
   const laserIdCounterRef = useRef(0);
   const rocketIdCounterRef = useRef(0);
   const lastOutOfRangeMessageTimeRef = useRef(0);
-  
+
   // Use refs to avoid recreating ticker on every prop change
   const playerPositionRef = useRef(playerPosition);
   const playerVelocityRef = useRef(playerVelocity);
@@ -240,104 +241,102 @@ export function CombatSystem({
       const graphics = new Graphics();
       const length = COMBAT_CONFIG.LASER_LENGTH;
       const width = COMBAT_CONFIG.LASER_WIDTH;
-      
+
       // Draw laser as a rounded rectangle
       graphics.roundRect(-length / 2, -width / 2, length, width, width / 2);
       graphics.fill({ color: COMBAT_CONFIG.LASER_COLOR, alpha: 1.0 });
-      
+
       // Add glow
       graphics.roundRect(-length / 2 - 2, -width / 2 - 2, length + 4, width + 4, (width + 4) / 2);
       graphics.fill({ color: COMBAT_CONFIG.LASER_COLOR, alpha: 0.5 });
-      
+
       graphics.rotation = angle;
       graphics.x = x;
       graphics.y = y;
-      
+
       return graphics;
     };
 
-    const createRocketGraphics = (x: number, y: number, angle: number): Graphics => {
-      const graphics = new Graphics();
-      const length = ROCKET_CONFIG.LENGTH;
-      const width = ROCKET_CONFIG.WIDTH;
-      
-      // Add glow first (behind everything)
-      graphics.roundRect(-length / 2 - 2, -width / 2 - 2, length + 4, width + 4, (width + 4) / 2);
-      graphics.fill({ color: ROCKET_CONFIG.COLOR, alpha: 0.3 });
-      
-      // Exhaust flame at the back (drawn first so it's behind the rocket)
-      const exhaustLength = length * 0.4;
-      const exhaustWidth = width * 0.8;
-      // Outer flame (orange/yellow)
-      graphics.moveTo(-length / 2, -exhaustWidth / 2);
-      graphics.lineTo(-length / 2 - exhaustLength, 0);
-      graphics.lineTo(-length / 2, exhaustWidth / 2);
-      graphics.lineTo(-length / 2, -exhaustWidth / 2);
-      graphics.fill({ color: 0xff8800, alpha: 0.9 }); // Orange exhaust
-      
-      // Inner flame (yellow/white)
-      graphics.moveTo(-length / 2, -exhaustWidth / 3);
-      graphics.lineTo(-length / 2 - exhaustLength * 0.6, 0);
-      graphics.lineTo(-length / 2, exhaustWidth / 3);
-      graphics.lineTo(-length / 2, -exhaustWidth / 3);
-      graphics.fill({ color: 0xffff00, alpha: 0.8 }); // Yellow inner flame
-      
-      // Rocket body - elongated and tapered (not a canister!)
-      const bodyStartX = -length / 2;
-      const bodyEndX = length / 2 - length * 0.25; // Leave room for nose cone
-      const bodyWidthStart = width;
-      const bodyWidthEnd = width * 0.85; // Slightly tapered
-      
-      // Main body shape (trapezoid for tapered effect)
-      graphics.moveTo(bodyStartX, -bodyWidthStart / 2);
-      graphics.lineTo(bodyEndX, -bodyWidthEnd / 2);
-      graphics.lineTo(bodyEndX, bodyWidthEnd / 2);
-      graphics.lineTo(bodyStartX, bodyWidthStart / 2);
-      graphics.lineTo(bodyStartX, -bodyWidthStart / 2);
-      graphics.fill({ color: ROCKET_CONFIG.COLOR, alpha: 1.0 });
-      
-      // Body detail - add a ring/segment near the middle for realism
-      const ringX = bodyStartX + (bodyEndX - bodyStartX) * 0.6;
-      graphics.rect(ringX - 1, -bodyWidthStart / 2 - 0.5, 2, bodyWidthStart + 1);
-      graphics.fill({ color: 0xcc0000, alpha: 1.0 }); // Darker red ring
-      
-      // Rocket nose cone - more prominent and pointed
-      const noseBaseX = bodyEndX;
-      const noseTipX = length / 2;
-      
-      graphics.moveTo(noseBaseX, -bodyWidthEnd / 2);
-      graphics.lineTo(noseTipX, 0); // Pointed tip
-      graphics.lineTo(noseBaseX, bodyWidthEnd / 2);
-      graphics.lineTo(noseBaseX, -bodyWidthEnd / 2);
-      graphics.fill({ color: 0xff3333, alpha: 1.0 }); // Slightly brighter red for nose
-      
-      // Rocket fins - more visible and properly shaped
-      const finSize = width * 0.6;
-      const finOffset = length * 0.15;
-      
-      // Top fin (left side when facing right)
-      graphics.moveTo(bodyStartX, -bodyWidthStart / 2);
-      graphics.lineTo(bodyStartX - finSize, -bodyWidthStart / 2 - finSize * 0.8);
-      graphics.lineTo(bodyStartX - finOffset, -bodyWidthStart / 2);
-      graphics.lineTo(bodyStartX, -bodyWidthStart / 2);
-      graphics.fill({ color: 0xaa0000, alpha: 1.0 }); // Darker red for fins
-      
-      // Bottom fin
-      graphics.moveTo(bodyStartX, bodyWidthStart / 2);
-      graphics.lineTo(bodyStartX - finSize, bodyWidthStart / 2 + finSize * 0.8);
-      graphics.lineTo(bodyStartX - finOffset, bodyWidthStart / 2);
-      graphics.lineTo(bodyStartX, bodyWidthStart / 2);
-      graphics.fill({ color: 0xaa0000, alpha: 1.0 }); // Darker red for fins
-      
-      // Add a highlight on the body for 3D effect
-      graphics.rect(bodyStartX + 1, -bodyWidthStart / 2 + 1, (bodyEndX - bodyStartX) * 0.5, 1);
-      graphics.fill({ color: 0xff6666, alpha: 0.6 }); // Light red highlight
-      
-      graphics.rotation = angle;
-      graphics.x = x;
-      graphics.y = y;
-      
-      return graphics;
+    const createRocketGraphics = (x: number, y: number, angle: number): { container: Container; exhaust: Graphics } => {
+      const container = new Container();
+      const body = new Graphics();
+      const exhaust = new Graphics();
+
+      container.addChild(exhaust);
+      container.addChild(body);
+
+      const length = ROCKET_CONFIG.LENGTH * 1.5; // Slightly larger for better detail
+      const width = ROCKET_CONFIG.WIDTH * 1.2;
+
+      // 1. Rocket Body (Metallic / High-tech)
+      body.clear();
+
+      // Main cylindrical body (Phoenix Red)
+      body.rect(-length / 2, -width / 2, length * 0.7, width);
+      body.fill(0xc0392b);
+
+      // Body highlight (Top edge)
+      body.rect(-length / 2, -width / 2, length * 0.7, width * 0.25);
+      body.fill({ color: 0xffffff, alpha: 0.3 });
+
+      // Body shadow (Bottom edge)
+      body.rect(-length / 2, width * 0.25, length * 0.7, width * 0.25);
+      body.fill({ color: 0x000000, alpha: 0.15 });
+
+      // 2. Nose Cone (Pointed & Dangerous)
+      const noseX = length / 2 - length * 0.3;
+      body.moveTo(noseX, -width / 2);
+      body.lineTo(length / 2, 0);
+      body.lineTo(noseX, width / 2);
+      body.closePath();
+      body.fill(0xe74c3c); // Bright red nose
+
+      // Nose cone highlight
+      body.moveTo(noseX, -width / 2);
+      body.lineTo(noseX + (length / 2 - noseX) * 0.5, -width * 0.1);
+      body.lineTo(noseX, 0);
+      body.fill({ color: 0xffffff, alpha: 0.2 });
+
+      // 3. Technical Detail (Yellow warning band)
+      const bandWidth = length * 0.1;
+      const bandX = -length * 0.2;
+      body.rect(bandX, -width / 2 - 0.5, bandWidth, width + 1);
+      body.fill(0xf1c40f); // Caution yellow
+
+      // Black stripe in yellow band
+      body.rect(bandX + bandWidth * 0.4, -width / 2 - 0.5, bandWidth * 0.2, width + 1);
+      body.fill(0x2c3e50);
+
+      // 4. Rear Nozzle
+      body.rect(-length / 2 - 2, -width * 0.4, 3, width * 0.8);
+      body.fill(0x34495e); // Dark steel
+
+      // 5. Stabilizing Fins (X-wing configuration feel)
+      const finSize = width * 1.2;
+
+      // Top rear fin
+      body.moveTo(-length / 2, -width / 2);
+      body.lineTo(-length / 2 - length * 0.2, -width / 2 - finSize);
+      body.lineTo(-length / 2 + length * 0.1, -width / 2);
+      body.closePath();
+      body.fill(0x2c3e50);
+
+      // Bottom rear fin
+      body.moveTo(-length / 2, width / 2);
+      body.lineTo(-length / 2 - length * 0.2, width / 2 + finSize);
+      body.lineTo(-length / 2 + length * 0.1, width / 2);
+      body.closePath();
+      body.fill(0x2c3e50);
+
+      // Side fin detail (subtle)
+      body.rect(-length / 2 + 1, -1, length * 0.3, 2);
+      body.fill({ color: 0x000000, alpha: 0.1 });
+
+      container.rotation = angle;
+      container.x = x;
+      container.y = y;
+
+      return { container, exhaust };
     };
 
     /**
@@ -360,23 +359,23 @@ export function CombatSystem({
       // Iterative prediction: start with current position, refine based on time to intercept
       let predictedX = targetX;
       let predictedY = targetY;
-      
+
       // Use a few iterations to converge on the intercept point
       for (let i = 0; i < 5; i++) {
         const dx = predictedX - fromX;
         const dy = predictedY - fromY;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (distance < 1) break; // Too close, use current prediction
-        
+
         // Calculate time to reach predicted position (in frames, since LASER_SPEED is per frame)
         const timeToReach = distance / COMBAT_CONFIG.LASER_SPEED;
-        
+
         // Predict where target will be at that time
         predictedX = targetX + targetVx * timeToReach;
         predictedY = targetY + targetVy * timeToReach;
       }
-      
+
       return { x: predictedX, y: predictedY };
     };
 
@@ -393,15 +392,15 @@ export function CombatSystem({
     ): void => {
       // Predict where target will be when laser arrives
       const predictedTarget = predictTargetPosition(fromX, fromY, toX, toY, targetVx, targetVy);
-      
+
       const dx = predictedTarget.x - fromX;
       const dy = predictedTarget.y - fromY;
-      
+
       // Allow firing even at very close range (minimum distance check removed)
       // The line-segment collision detection will handle close-range hits properly
-      
+
       const angle = Math.atan2(dy, dx);
-      
+
       // Spawn laser at source position
       const spawnX = fromX;
       const spawnY = fromY;
@@ -421,9 +420,9 @@ export function CombatSystem({
 
       const graphics = createLaserGraphics(spawnX, spawnY, angle);
       cameraContainer.addChild(graphics);
-      
-      lasers.set(projectile.id, { 
-        graphics, 
+
+      lasers.set(projectile.id, {
+        graphics,
         projectile,
         prevX: spawnX,
         prevY: spawnY
@@ -443,15 +442,15 @@ export function CombatSystem({
     ): void => {
       // Predict where target will be when rocket arrives (using same logic as lasers)
       const predictedTarget = predictTargetPosition(fromX, fromY, toX, toY, targetVx, targetVy);
-      
+
       const dx = predictedTarget.x - fromX;
       const dy = predictedTarget.y - fromY;
-      
+
       // Allow firing even at very close range (minimum distance check removed)
       // The line-segment collision detection will handle close-range hits properly
-      
+
       const angle = Math.atan2(dy, dx);
-      
+
       // Spawn rocket at source position
       const spawnX = fromX;
       const spawnY = fromY;
@@ -469,11 +468,12 @@ export function CombatSystem({
         spawnTime: Date.now(),
       };
 
-      const graphics = createRocketGraphics(spawnX, spawnY, angle);
-      cameraContainer.addChild(graphics);
-      
-      rockets.set(projectile.id, { 
-        graphics, 
+      const { container, exhaust } = createRocketGraphics(spawnX, spawnY, angle);
+      cameraContainer.addChild(container);
+
+      rockets.set(projectile.id, {
+        graphics: container,
+        exhaust,
         projectile,
         prevX: spawnX,
         prevY: spawnY
@@ -500,7 +500,7 @@ export function CombatSystem({
       if (currentDist < targetRadius) {
         return true;
       }
-      
+
       // Check if previous position was within radius (laser might have started inside)
       const prevDx = prevX - targetX;
       const prevDy = prevY - targetY;
@@ -508,34 +508,34 @@ export function CombatSystem({
       if (prevDist < targetRadius) {
         return true;
       }
-      
+
       // Line-segment to circle collision: check if the line segment intersects the circle
       // Vector from start to end of line segment
       const segDx = currentX - prevX;
       const segDy = currentY - prevY;
       const segLengthSq = segDx * segDx + segDy * segDy;
-      
+
       // If segment has zero length, just check point distance
       if (segLengthSq < 0.0001) {
         return currentDist < targetRadius;
       }
-      
+
       // Vector from segment start to circle center
       const toCircleDx = targetX - prevX;
       const toCircleDy = targetY - prevY;
-      
+
       // Project circle center onto line segment
       const t = Math.max(0, Math.min(1, (toCircleDx * segDx + toCircleDy * segDy) / segLengthSq));
-      
+
       // Closest point on line segment to circle center
       const closestX = prevX + t * segDx;
       const closestY = prevY + t * segDy;
-      
+
       // Distance from closest point to circle center
       const closestDx = closestX - targetX;
       const closestDy = closestY - targetY;
       const closestDist = Math.sqrt(closestDx * closestDx + closestDy * closestDy);
-      
+
       return closestDist < targetRadius;
     };
 
@@ -565,7 +565,7 @@ export function CombatSystem({
     const tickerCallback = () => {
       const now = Date.now();
       const delta = app.ticker.deltaTime;
-      
+
       const currentPlayerPos = playerPositionRef.current;
       const currentPlayerVel = playerVelocityRef.current;
       const currentPlayerHealth = playerHealthRef.current;
@@ -672,18 +672,18 @@ export function CombatSystem({
 
       // Update all lasers
       const lasersToRemove: string[] = [];
-      
+
       lasers.forEach((laserData, id) => {
         const { graphics, projectile, prevX, prevY } = laserData;
-        
+
         // Store previous position before updating
         const oldX = projectile.x;
         const oldY = projectile.y;
-        
+
         // Update projectile position
         projectile.x += projectile.vx * delta;
         projectile.y += projectile.vy * delta;
-        
+
         // Update graphics position
         graphics.x = projectile.x;
         graphics.y = projectile.y;
@@ -794,18 +794,46 @@ export function CombatSystem({
 
       // Update all rockets
       const rocketsToRemove: string[] = [];
-      
+
       rockets.forEach((rocketData, id) => {
-        const { graphics, projectile, prevX, prevY } = rocketData;
-        
+        const { graphics, exhaust, projectile, prevX, prevY } = rocketData;
+
+        // Animate exhaust flicker
+        if (exhaust) {
+          exhaust.clear();
+          const flicker = Math.random() * 0.3 + 0.7;
+          const length = ROCKET_CONFIG.LENGTH * 1.5;
+          const width = ROCKET_CONFIG.WIDTH * 1.2;
+
+          // Outer flame
+          const exLen = length * (0.6 + Math.random() * 0.4);
+          const exWidth = width * 0.9;
+          exhaust.moveTo(-length / 2, -exWidth / 2);
+          exhaust.lineTo(-length / 2 - exLen, 0);
+          exhaust.lineTo(-length / 2, exWidth / 2);
+          exhaust.fill({ color: 0xff8800, alpha: 0.6 * flicker });
+
+          // Inner core
+          const coreLen = exLen * 0.6;
+          const coreWidth = exWidth * 0.5;
+          exhaust.moveTo(-length / 2, -coreWidth / 2);
+          exhaust.lineTo(-length / 2 - coreLen, 0);
+          exhaust.lineTo(-length / 2, coreWidth / 2);
+          exhaust.fill({ color: 0xffff00, alpha: 0.8 * flicker });
+
+          // Blue heat core
+          exhaust.circle(-length / 2, 0, coreWidth * 0.4);
+          exhaust.fill({ color: 0x00aaff, alpha: 0.4 });
+        }
+
         // Store previous position before updating
         const oldX = projectile.x;
         const oldY = projectile.y;
-        
+
         // Update projectile position
         projectile.x += projectile.vx * delta;
         projectile.y += projectile.vy * delta;
-        
+
         // Update graphics position and rotation
         graphics.x = projectile.x;
         graphics.y = projectile.y;
