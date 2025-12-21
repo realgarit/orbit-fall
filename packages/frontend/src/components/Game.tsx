@@ -6,6 +6,7 @@ import { MarsBackground } from './MarsBackground';
 import { Ship } from './Ship';
 import { Enemy } from './Enemy';
 import { Base } from './Base';
+import { HUD } from './HUD';
 import { RepairRobot } from './RepairRobot';
 import { HPBar } from './HPBar';
 import { SelectionCircle } from './SelectionCircle';
@@ -14,6 +15,7 @@ import { Shield } from './Shield';
 import { ShipExplosion } from './ShipExplosion';
 import { DamageNumbers } from './DamageNumbers';
 import { BonusBox } from './BonusBox';
+import { ResourceCrystal } from './ResourceCrystal';
 import type { DamageNumbersHandle } from './DamageNumbers';
 import { useMessageStore } from '../stores/messageStore';
 import { TopBar } from './windows/TopBar';
@@ -26,9 +28,9 @@ import { ShipWindow } from './windows/ShipWindow';
 import { DeathWindow } from './windows/DeathWindow';
 import { MessageSystem } from './MessageSystem';
 import { LevelUpAnimation } from './LevelUpAnimation';
-import { useGameStore } from '../stores/gameStore';
-import { MAP_WIDTH, MAP_HEIGHT, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP, BONUS_BOX_CONFIG } from '@shared/constants';
-import type { EnemyState, BonusBoxState } from '@shared/types';
+import { useGameStore, selectCurrentCargoUsage } from '../stores/gameStore';
+import { MAP_WIDTH, MAP_HEIGHT, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP, BONUS_BOX_CONFIG, ORE_CONFIG } from '@shared/constants';
+import type { EnemyState, BonusBoxState, OreState } from '@shared/types';
 import { getLevelFromExp } from '@shared/utils/leveling';
 import '../styles/windows.css';
 
@@ -75,6 +77,10 @@ export function Game() {
   const targetPosition = useGameStore((state) => state.targetPosition);
   const bonusBoxes = useGameStore((state) => state.bonusBoxes);
   const targetBonusBoxId = useGameStore((state) => state.targetBonusBoxId);
+  const ores = useGameStore((state) => state.ores);
+  const targetOreId = useGameStore((state) => state.targetOreId);
+  const playerMaxCargo = useGameStore((state) => state.playerMaxCargo);
+  const currentCargoUsage = useGameStore(selectCurrentCargoUsage);
   const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
   const currentLaserAmmoType = useGameStore((state) => state.currentLaserAmmoType);
   const currentRocketType = useGameStore((state) => state.currentRocketType);
@@ -84,6 +90,7 @@ export function Game() {
   // Memoize entity lists to avoid re-calculating every frame
   const enemyList = useMemo(() => Array.from(enemies.entries()), [enemies]);
   const bonusBoxList = useMemo(() => Array.from(bonusBoxes.values()), [bonusBoxes]);
+  const oreList = useMemo(() => Array.from(ores.values()), [ores]);
   const engagedEnemyList = useMemo(() =>
     enemyList.filter(([enemyId, enemy]) =>
       !deadEnemies.has(enemyId) && enemy.health > 0 && enemy.isEngaged
@@ -193,6 +200,46 @@ export function Game() {
       });
     }
     state.setBonusBoxes(initialBoxes);
+
+    // Initialize Ores
+    const initialOres = new Map<string, OreState>();
+    let oreCounter = 1;
+
+    // Spawn Pyrite clusters
+    const clusterCount = 3 + Math.floor(Math.random() * 3);
+    for (let c = 0; c < clusterCount; c++) {
+      const centerX = Math.random() * MAP_WIDTH;
+      const centerY = Math.random() * MAP_HEIGHT;
+      const size = ORE_CONFIG.PYRITE.clusterSize.min + Math.floor(Math.random() * (ORE_CONFIG.PYRITE.clusterSize.max - ORE_CONFIG.PYRITE.clusterSize.min));
+
+      for (let i = 0; i < size; i++) {
+        const oreId = `ore-pyrite-${oreCounter++}`;
+        const offsetAngle = Math.random() * Math.PI * 2;
+        const offsetDist = Math.random() * 80;
+        initialOres.set(oreId, {
+          id: oreId,
+          type: 'Pyrite',
+          size: 'small',
+          x: Math.max(0, Math.min(MAP_WIDTH, centerX + Math.cos(offsetAngle) * offsetDist)),
+          y: Math.max(0, Math.min(MAP_HEIGHT, centerY + Math.sin(offsetAngle) * offsetDist)),
+        });
+      }
+    }
+
+    // Spawn rare Beryl
+    const berylCount = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < berylCount; i++) {
+      const oreId = `ore-beryl-${oreCounter++}`;
+      initialOres.set(oreId, {
+        id: oreId,
+        type: 'Beryl',
+        size: 'small',
+        x: Math.random() * MAP_WIDTH,
+        y: Math.random() * MAP_HEIGHT,
+      });
+    }
+
+    state.setOres(initialOres);
   }, []); // Only run once on mount
 
   // Handle ship state updates
@@ -450,6 +497,38 @@ export function Game() {
     return () => clearInterval(interval);
   }, [addMessage]);
 
+  // Handle ore collection
+  useEffect(() => {
+    const checkOreCollections = () => {
+      const state = useGameStore.getState();
+      const shipPos = state.shipPosition;
+
+      state.ores.forEach((ore) => {
+        if (state.targetOreId !== ore.id) return;
+
+        const dx = shipPos.x - ore.x;
+        const dy = shipPos.y - ore.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 50) {
+          if (state.collectOre(ore.id)) {
+            addMessage(`Collected ${ore.type}`, 'success');
+          } else {
+            // Probably cargo full
+            if (state.targetOreId === ore.id) {
+              state.setTargetOreId(null);
+              state.setTargetPosition(null);
+              addMessage('Cargo full!', 'error');
+            }
+          }
+        }
+      });
+    };
+
+    const interval = setInterval(checkOreCollections, 100);
+    return () => clearInterval(interval);
+  }, [addMessage]);
+
   // Handle enemy click detection
   const handleEnemyClick = useCallback((worldX: number, worldY: number): boolean => {
     const state = useGameStore.getState();
@@ -519,6 +598,25 @@ export function Game() {
     return false;
   }, []);
 
+  // Handle ore click detection
+  const handleOreClick = useCallback((worldX: number, worldY: number): boolean => {
+    const state = useGameStore.getState();
+
+    for (const ore of state.ores.values()) {
+      const dx = worldX - ore.x;
+      const dy = worldY - ore.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      if (distance < 25) {
+        // Set ship target position
+        state.setTargetPosition({ x: ore.x, y: ore.y - 20 });
+        state.setTargetOreId(ore.id);
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
   // Clear minimap target when ship reports it reached
   const handleTargetReached = useCallback(() => {
     useGameStore.getState().setTargetPosition(null);
@@ -556,8 +654,14 @@ export function Game() {
           return;
         }
 
-        // Clicked outside - clear box target
+        // Check if click is on any ore
+        if (handleOreClick(worldX, worldY)) {
+          return;
+        }
+
+        // Clicked outside - clear box/ore target
         state.setTargetBonusBoxId(null);
+        state.setTargetOreId(null);
 
         // Clicked outside enemy or box - check for double-click
         const now = Date.now();
@@ -593,6 +697,7 @@ export function Game() {
         state.setSelectedEnemyId(null);
         state.setPlayerFiringRocket(false);
         state.setTargetBonusBoxId(null);
+        state.setTargetOreId(null);
       } else if (e.key === '0' || e.key === 'Digit0') {
         const now = Date.now();
         const timeSinceLastRepair = (now - state.lastRepairTime) / 1000;
@@ -882,6 +987,7 @@ export function Game() {
           }}
         />
       )}
+      <HUD position={shipPosition} velocity={shipVelocity} fps={useGameStore.getState().fps} cargo={currentCargoUsage} maxCargo={playerMaxCargo} />
       <TopBar />
       <MessageSystem />
       <ActionBar
@@ -927,6 +1033,15 @@ export function Game() {
               cameraContainer={cameraContainer}
               boxState={box}
               isCollecting={targetBonusBoxId === box.id && Math.sqrt(Math.pow(shipPosition.x - box.x, 2) + Math.pow(shipPosition.y - box.y, 2)) < 50}
+            />
+          ))}
+          {oreList.map((ore) => (
+            <ResourceCrystal
+              key={ore.id}
+              app={app!}
+              cameraContainer={cameraContainer!}
+              oreState={ore}
+              isCollecting={targetOreId === ore.id && Math.sqrt(Math.pow(shipPosition.x - ore.x, 2) + Math.pow(shipPosition.y - ore.y, 2)) < 50}
             />
           ))}
           <Ship

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { EnemyState, LaserAmmoType, LaserCannonType, RocketType, BonusBoxState } from '@shared/types';
-import { SPARROW_SHIP, PLAYER_STATS } from '@shared/constants';
+import type { EnemyState, LaserAmmoType, LaserCannonType, RocketType, BonusBoxState, OreState, OreType } from '@shared/types';
+import { SPARROW_SHIP, PLAYER_STATS, ORE_CONFIG } from '@shared/constants';
 import { getLevelFromExp } from '@shared/utils/leveling';
 
 interface Position {
@@ -30,6 +30,8 @@ interface GameState {
   playerCredits: number;
   playerHonor: number;
   playerAetherium: number;
+  playerCargo: Record<OreType, number>;
+  playerMaxCargo: number;
 
   // Derived state
   playerLevel: number;
@@ -83,6 +85,10 @@ interface GameState {
   bonusBoxRespawnTimers: Map<string, number>;
   targetBonusBoxId: string | null;
 
+  // Ore state
+  ores: Map<string, OreState>;
+  targetOreId: string | null;
+
   // Actions - Ship
   setShipPosition: (position: Position) => void;
   setShipVelocity: (velocity: Velocity) => void;
@@ -101,6 +107,9 @@ interface GameState {
   addHonor: (amount: number) => void;
   setPlayerAetherium: (aetherium: number) => void;
   addAetherium: (amount: number) => void;
+  setPlayerCargo: (cargo: Record<OreType, number>) => void;
+  addOreToCargo: (type: OreType, amount: number) => boolean; // Returns true if it fit
+  setPlayerMaxCargo: (maxCargo: number) => void;
 
   // Actions - Level Up
   setShowLevelUpAnimation: (show: boolean, newLevel?: number | null) => void;
@@ -160,6 +169,13 @@ interface GameState {
   setBonusBoxRespawnTimer: (id: string, time: number) => void;
   removeBonusBoxRespawnTimer: (id: string) => void;
   setTargetBonusBoxId: (id: string | null) => void;
+
+  // Actions - Ores
+  setOres: (ores: Map<string, OreState>) => void;
+  addOre: (ore: OreState) => void;
+  removeOre: (id: string) => void;
+  setTargetOreId: (id: string | null) => void;
+  collectOre: (id: string) => boolean;
   addAmmo: (type: LaserAmmoType, amount: number) => void;
 
   // Actions - Utility
@@ -184,6 +200,17 @@ export const useGameStore = create<GameState>((set, get) => ({
   playerCredits: 0,
   playerHonor: 0,
   playerAetherium: 0,
+  playerCargo: {
+    Pyrite: 0,
+    Beryl: 0,
+    Citrine: 0,
+    Roseon: 0,
+    Veridian: 0,
+    Aurum: 0,
+    Umbra: 0,
+    Argent: 0,
+  },
+  playerMaxCargo: SPARROW_SHIP.cargo,
 
   // Derived state
   playerLevel: 1,
@@ -248,6 +275,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   bonusBoxRespawnTimers: new Map(),
   targetBonusBoxId: null,
 
+  // Ore state
+  ores: new Map(),
+  targetOreId: null,
+
   // Actions - Ship
   setShipPosition: (position) => set({ shipPosition: position }),
   setShipVelocity: (velocity) => set({ shipVelocity: velocity }),
@@ -277,6 +308,25 @@ export const useGameStore = create<GameState>((set, get) => ({
   addHonor: (amount) => set({ playerHonor: get().playerHonor + amount }),
   setPlayerAetherium: (aetherium) => set({ playerAetherium: aetherium }),
   addAetherium: (amount) => set({ playerAetherium: get().playerAetherium + amount }),
+  setPlayerCargo: (cargo) => set({ playerCargo: cargo }),
+  addOreToCargo: (type, amount) => {
+    const state = get();
+    const currentCargoAmount = Object.values(state.playerCargo).reduce((sum, val) => sum + val, 0);
+    const addedSpace = (ORE_CONFIG as any)[type.toUpperCase()]?.cargoSpace || 1;
+
+    if (currentCargoAmount + addedSpace * amount > state.playerMaxCargo) {
+      return false;
+    }
+
+    set({
+      playerCargo: {
+        ...state.playerCargo,
+        [type]: (state.playerCargo[type] || 0) + amount,
+      },
+    });
+    return true;
+  },
+  setPlayerMaxCargo: (maxCargo) => set({ playerMaxCargo: maxCargo }),
 
   // Actions - Level Up
   setShowLevelUpAnimation: (show, newLevel = null) =>
@@ -415,6 +465,34 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ bonusBoxRespawnTimers: timers });
   },
   setTargetBonusBoxId: (id) => set({ targetBonusBoxId: id }),
+
+  // Actions - Ores
+  setOres: (ores) => set({ ores }),
+  addOre: (ore) => {
+    const ores = new Map(get().ores);
+    ores.set(ore.id, ore);
+    set({ ores });
+  },
+  removeOre: (id) => {
+    const ores = new Map(get().ores);
+    ores.delete(id);
+    set({ ores });
+  },
+  setTargetOreId: (id) => set({ targetOreId: id }),
+  collectOre: (id) => {
+    const state = get();
+    const ore = state.ores.get(id);
+    if (!ore) return false;
+
+    if (state.addOreToCargo(ore.type, 1)) {
+      state.removeOre(id);
+      if (state.targetOreId === id) {
+        state.setTargetOreId(null);
+      }
+      return true;
+    }
+    return false;
+  },
   addAmmo: (type, amount) => {
     const state = get();
     set({
@@ -451,3 +529,5 @@ export const selectAliveEnemies = (state: GameState) =>
   Array.from(state.enemies.values()).filter(
     (enemy) => !state.deadEnemies.has(enemy.id) && enemy.health > 0
   );
+export const selectCurrentCargoUsage = (state: GameState) =>
+  Object.values(state.playerCargo).reduce((sum, val) => sum + val, 0);

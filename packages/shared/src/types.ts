@@ -40,6 +40,15 @@ export interface BonusBoxState extends Position {
   type: 'standard';
 }
 
+// Ore types
+export type OreType = 'Pyrite' | 'Beryl' | 'Citrine' | 'Roseon' | 'Veridian' | 'Aurum' | 'Umbra' | 'Argent';
+
+export interface OreState extends Position {
+  id: string;
+  type: OreType;
+  size: 'small' | 'large';
+}
+
 // Combat types
 export interface CombatState {
   engagedEnemyId: string | null;

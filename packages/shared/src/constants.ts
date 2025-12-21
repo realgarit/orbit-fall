@@ -179,3 +179,58 @@ export const BONUS_BOX_CONFIG = {
   ],
 } as const;
 
+// Ore configuration
+export const ORE_CONFIG = {
+  PYRITE: {
+    type: 'Pyrite' as const,
+    color: 0xff4444, // Reddish
+    clusterSize: { min: 10, max: 20 },
+    spawnRate: 0.8,
+    cargoSpace: 1,
+    size: 'small' as const,
+  },
+  BERYL: {
+    type: 'Beryl' as const,
+    color: 0x4444ff, // Blueish
+    spawnRate: 0.2,
+    cargoSpace: 1,
+    size: 'small' as const,
+  },
+  CITRINE: {
+    type: 'Citrine' as const,
+    color: 0xffff44, // Yellowish
+    spawnRate: 0, // Later map
+    cargoSpace: 1,
+    size: 'small' as const,
+  },
+  ROSEON: {
+    type: 'Roseon' as const,
+    color: 0xff66cc, // Pinkish
+    cargoSpace: 10, // Adjust as needed
+    size: 'large' as const,
+  },
+  VERIDIAN: {
+    type: 'Veridian' as const,
+    color: 0x44ff44, // Greenish
+    cargoSpace: 10,
+    size: 'large' as const,
+  },
+  AURUM: {
+    type: 'Aurum' as const,
+    color: 0xffd700, // Goldish
+    cargoSpace: 20,
+    size: 'large' as const,
+  },
+  UMBRA: {
+    type: 'Umbra' as const,
+    color: 0x8b00ff, // Violet/Blacklight
+    cargoSpace: 1,
+    size: 'small' as const,
+  },
+  ARGENT: {
+    type: 'Argent' as const,
+    color: 0xffffff, // White
+    cargoSpace: 1,
+    size: 'small' as const,
+  },
+} as const;
