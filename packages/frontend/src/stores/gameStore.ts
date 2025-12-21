@@ -81,6 +81,7 @@ interface GameState {
   // Bonus Box state
   bonusBoxes: Map<string, BonusBoxState>;
   bonusBoxRespawnTimers: Map<string, number>;
+  targetBonusBoxId: string | null;
 
   // Actions - Ship
   setShipPosition: (position: Position) => void;
@@ -158,6 +159,7 @@ interface GameState {
   removeBonusBox: (id: string) => void;
   setBonusBoxRespawnTimer: (id: string, time: number) => void;
   removeBonusBoxRespawnTimer: (id: string) => void;
+  setTargetBonusBoxId: (id: string | null) => void;
   addAmmo: (type: LaserAmmoType, amount: number) => void;
 
   // Actions - Utility
@@ -244,6 +246,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   // Bonus Box state
   bonusBoxes: new Map(),
   bonusBoxRespawnTimers: new Map(),
+  targetBonusBoxId: null,
 
   // Actions - Ship
   setShipPosition: (position) => set({ shipPosition: position }),
@@ -411,6 +414,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     timers.delete(id);
     set({ bonusBoxRespawnTimers: timers });
   },
+  setTargetBonusBoxId: (id) => set({ targetBonusBoxId: id }),
   addAmmo: (type, amount) => {
     const state = get();
     set({

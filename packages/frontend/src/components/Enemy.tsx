@@ -14,7 +14,7 @@ interface EnemyProps {
 }
 
 export const Enemy = memo(function Enemy({ app, cameraContainer, playerPosition, enemyState: externalState, onStateUpdate, onPositionUpdate, isDead = false }: EnemyProps) {
-  const enemyRef = useRef<Graphics | null>(null);
+  const enemyRef = useRef<Container | null>(null);
   const nameTextRef = useRef<Text | null>(null);
   const explosionRef = useRef<Graphics | null>(null);
   const stateRef = useRef<EnemyState>({
@@ -236,37 +236,53 @@ export const Enemy = memo(function Enemy({ app, cameraContainer, playerPosition,
         spawnedRef.current = true;
       }
 
-      // Create enemy ship visual - similar size but weaker appearance
-      const enemy = new Graphics();
+      // Create enemy ship container
+      const enemy = new Container();
+      const enemyBody = new Graphics();
+      const engineGlow = new Graphics();
 
-      // Main body (triangle) - similar to player but darker/simpler
-      enemy.moveTo(0, -20); // Top point (nose)
-      enemy.lineTo(-12, 10); // Bottom left
-      enemy.lineTo(0, 5); // Center bottom
-      enemy.lineTo(12, 10); // Bottom right
-      enemy.lineTo(0, -20); // Close triangle
-      enemy.fill(0x2a4a7f); // Darker blue body (weaker appearance)
+      enemy.addChild(engineGlow);
+      enemy.addChild(enemyBody);
 
-      // Add wings (simpler than player)
-      enemy.moveTo(-12, 10);
-      enemy.lineTo(-18, 15);
-      enemy.lineTo(-12, 13);
-      enemy.fill(0x1a3a5f); // Even darker wing
+      const drawEnemyBody = (g: Graphics) => {
+        g.clear();
 
-      enemy.moveTo(12, 10);
-      enemy.lineTo(18, 15);
-      enemy.lineTo(12, 13);
-      enemy.fill(0x1a3a5f); // Even darker wing
+        // 1. Side Engine Pods (Bulkier/Metallic)
+        g.ellipse(-14, 2, 6, 12);
+        g.fill(0x333333); // Dark grey engine body
+        g.ellipse(14, 2, 6, 12);
+        g.fill(0x333333);
 
-      // Add cockpit (darker)
-      enemy.circle(0, -8, 4);
-      enemy.fill(0x006644); // Darker green cockpit
+        // 2. Main Hull (Organic/Beetle-like)
+        g.moveTo(0, -22); // Rounded nose
+        g.bezierCurveTo(-15, -15, -18, 5, -10, 15); // Left curve
+        g.lineTo(0, 10); // Back indent
+        g.lineTo(10, 15); // Right back
+        g.bezierCurveTo(18, 5, 15, -15, 0, -22); // Right curve to nose
+        g.fill(0x8b0000); // Dark Crimson/Red body
 
-      // Add engine glow (weaker)
-      enemy.circle(-6, 7, 2);
-      enemy.fill({ color: 0xcc8800, alpha: 0.6 }); // Dimmer orange engine
-      enemy.circle(6, 7, 2);
-      enemy.fill({ color: 0xcc8800, alpha: 0.6 }); // Dimmer orange engine
+        // 3. Hull Markings (Top layer)
+        g.moveTo(0, -18);
+        g.lineTo(-8, -5);
+        g.lineTo(-6, 5);
+        g.lineTo(0, 0);
+        g.lineTo(6, 5);
+        g.lineTo(8, -5);
+        g.lineTo(0, -18);
+        g.fill({ color: 0xff4d4d, alpha: 0.4 }); // Lighter red highlight pattern
+
+        // 4. Cockpit (Yellowish/Bug-like)
+        g.ellipse(0, -10, 5, 3);
+        g.fill({ color: 0xffcc00, alpha: 0.9 }); // Amber cockpit
+
+        // 5. Engine Housings/Exhaust ports
+        g.rect(-17, 10, 6, 4);
+        g.fill(0x1a1a1a);
+        g.rect(11, 10, 6, 4);
+        g.fill(0x1a1a1a);
+      };
+
+      drawEnemyBody(enemyBody);
 
       enemy.x = stateRef.current.x;
       enemy.y = stateRef.current.y;
@@ -315,6 +331,23 @@ export const Enemy = memo(function Enemy({ app, cameraContainer, playerPosition,
         const delta = ticker.deltaTime;
         const state = stateRef.current;
         const now = Date.now();
+
+        // Engine glow animation
+        const engineGlow = enemy.children[0] as Graphics;
+        if (engineGlow && state.health > 0) {
+          engineGlow.clear();
+          const flicker = Math.random() * 0.3 + 0.7;
+          const isMoving = Math.abs(state.vx) > 0.1 || Math.abs(state.vy) > 0.1;
+          const size = isMoving ? 6 : 3;
+
+          // Left engine
+          engineGlow.circle(-14, 14, size * flicker);
+          engineGlow.fill({ color: 0xff4400, alpha: 0.4 * flicker });
+
+          // Right engine
+          engineGlow.circle(14, 14, size * flicker);
+          engineGlow.fill({ color: 0xff4400, alpha: 0.4 * flicker });
+        }
 
         // Handle death and explosion
         // Enemy is dead if: health <= 0 OR deathTimeRef is set (death animation in progress)

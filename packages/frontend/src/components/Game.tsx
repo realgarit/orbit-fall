@@ -353,6 +353,8 @@ export function Game() {
 
       // Check for collection
       state.bonusBoxes.forEach((box) => {
+        if (state.targetBonusBoxId !== box.id) return;
+
         const dx = shipPos.x - box.x;
         const dy = shipPos.y - box.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -386,6 +388,7 @@ export function Game() {
 
           // Remove box and set respawn timer
           state.removeBonusBox(box.id);
+          state.setTargetBonusBoxId(null);
           state.setBonusBoxRespawnTimer(box.id, now + BONUS_BOX_CONFIG.RESPAWN_TIME);
         }
       });
@@ -463,6 +466,7 @@ export function Game() {
       if (distance < BONUS_BOX_CONFIG.CLICK_RADIUS) {
         // Set ship target position (slightly above the box)
         state.setTargetPosition({ x: box.x, y: box.y - 25 });
+        state.setTargetBonusBoxId(box.id);
         return true;
       }
     }
@@ -506,6 +510,9 @@ export function Game() {
           return;
         }
 
+        // Clicked outside - clear box target
+        state.setTargetBonusBoxId(null);
+
         // Clicked outside enemy or box - check for double-click
         const now = Date.now();
         const isDoubleClick = now - lastOutsideClickTimeRef.current < 300;
@@ -539,6 +546,7 @@ export function Game() {
         state.setInCombat(false);
         state.setSelectedEnemyId(null);
         state.setPlayerFiringRocket(false);
+        state.setTargetBonusBoxId(null);
       } else if (e.key === '0' || e.key === 'Digit0') {
         const now = Date.now();
         const timeSinceLastRepair = (now - state.lastRepairTime) / 1000;
@@ -817,6 +825,7 @@ export function Game() {
   const instaShieldActive = useGameStore((state) => state.instaShieldActive);
   const targetPosition = useGameStore((state) => state.targetPosition);
   const bonusBoxes = useGameStore((state) => state.bonusBoxes);
+  const targetBonusBoxId = useGameStore((state) => state.targetBonusBoxId);
 
   // Memoize entity lists to avoid re-calculating Every frame
   const enemyList = useMemo(() => Array.from(enemies.entries()), [enemies]);
@@ -906,7 +915,7 @@ export function Game() {
               app={app}
               cameraContainer={cameraContainer}
               boxState={box}
-              isCollecting={Math.sqrt(Math.pow(shipPosition.x - box.x, 2) + Math.pow(shipPosition.y - box.y, 2)) < 50}
+              isCollecting={targetBonusBoxId === box.id && Math.sqrt(Math.pow(shipPosition.x - box.x, 2) + Math.pow(shipPosition.y - box.y, 2)) < 50}
             />
           ))}
           <Ship

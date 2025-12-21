@@ -17,7 +17,7 @@ interface ShipProps {
 }
 
 export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick, onBonusBoxClick, inCombat, enemyPosition, isDead = false }: ShipProps) {
-  const shipRef = useRef<Graphics | null>(null);
+  const shipRef = useRef<Container | null>(null);
   const positionRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
   const rotationRef = useRef(0);
   const isMouseDownRef = useRef(false);
@@ -89,42 +89,66 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
     // Store app in local variable to avoid stale closure issues during hot reload
     const currentApp = app;
 
-    // Create ship visual - simple space ship design
-    // Draw centered at origin (0,0) for proper rotation
-    const ship = new Graphics();
+    // Create ship container to hold body and engine effects
+    const ship = new Container();
+    const shipBody = new Graphics();
+    const engineGlow = new Graphics();
 
-    // Main body (triangle) - centered at origin
-    // Ship points upward (toward negative Y in screen coordinates)
-    ship.moveTo(0, -20); // Top point (nose)
-    ship.lineTo(-12, 10); // Bottom left
-    ship.lineTo(0, 5); // Center bottom
-    ship.lineTo(12, 10); // Bottom right
-    ship.lineTo(0, -20); // Close triangle
-    ship.fill(0x4a9eff); // Blue body
+    ship.addChild(engineGlow);
+    ship.addChild(shipBody);
 
-    // Add wings
-    ship.moveTo(-12, 10);
-    ship.lineTo(-18, 15);
-    ship.lineTo(-12, 13);
-    ship.fill(0x2d7dd2); // Darker blue wing
+    const drawShipBody = (g: Graphics) => {
+      g.clear();
 
-    ship.moveTo(12, 10);
-    ship.lineTo(18, 15);
-    ship.lineTo(12, 13);
-    ship.fill(0x2d7dd2); // Darker blue wing
+      // 1. Outer Wing/Armor Plates (Lower layer)
+      g.moveTo(-18, 15);
+      g.lineTo(-12, -5);
+      g.lineTo(-8, 10);
+      g.fill(0x2d7dd2); // Darker blue accent
 
-    // Add cockpit
-    ship.circle(0, -8, 4);
-    ship.fill(0x00ff88); // Green cockpit
+      g.moveTo(18, 15);
+      g.lineTo(12, -5);
+      g.lineTo(8, 10);
+      g.fill(0x2d7dd2); // Darker blue accent
 
-    // Add engine glow
-    ship.circle(-6, 7, 2);
-    ship.fill({ color: 0xffaa00, alpha: 0.8 }); // Orange engine
-    ship.circle(6, 7, 2);
-    ship.fill({ color: 0xffaa00, alpha: 0.8 }); // Orange engine
+      // 2. Main Hull (Sleek Interceptor)
+      g.moveTo(0, -25); // Long nose
+      g.lineTo(-10, 12); // Left back
+      g.lineTo(0, 5);   // Center back indent
+      g.lineTo(10, 12);  // Right back
+      g.lineTo(0, -25);  // Back to nose
+      g.fill(0x4a9eff);  // Primary blue body
+
+      // 3. Hull Detail Plates (Top layer)
+      g.moveTo(0, -15);
+      g.lineTo(-5, 5);
+      g.lineTo(5, 5);
+      g.fill({ color: 0x66b2ff, alpha: 0.5 }); // Highlighted ridge
+
+      // 4. Cockpit (Glass effect)
+      g.ellipse(0, -8, 4, 7);
+      g.fill({ color: 0x00ffff, alpha: 0.8 }); // Cyan glow
+
+      // Cockpit reflection
+      g.ellipse(-1.5, -10, 1.2, 3);
+      g.fill({ color: 0xffffff, alpha: 0.4 });
+
+      // 5. Engine Housings
+      g.rect(-8, 8, 4, 6);
+      g.fill(0x1a3a5f);
+      g.rect(4, 8, 4, 6);
+      g.fill(0x1a3a5f);
+
+      // 6. Fine Detail Lines
+      g.setStrokeStyle({ width: 0.5, color: 0x000000, alpha: 0.3 });
+      g.moveTo(0, -20);
+      g.lineTo(0, -12);
+      g.stroke();
+    };
+
+    drawShipBody(shipBody);
 
     // Position ship in world space (center of map)
-    // Graphics rotation happens around (0,0) of the Graphics object
     ship.x = positionRef.current.x;
     ship.y = positionRef.current.y;
 
@@ -215,6 +239,27 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
       const ship = shipRef.current;
       if (!ship) return;
 
+      const engineGlow = ship.children[0] as Graphics;
+      const velocity = velocityRef.current;
+      if (engineGlow && !isDeadRef.current) {
+        engineGlow.clear();
+        const flicker = Math.random() * 0.4 + 0.6;
+        const isMoving = Math.abs(velocity.vx) > 0.1 || Math.abs(velocity.vy) > 0.1;
+        const size = isMoving ? 8 : 4;
+
+        // Left engine flame
+        engineGlow.circle(-6, 12, size * flicker);
+        engineGlow.fill({ color: 0xffaa00, alpha: 0.5 * flicker });
+        engineGlow.circle(-6, 12, size * 0.6 * flicker);
+        engineGlow.fill({ color: 0xffffff, alpha: 0.8 * flicker });
+
+        // Right engine flame
+        engineGlow.circle(6, 12, size * flicker);
+        engineGlow.fill({ color: 0xffaa00, alpha: 0.5 * flicker });
+        engineGlow.circle(6, 12, size * 0.6 * flicker);
+        engineGlow.fill({ color: 0xffffff, alpha: 0.8 * flicker });
+      }
+
       // If ship is dead, don't update position or movement
       if (isDeadRef.current) {
         return;
@@ -222,7 +267,6 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
 
       const delta = ticker.deltaTime;
       const pos = positionRef.current;
-      const velocity = velocityRef.current;
       const currentTarget = targetPosRef.current;
 
       // Priority: combat rotation (turn to enemy when in combat)

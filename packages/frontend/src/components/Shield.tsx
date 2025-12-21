@@ -20,7 +20,7 @@ export function Shield({
   const positionRef = useRef(position);
   const activeRef = useRef(active);
   const timeRef = useRef(0);
-  const targetGraphicsRef = useRef<Graphics | null>(null);
+  const targetGraphicsRef = useRef<Container | null>(null);
 
   useEffect(() => {
     positionRef.current = position;
@@ -39,13 +39,13 @@ export function Shield({
 
     // Find the ship Graphics object to read position directly
     // This avoids React state timing delays
-    const findTargetGraphics = (): Graphics | null => {
+    const findTargetGraphics = (): Container | null => {
       const shieldIndex = cameraContainer.getChildIndex(shield);
       // Look for Graphics objects before the Shield
       // The ship should be added before the Shield
       for (let i = 0; i < shieldIndex; i++) {
         const child = cameraContainer.children[i];
-        if (child instanceof Graphics && child !== shield) {
+        if ((child instanceof Container) && child !== shield) {
           // Check if this Graphics is near our expected position (within 100px)
           // This helps identify the ship Graphics object
           const expectedPos = positionRef.current;
@@ -97,7 +97,7 @@ export function Shield({
       const time = timeRef.current;
       const pulseSpeed = 0.1; // Animation speed
       const pulseAmount = 0.15; // How much the shield pulses (15% size variation)
-      
+
       // Calculate pulsing radius
       const pulse = Math.sin(time * pulseSpeed) * pulseAmount;
       const currentRadius = radius * (1 + pulse);
