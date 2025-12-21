@@ -138,23 +138,21 @@
 
 ## 💎 Ores
 
-### 🌍 Spawnable
-
-| Name | Rarity | Size | Color |
-|:-----|:-------|:-----|:------|
-| 🔴 **Scarlite** | Common | Small | Red |
-| 🔵 **Azurite** | Rare | Small | Blue |
-| 🟡 **Aurite** | Very Rare | Small | Yellow |
+### 🌍 Common & Rare
+| Name | Cargo | Size | Color | Spawn Type |
+|:-----|:------|:-----|:------|:-----------|
+| 🔴 **Pyrite** | 1 | Small | Red | Cluster |
+| 🔵 **Beryl** | 1 | Small | Blue | Scattered |
+| 🟡 **Citrine** | 1 | Small | Yellow | Rare |
 
 ---
 
-### 🔨 Crafted
-
-| Name | Recipe |
-|:-----|:-------|
-| 💗 **Rosite** | 20 Scarlite + 10 Azurite |
-| 💚 **Verdite** | 10 Azurite + 20 Aurite |
-| 🟡 **Aurumite** | 10 Rosite + 10 Verdite + 1 Prismite |
+### 🔨 Refined (Melting)
+| Name | Cargo | Recipe |
+|:-----|:------|:-------|
+| 💗 **Roseon** | 1 | 20 Pyrite + 10 Beryl |
+| 💚 **Veridian** | 1 | 10 Beryl + 20 Citrine |
+| 🟡 **Aurum** | 1 | 10 Roseon + 10 Veridian + 1 Argent |
 
 ---
 

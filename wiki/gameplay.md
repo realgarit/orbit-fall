@@ -12,8 +12,7 @@
 | ⚔️ **Target enemy** | Double-click | Start combat (lasers auto-fire) |
 | 💣 **Fire rockets** | Spacebar | Manual rocket fire |
 | ⚙️ **Settings** | ESC | Open settings menu |
-
-> 💡 **That's it. Simple controls, but there's depth in how you use them.**
+| 🗄️ **Windows** | Top Bar | Minimize/Restore UI windows |
 
 ---
 
@@ -25,8 +24,23 @@ Your ship rotates toward your mouse cursor. Click and hold to move forward in th
 
 - 🏃 **Keep moving in combat**: Standing still = easy target
 - 🎯 **Use mouse position**: Control direction precisely
-- 🔄 **Strafe**: Move your mouse while holding click
 - ⚡ **Speed matters**: Based on your ship's base speed stat
+
+---
+
+## 🛡️ User Interface
+
+The game uses a **Window-based Management System**. Most critical information is now organized into dedicated, draggable windows rather than a static HUD.
+
+### 🗄️ Core Windows
+
+1. 🚀 **Ship Window**: Displays your current Health, Shield status, and **Cargo Usage** (Current / Max). 
+2. 💎 **Ore Window**: Replaces the old inventory list. Displays a grid of all collected ores and their quantities.
+3. 🗺️ **Minimap**: Shows your position, enemies (red dots), and your current target.
+4. 🛠️ **Debug Window**: Provides real-time coordinates, velocity, and performance metrics (FPS).
+5. 📊 **Stats Window**: Displays Player Level, Experience (XP), and Credits.
+
+> 💡 **Tip**: Use the **Top Bar** to minimize windows and clear up your view of space.
 
 ---
 
@@ -45,46 +59,37 @@ Your ship rotates toward your mouse cursor. Click and hold to move forward in th
 | Tip | Why |
 |:----|:-----|
 | 📏 **Stay at max range** (6 units) | Enemies have shorter range (4.5 units for Drifters) |
-| 🎯 **Outrange them** | They can't hit you back |
 | 🔄 **Move in circles** | Kiting - they chase, you shoot |
 
-### 💣 When to Use Rockets
+---
 
-- 🚀 **Starting a fight**: Burst damage
-- 💀 **Finishing enemies**: Quick kill
-- 💪 **Tough enemies**: Extra damage
-- ❌ **Don't waste them**: On weak enemies
+## 📦 Resource & Cargo Management
+
+### 📊 Capacity
+
+| Ship | Cargo Limit | Notes |
+|:-----|:------------|:------|
+| 🚀 **Sparrow** | 100 units | Total capacity for all ores |
+
+> ⚠️ **Cargo Full**: When your cargo reaches its limit, you will receive a red system message: **"Cargo full!"**. You must sell or discard resources to collect more.
 
 ---
 
-## 💰 Resource Management
+## 🎁 Bonus Boxes
 
-### 💰 Credits
+Bonus Boxes are randomly spawning objects that contain valuable rewards. 
 
-| Action | Details |
+### 🔍 How to Collect
+1. 🔦 Spot a yellow box with a blue/violet glow.
+2. 🖱️ Single-click the box.
+3. 🚀 Your ship will automatically fly to and "abduct" it.
+
+### 🎁 Possible Rewards
+| Reward | Details |
 |:-------|:--------|
-| 💵 **Earn** | Kill enemies (400 per Drifter), sell ores, bonus boxes |
-| 💸 **Spend** | Ships, weapons, ammo, upgrades |
-| 💡 **Strategy** | Save early, spend on upgrades that matter. Don't buy everything at once. |
-
----
-
-### 🔋 Ammunition
-
-| Type | Usage | Strategy |
-|:-----|:------|:---------|
-| 🔫 **Laser ammo** | Used every second in combat | Stock up |
-| 💣 **Rocket ammo** | Used when you fire rockets | Expensive but powerful |
-| 💡 **Strategy** | Keep laser ammo stocked. Use rockets sparingly. Don't run out mid-fight. |
-
----
-
-### 📦 Cargo Space
-
-| Stat | Value |
-|:-----|:------|
-| 📊 **Limit** | 100 units on Sparrow (1 unit per ore) |
-| 💡 **Strategy** | Collect ores until full, then go sell/craft. Don't waste cargo space on common ores if you're near capacity and see rare ones. |
+| 💵 **Credits** | Used for buying gear |
+| 💎 **Aetherium** | Rare crafting material |
+| 🔫 **Ammo** | Refills for your lasers |
 
 ---
 
@@ -93,95 +98,14 @@ Your ship rotates toward your mouse cursor. Click and hold to move forward in th
 ### 🟢 Early Game
 
 1. 👾 Kill Drifters for XP and credits
-2. 💎 Collect ores as you go
-3. 💰 Save credits for weapon upgrades
-4. 📈 Level up to unlock better content
+2. 💎 Collect ores (focus on **Pyrite** and **Beryl**)
+3. 📈 Level up to unlock better content
 
-### ⚡ Efficient Farming
+###  Progression Speed
 
-- 💣 **Kill enemies quickly**: Use rockets
-- 💎 **Collect ores between fights**: Don't waste time
-- 🚀 **Don't travel empty**: Always be collecting or fighting
-- 🎯 **Focus on one area**: Clear it, move on
-
-### 📈 XP Farming
-
-| Enemy | XP | Kills for Level 2 |
-|:------|:---|:-------------------|
-| 👾 Drifter | 400 | 25 kills |
-| 📊 Level 3 | - | 50 more kills |
-| ⏱️ **Gets slower** | - | From there |
-
-### 💰 Credit Farming
-
-| Source | Amount | Notes |
-|:-------|:-------|:------|
-| 👾 Drifters | 400 credits | Per kill |
-| 🎁 Bonus boxes | Varies | Extra |
-| 💎 Ores | TBD | Can be sold |
-| 💡 **Strategy** | Save for big purchases |
-
----
-
-## 🎁 Bonus Boxes
-
-Bonus Boxes are randomly spawning objects in the overworld that contain valuable rewards. They do not appear on the minimap, so you have to keep an eye out for them while exploring!
-
-### 🔍 How to Collect
-1. 🔦 Spot a yellow box with orange corners and a blue/violet glow.
-2. 🖱️ Single-click the box once.
-3. 🚀 Your ship will automatically fly to the box and "abduct" it from above.
-4. 🎉 You will receive one of the following rewards.
-
-### 🎁 Possible Rewards
-| Reward | Amounts |
-|:-------|:--------|
-| 💵 **Credits** | 200, 500, or 1000 |
-| 💎 **Aetherium** | 20, 50, or 100 |
-| 🔫 **LC-10 Ammo** | 10, 20, or 50 |
-| 🔫 **LC-25 Ammo** | 5, 10, or 20 |
-| 🔫 **LC-50 Ammo** | 5, 10, or 20 |
-
-> 💡 **Bonus Boxes respawn 5 seconds after collection.** They are a great way to top up your ammo and credits while traveling between combat zones.
-
----
-
-## ⬆️ Equipment Upgrades
-
-### 📊 Priority Order
-
-1. 🔋 **Better laser ammo**: LC-25 doubles your damage (2x multiplier)
-2. 🔫 **Better laser cannon**: PL-2 doubles base damage (140 vs 65)
-3. 💣 **Better rocket ammo**: RT-02 doubles rocket damage (2,000 vs 1,000)
-4. 🚀 **Better ship**: More HP, more cargo, more slots
-
-### ⏰ When to Upgrade
-
-- ✅ When you can afford it
-- ✅ When current gear feels weak
-- ✅ Before tackling harder content
-- ❌ Don't upgrade too early (save credits)
-
----
-
-## 👾 Enemy Encounters
-
-### 👾 Drifter
-
-| Stat | Value |
-|:-----|:------|
-| 🎭 **Attitude** | Defensive (won't attack first) |
-| 🛡️ **Shield** | 600 |
-| ❤️ **HP** | 1,000 |
-| ⚔️ **Damage** | 20 per shot |
-| 💡 **Strategy** | Double-click, fire rocket, let lasers finish. Takes ~10 seconds. |
-
-### 🔮 Future Enemies
-
-- 💪 Will be stronger
-- 💰 Will give more rewards
-- ⚔️ Will require better gear
-- 🤖 Will have different AI
+| Enemy | XP | Reward |
+|:------|:---|:-------|
+| 👾 **Drifter** | 400 | Leveling is fast until Level 5, then scales up |
 
 ---
 
@@ -189,63 +113,38 @@ Bonus Boxes are randomly spawning objects in the overworld that contain valuable
 
 ### ✋ Ore Collection
 
-- 🎯 Fly close to ores to collect
-- 📦 Each ore = 1 cargo space
-- 📊 Fill up, then go sell/craft
+- 🎯 Fly close to ores to collect.
+- 📦 **All ores take up exactly 1 cargo unit.**
+- 📊 Monitor your status in the **Ship Window**.
 
 ### ⭐ Ore Priority
 
-1. 🔵 **Rare ores first**: Azurite > Scarlite
-2. 🟡 **Very rare ores**: Aurite (if you find them)
-3. 🔴 **Common ores**: Scarlite (if you have space)
-
-### 📦 Cargo Management
-
-- ❌ Don't fill up on common ores if rare ones are nearby
-- 💾 Save space for valuable ores
-- 🏠 Go sell/craft when full
-- ⚠️ Don't waste cargo space
+1. 🟡 **Legendary ores**: Aurum
+2. 💗 **Elite ores**: Roseon/Veridian
+3. 🔵 **Rare ores**: Beryl
+4. 🔴 **Common ores**: Pyrite
 
 ---
 
 ## ❌ Common Mistakes
 
-1. 🚫 **Standing still in combat**: Move, always move
-2. 💣 **Wasting rockets**: Save them for when you need them
-3. 💎 **Ignoring ores**: Free money and crafting materials
-4. 💰 **Spending credits too early**: Save for meaningful upgrades
-5. ❤️ **Not watching health**: You can die. Be careful
-6. 📦 **Full cargo**: Can't collect more ores when full
-7. 🔋 **Out of ammo**: Stock up before long farming sessions
+1. 🚫 **Ignoring Windows**: Keep your **Ship Window** visible to monitor health and cargo.
+2. 💣 **Wasting Rockets**: Rockets are precious; use them on aggressive targets only.
+3. 📦 **Over-farming**: If you see a "Cargo full!" message, you are wasting time - travel back to the base.
+4. 🚫 **Standing still in combat**: Move, always move.
+5.  **Out of ammo**: Stock up before long farming sessions.
 
 ---
 
 ## 💡 Advanced Tips
 
 ### ⚔️ Combat
-
-- 🔄 **Kite enemies in circles**: They chase, you shoot
-- 📏 **Use range advantage**: 6 vs 4.5 for Drifters
-- 💣 **Fire rockets at start**: Burst damage
-- 💀 **Save rockets for finishing**: Quick kills
+- 🔄 **Kite enemies in circles**: They chase, you shoot.
+- 💣 **Fire rockets at start**: Immediate burst damage.
 
 ### 🌾 Farming
-
-- 🎯 **Clear an area, move to next**: Efficient pathing
-- 💎 **Collect ores as you go**: Don't backtrack
-- ⚡ **Focus on efficiency**: Time is XP
-
-### 💰 Economy
-
-- 💾 **Save credits for upgrades**: Don't buy everything
-- ⚔️ **Prioritize damage upgrades**: More damage = faster kills
-- 🚀 **Ships are expensive**: Save for them
-
-### 📈 Progression
-
-- ⚡ **Early levels are fast**: Later are slow
-- 🎯 **Focus on XP for levels**: Credits for gear
-- ⚖️ **Balance both**: Don't ignore either
+- 🎯 **Clear an area, move to next**: Efficient pathing.
+- 💎 **Collect ores as you go**: Don't waste time backtracking.
 
 ---
 
@@ -253,27 +152,20 @@ Bonus Boxes are randomly spawning objects in the overworld that contain valuable
 
 > **More features coming:**
 
-- 🌍 **Multiple maps**: Different areas to explore
-- 🌀 **Portals**: Travel between maps
-- 🛡️ **Safe zones**: Areas where you can't be attacked
-- ⚔️ **PvP zones**: Player vs player combat
-- 👥 **Clans**: Group up with other players
-- 📋 **Quests**: Objectives with rewards
-- 👑 **Bosses**: Special enemies with unique mechanics
-
-> 💡 **The game will get more complex.** Learn the basics now, adapt later.
+- 🌍 **Multiple maps**: Different areas to explore.
+- 🌀 **Portals**: Travel between maps.
+- 🛡️ **Safe zones**: Areas where you can't be attacked.
+- ⚔️ **PvP zones**: Player vs player combat.
+- 👥 **Clans**: Group up with other players.
 
 ---
 
 ## 🆘 Getting Help
 
 If you're stuck:
-
-- 📚 Check the other wiki pages
-- 🚀 Read the [Getting Started](getting-started.md) guide
-- ⚔️ Look at [Combat System](combat.md) for damage info
-- 🔫 See [Weapons](weapons.md) for gear choices
+- 📚 Check the other wiki pages.
+- 🚀 Read the [Getting Started](getting-started.md) guide.
 
 ---
 
-> 💡 **The game is simple at its core:** move, shoot, collect, upgrade, repeat. Master the basics, then optimize from there.
+> 💡 **Master the windows.** Keeping your interface organized is key to surviving the deeper sectors of space.

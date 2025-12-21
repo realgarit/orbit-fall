@@ -18,8 +18,8 @@ You start with a basic ship and work your way up. Fight NPCs, collect ores, upgr
 |:--------|:------------|
 | 🎯 **Movement** | Click and hold to move your ship. Your ship rotates toward your mouse cursor. |
 | ⚔️ **Combat** | Double-click enemies to start combat. Lasers auto-fire when you're in combat. Rockets are manual and pack a bigger punch. |
-| 💎 **Resources** | Collect ores floating in space. They take up cargo space. Use them for crafting later. |
-| 📈 **Progression** | Kill enemies to get experience and credits. Level up to unlock better gear. |
+| 💎 **Resources** | Collect crystals floating in space. Ores consume variable cargo space. Monitor usage in the **Ship** and **Ore** windows. |
+| 📈 **Progression** | Kill enemies and collect resources to level up. Higher levels unlock better equipment and sectors. |
 
 That's the basics. Check out the guides below for the details.
 
@@ -87,6 +87,7 @@ That's the basics. Check out the guides below for the details.
 | 📈 **Max Level** | 44 |
 | 💰 **Starting Credits** | 10,000 |
 | 📦 **Cargo Capacity** | 100 units (Sparrow) |
+| 🗄️ **Interface** | Window-based Management System |
 
 ---
 

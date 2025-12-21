@@ -206,19 +206,19 @@ export const ORE_CONFIG = {
   ROSEON: {
     type: 'Roseon' as const,
     color: 0xff66cc, // Pinkish
-    cargoSpace: 10, // Adjust as needed
+    cargoSpace: 1,
     size: 'large' as const,
   },
   VERIDIAN: {
     type: 'Veridian' as const,
     color: 0x44ff44, // Greenish
-    cargoSpace: 10,
+    cargoSpace: 1,
     size: 'large' as const,
   },
   AURUM: {
     type: 'Aurum' as const,
     color: 0xffd700, // Goldish
-    cargoSpace: 20,
+    cargoSpace: 1,
     size: 'large' as const,
   },
   UMBRA: {
