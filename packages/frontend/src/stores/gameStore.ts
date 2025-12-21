@@ -34,6 +34,10 @@ interface GameState {
   // Derived state
   playerLevel: number;
 
+  // Level up animation state
+  showLevelUpAnimation: boolean;
+  levelUpNewLevel: number | null;
+
   // Death state
   isDead: boolean;
   deathPosition: Position | null;
@@ -92,6 +96,9 @@ interface GameState {
   addHonor: (amount: number) => void;
   setPlayerAetherium: (aetherium: number) => void;
   addAetherium: (amount: number) => void;
+
+  // Actions - Level Up
+  setShowLevelUpAnimation: (show: boolean, newLevel?: number | null) => void;
 
   // Actions - Death
   setIsDead: (isDead: boolean) => void;
@@ -166,6 +173,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   // Derived state
   playerLevel: 1,
+
+  // Level up animation state
+  showLevelUpAnimation: false,
+  levelUpNewLevel: null,
 
   // Death state
   isDead: false,
@@ -247,6 +258,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   addHonor: (amount) => set({ playerHonor: get().playerHonor + amount }),
   setPlayerAetherium: (aetherium) => set({ playerAetherium: aetherium }),
   addAetherium: (amount) => set({ playerAetherium: get().playerAetherium + amount }),
+
+  // Actions - Level Up
+  setShowLevelUpAnimation: (show, newLevel = null) =>
+    set({ showLevelUpAnimation: show, levelUpNewLevel: newLevel }),
 
   // Actions - Death
   setIsDead: (isDead) => set({ isDead }),

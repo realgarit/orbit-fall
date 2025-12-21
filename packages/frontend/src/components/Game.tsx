@@ -25,6 +25,7 @@ import { SettingsWindow } from './windows/SettingsWindow';
 import { ShipWindow } from './windows/ShipWindow';
 import { DeathWindow } from './windows/DeathWindow';
 import { MessageSystem } from './MessageSystem';
+import { LevelUpAnimation } from './LevelUpAnimation';
 import { useGameStore } from '../stores/gameStore';
 import { MAP_WIDTH, MAP_HEIGHT, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP } from '@shared/constants';
 import type { EnemyState } from '@shared/types';
@@ -218,6 +219,8 @@ export function Game() {
       state.addAetherium(reward.aetherium);
 
       if (newLevel > oldLevel) {
+        // Trigger level-up animation
+        state.setShowLevelUpAnimation(true, newLevel);
         queueMicrotask(() => addMessage(`Level up! You are now level ${newLevel}!`, 'success'));
       }
 
@@ -781,6 +784,18 @@ export function Game() {
               cameraContainer={cameraContainer}
               position={basePosition}
             />
+            {Array.from(enemies.entries()).map(([enemyId, enemyState]) => (
+              <Enemy
+                key={enemyId}
+                app={app}
+                cameraContainer={cameraContainer}
+                playerPosition={shipPosition}
+                enemyState={deadEnemies.has(enemyId) ? null : enemyState}
+                onStateUpdate={(state) => handleEnemyStateUpdate(enemyId, state)}
+                onPositionUpdate={(pos) => handleEnemyPositionUpdate(enemyId, pos)}
+                isDead={deadEnemies.has(enemyId)}
+              />
+            ))}
             <Ship
               app={app}
               cameraContainer={cameraContainer}
@@ -810,18 +825,6 @@ export function Game() {
                 onComplete={handleExplosionComplete}
               />
             )}
-            {Array.from(enemies.entries()).map(([enemyId, enemyState]) => (
-              <Enemy
-                key={enemyId}
-                app={app}
-                cameraContainer={cameraContainer}
-                playerPosition={shipPosition}
-                enemyState={deadEnemies.has(enemyId) ? null : enemyState}
-                onStateUpdate={(state) => handleEnemyStateUpdate(enemyId, state)}
-                onPositionUpdate={(pos) => handleEnemyPositionUpdate(enemyId, pos)}
-                isDead={deadEnemies.has(enemyId)}
-              />
-            ))}
             {isRepairing && app && cameraContainer && (
               <RepairRobot
                 app={app}
@@ -968,6 +971,7 @@ export function Game() {
                 onRepairOnSpot={handleRepairOnSpot}
               />
             )}
+            <LevelUpAnimation />
           </>
         )}
       </div>
