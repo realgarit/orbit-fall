@@ -775,8 +775,8 @@ export function Game() {
         />
         {app && cameraContainer && (
           <>
-            <MarsBackground app={app} cameraContainer={cameraContainer} />
             <Starfield app={app} cameraContainer={cameraContainer} />
+            <MarsBackground app={app} cameraContainer={cameraContainer} />
             <Base
               app={app}
               cameraContainer={cameraContainer}

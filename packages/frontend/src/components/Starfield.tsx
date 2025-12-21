@@ -41,17 +41,27 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
     const currentApp = app;
 
     // Create layers for parallax effect
+    // Add layers in reverse order: farthest first (back), nearest last (front)
+    // This allows Mars to be inserted between far and near layers
     const layers: Container[] = [];
     const starMaps: Map<string, Graphics>[] = [];
     const generatedGrids: Set<string>[] = [];
 
-    for (let layer = 0; layer < STARFIELD_LAYERS; layer++) {
+    // First, add the farthest layers (1 and 2) at the back
+    for (let layer = STARFIELD_LAYERS - 1; layer >= 1; layer--) {
       const container = new Container();
       cameraContainer.addChild(container);
-      layers.push(container);
-      starMaps.push(new Map());
-      generatedGrids.push(new Set());
+      layers[layer] = container;
+      starMaps[layer] = new Map();
+      generatedGrids[layer] = new Set();
     }
+    
+    // Layer 0 (nearest) - add it now, we'll reorder it after Mars is added
+    const nearestContainer = new Container();
+    cameraContainer.addChild(nearestContainer);
+    layers[0] = nearestContainer;
+    starMaps[0] = new Map();
+    generatedGrids[0] = new Set();
 
     starsRef.current = starMaps;
     containersRef.current = layers;
@@ -116,6 +126,8 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
 
       for (let layer = 0; layer < STARFIELD_LAYERS; layer++) {
         const container = containersRef.current[layer];
+        if (!container) continue;
+        
         const starMap = starsRef.current[layer];
         const generatedGrids = generatedGridsRef.current[layer];
         const parallaxFactor = 1 - (layer + 1) * 0.15;
@@ -215,6 +227,9 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
       }
     };
 
+    // Track if we've ensured layer 0 is above Mars
+    let hasEnsuredOrder = false;
+
     // Animation ticker for parallax effect and procedural generation
     // Use currentApp from closure to avoid stale references during hot reload
     const tickerCallback = () => {
@@ -222,6 +237,50 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
       if (!currentApp.screen) return;
       const cameraX = cameraContainer.x;
       const cameraY = cameraContainer.y;
+
+      // Ensure layer 0 (nearest) is above Mars (only check once after initial setup)
+      if (!hasEnsuredOrder && nearestContainer && cameraContainer.children.includes(nearestContainer)) {
+        const layer1Container = containersRef.current[1];
+        const layer2Container = containersRef.current[2];
+        if (layer1Container && layer2Container) {
+          const layer1Index = cameraContainer.getChildIndex(layer1Container);
+          const layer2Index = cameraContainer.getChildIndex(layer2Container);
+          const maxStarLayerIndex = Math.max(layer1Index, layer2Index);
+          const nearestIndex = cameraContainer.getChildIndex(nearestContainer);
+          
+          // Find Mars container (should be the first container after star layers)
+          // Look for a container that has children (Mars background container has Mars graphics)
+          let marsIndex = -1;
+          for (let i = maxStarLayerIndex + 1; i < cameraContainer.children.length; i++) {
+            const child = cameraContainer.children[i];
+            if (child !== nearestContainer && child.children.length > 0) {
+              // Check if it looks like Mars container (has a large graphics object)
+              // Mars graphics has width/height around 800 (radius 400 * 2)
+              const hasLargeGraphics = child.children.some((c: any) => {
+                if (c.width && c.height) {
+                  const size = Math.max(c.width, c.height);
+                  return size > 500; // Mars is large (radius 400, so diameter ~800)
+                }
+                return false;
+              });
+              if (hasLargeGraphics) {
+                marsIndex = i;
+                break;
+              }
+            }
+          }
+          
+          // If we found Mars, ensure layer 0 is right after it
+          if (marsIndex >= 0) {
+            if (nearestIndex !== marsIndex + 1) {
+              cameraContainer.setChildIndex(nearestContainer, marsIndex + 1);
+            }
+            hasEnsuredOrder = true;
+          } else {
+            hasEnsuredOrder = true; // Couldn't find Mars, skip reordering
+          }
+        }
+      }
 
       // Calculate camera velocity for predictive star generation
       const dx = cameraX - lastCameraPosRef.current.x;
@@ -240,12 +299,15 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
       // Apply parallax effect
       for (let layer = 0; layer < STARFIELD_LAYERS; layer++) {
         const container = containersRef.current[layer];
+        if (!container) continue;
+        
         const parallaxFactor = 1 - (layer + 1) * 0.15;
 
         container.x = -cameraX * (1 - parallaxFactor);
         container.y = -cameraY * (1 - parallaxFactor);
       }
     };
+
 
     // Initial star generation
     // Double-check currentApp is still valid (handles hot reload stale closures)
@@ -264,13 +326,16 @@ export function Starfield({ app, cameraContainer, speed = 0.5 }: StarfieldProps)
         app.ticker.remove(tickerCallback);
       }
       layers.forEach((container, layer) => {
+        if (!container) return;
         const starMap = starsRef.current[layer];
         starMap.forEach((star) => {
           star.destroy();
         });
         starMap.clear();
         container.destroy({ children: true });
-        cameraContainer.removeChild(container);
+        if (cameraContainer && cameraContainer.children.includes(container)) {
+          cameraContainer.removeChild(container);
+        }
       });
     };
   }, [app, cameraContainer, speed]);

@@ -173,9 +173,9 @@ export function MarsBackground({ app, cameraContainer }: MarsBackgroundProps) {
   useEffect(() => {
     if (!app) return;
 
-    // Create background container (behind everything else)
+    // Create background container (on top of starfield)
     const backgroundContainer = new Container();
-    cameraContainer.addChildAt(backgroundContainer, 0); // Add at the back
+    cameraContainer.addChild(backgroundContainer); // Add after starfield
     backgroundContainerRef.current = backgroundContainer;
 
     // Fixed world position for Mars (center of map)
