@@ -6,13 +6,18 @@ import type { OreType } from '@shared/types';
 
 const OreIcon = () => (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Gem/Diamond icon */}
         <path
-            d="M8 2L3 7L8 14L13 7L8 2Z"
+            d="M8 1L4 6L8 15L12 6L8 1Z"
             fill="currentColor"
         />
         <path
-            d="M8 2L6 7L8 10L10 7L8 2Z"
-            fill="rgba(255,255,255,0.3)"
+            d="M8 1L6 6L8 9L10 6L8 1Z"
+            fill="rgba(255,255,255,0.4)"
+        />
+        <path
+            d="M8 9L6 6L4 6L8 15Z"
+            fill="rgba(0,0,0,0.2)"
         />
     </svg>
 );
