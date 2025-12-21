@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Window } from './Window';
-import { useWindowManager } from '../../hooks/useWindowManager';
+import { useWindowStore } from '../../stores/windowStore';
 import { useGameStore } from '../../stores/gameStore';
 import { MAP_WIDTH, MAP_HEIGHT, COORDINATE_SCALE } from '@shared/constants';
 import { generateMarsBackgroundCanvas } from '../../utils/marsBackgroundCanvas';
@@ -19,7 +19,10 @@ const MinimapIcon = () => (
 );
 
 export function MinimapWindow({ onTargetChange }: MinimapWindowProps) {
-  const { minimizeWindow, restoreWindow, resetWindow, windows } = useWindowManager();
+  const minimizeWindow = useWindowStore((state) => state.minimizeWindow);
+  const restoreWindow = useWindowStore((state) => state.restoreWindow);
+  const resetWindow = useWindowStore((state) => state.resetWindow);
+  const windows = useWindowStore((state) => state.windows);
 
   // Get state from Zustand
   const playerPosition = useGameStore((state) => state.shipPosition);

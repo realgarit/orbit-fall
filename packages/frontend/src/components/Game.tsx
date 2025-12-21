@@ -14,8 +14,7 @@ import { Shield } from './Shield';
 import { ShipExplosion } from './ShipExplosion';
 import { DamageNumbers } from './DamageNumbers';
 import type { DamageNumbersHandle } from './DamageNumbers';
-import { WindowManagerProvider } from '../hooks/useWindowManager';
-import { useMessageSystem } from '../hooks/useMessageSystem';
+import { useMessageStore } from '../stores/messageStore';
 import { TopBar } from './windows/TopBar';
 import { ActionBar } from './windows/ActionBar';
 import { StatsWindow } from './windows/StatsWindow';
@@ -33,7 +32,7 @@ import { getLevelFromExp } from '@shared/utils/leveling';
 import '../styles/windows.css';
 
 export function Game() {
-  const { addMessage } = useMessageSystem();
+  const addMessage = useMessageStore((state) => state.addMessage);
   const [app, setApp] = useState<Application | null>(null);
   const [cameraContainer, setCameraContainer] = useState<Container | null>(null);
 
@@ -732,8 +731,7 @@ export function Game() {
   const currentRocketAmmoQuantity = useGameStore.getState().rocketAmmo[currentRocketType];
 
   return (
-    <WindowManagerProvider>
-      <div
+    <div
         ref={containerRef}
         style={{
           width: '100vw',
@@ -975,6 +973,5 @@ export function Game() {
           </>
         )}
       </div>
-    </WindowManagerProvider>
   );
 }

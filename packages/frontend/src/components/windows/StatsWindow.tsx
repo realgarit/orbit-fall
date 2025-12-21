@@ -1,5 +1,5 @@
 import { Window } from './Window';
-import { useWindowManager } from '../../hooks/useWindowManager';
+import { useWindowStore } from '../../stores/windowStore';
 import { useGameStore } from '../../stores/gameStore';
 import { getLevelProgress, getExpForNextLevel } from '@shared/utils/leveling';
 
@@ -13,7 +13,8 @@ const StatsIcon = () => (
 );
 
 export function StatsWindow() {
-  const { minimizeWindow, restoreWindow } = useWindowManager();
+  const minimizeWindow = useWindowStore((state) => state.minimizeWindow);
+  const restoreWindow = useWindowStore((state) => state.restoreWindow);
 
   // Get state from Zustand
   const shipVelocity = useGameStore((state) => state.shipVelocity);

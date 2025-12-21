@@ -1,5 +1,5 @@
 import React from 'react';
-import { useWindowManager } from '../../hooks/useWindowManager';
+import { useWindowStore } from '../../stores/windowStore';
 import { DeathIcon } from './DeathWindow';
 
 interface TopBarProps {
@@ -74,8 +74,9 @@ const defaultIcons = new Map<string, React.ReactNode>([
 ]);
 
 export function TopBar({ windowIcons = new Map() }: TopBarProps) {
-  const { getMinimizedWindows, restoreWindow } = useWindowManager();
-  const minimizedWindows = getMinimizedWindows();
+  const restoreWindow = useWindowStore((state) => state.restoreWindow);
+  const windows = useWindowStore((state) => state.windows);
+  const minimizedWindows = Array.from(windows.values()).filter((w) => w.minimized);
 
   if (minimizedWindows.length === 0) {
     return null;

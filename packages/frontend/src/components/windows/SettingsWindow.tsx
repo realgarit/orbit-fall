@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Window } from './Window';
-import { useWindowManager } from '../../hooks/useWindowManager';
+import { useWindowStore } from '../../stores/windowStore';
 
 interface SettingsWindowProps {
   windowId?: string;
@@ -43,7 +43,9 @@ const primaryButtonStyle: React.CSSProperties = {
 export function SettingsWindow({
   windowId = 'settings-window',
 }: SettingsWindowProps) {
-  const { minimizeWindow, restoreWindow, resetWindow } = useWindowManager();
+  const minimizeWindow = useWindowStore((state) => state.minimizeWindow);
+  const restoreWindow = useWindowStore((state) => state.restoreWindow);
+  const resetWindow = useWindowStore((state) => state.resetWindow);
   const [activeTab, setActiveTab] = useState<'windows' | 'general'>('windows');
 
   const handleResetWindow = (id: string) => {

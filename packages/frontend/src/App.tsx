@@ -1,13 +1,8 @@
 import { Game } from './components/Game';
-import { MessageProvider } from './hooks/useMessageSystem';
 import './App.css';
 
 function App() {
-  return (
-    <MessageProvider>
-      <Game />
-    </MessageProvider>
-  );
+  return <Game />;
 }
 
 export default App;

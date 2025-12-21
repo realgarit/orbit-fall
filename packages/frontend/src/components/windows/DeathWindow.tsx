@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Window } from './Window';
-import { useWindowManager } from '../../hooks/useWindowManager';
+import { useWindowStore } from '../../stores/windowStore';
 
 interface DeathWindowProps {
   onRepairAtHomeBase?: () => void;
@@ -27,7 +27,8 @@ export function DeathWindow({
   onRepairOnSpot,
   windowId = 'death-window',
 }: DeathWindowProps) {
-  const { minimizeWindow, restoreWindow } = useWindowManager();
+  const minimizeWindow = useWindowStore((state) => state.minimizeWindow);
+  const restoreWindow = useWindowStore((state) => state.restoreWindow);
 
   const windowWidth = 900; // Wide enough for 3 buttons horizontally
   const windowHeight = 210; // Slightly increased to prevent scrollbar

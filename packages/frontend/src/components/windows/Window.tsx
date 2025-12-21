@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useWindowManager, type WindowState } from '../../hooks/useWindowManager';
+import { useWindowStore, type WindowState } from '../../stores/windowStore';
 
 interface WindowProps {
   id: string;
@@ -38,7 +38,9 @@ export function Window({
   initialZIndex,
   fixed = false,
 }: WindowProps) {
-  const { windows, registerWindow, updateWindow } = useWindowManager();
+  const windows = useWindowStore((state) => state.windows);
+  const registerWindow = useWindowStore((state) => state.registerWindow);
+  const updateWindow = useWindowStore((state) => state.updateWindow);
   const savedState = windows.get(id);
   
   // For fixed windows, ignore savedState to ensure proper centering

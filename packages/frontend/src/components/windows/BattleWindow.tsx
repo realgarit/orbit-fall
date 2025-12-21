@@ -1,5 +1,5 @@
 import { Window } from './Window';
-import { useWindowManager } from '../../hooks/useWindowManager';
+import { useWindowStore } from '../../stores/windowStore';
 import { useGameStore } from '../../stores/gameStore';
 
 const BattleIcon = () => (
@@ -16,7 +16,8 @@ const BattleIcon = () => (
 );
 
 export function BattleWindow() {
-  const { minimizeWindow, restoreWindow } = useWindowManager();
+  const minimizeWindow = useWindowStore((state) => state.minimizeWindow);
+  const restoreWindow = useWindowStore((state) => state.restoreWindow);
 
   // Get state from Zustand
   const selectedEnemyId = useGameStore((state) => state.selectedEnemyId);

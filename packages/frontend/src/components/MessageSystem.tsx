@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useMessageSystem } from '../hooks/useMessageSystem';
+import { useMessageStore } from '../stores/messageStore';
 import '../styles/messages.css';
 
 export function MessageSystem() {
-  const { messages } = useMessageSystem();
+  const messages = useMessageStore((state) => state.messages);
   const [visibleMessages, setVisibleMessages] = useState<Map<string, boolean>>(new Map());
 
   // Handle fade-in for new messages

@@ -1,5 +1,5 @@
 import { Window } from './Window';
-import { useWindowManager } from '../../hooks/useWindowManager';
+import { useWindowStore } from '../../stores/windowStore';
 import { useGameStore } from '../../stores/gameStore';
 import { SPARROW_SHIP } from '@shared/constants';
 
@@ -14,7 +14,8 @@ const ShipIcon = () => (
 );
 
 export function ShipWindow() {
-  const { minimizeWindow, restoreWindow } = useWindowManager();
+  const minimizeWindow = useWindowStore((state) => state.minimizeWindow);
+  const restoreWindow = useWindowStore((state) => state.restoreWindow);
 
   // Get state from Zustand
   const playerHealth = useGameStore((state) => state.playerHealth);
