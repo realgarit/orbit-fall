@@ -42,27 +42,60 @@ export function RepairSlot({ slotNumber, cooldown, isRepairing, onActionClick }:
             REPAIR
           </span>
         )}
-        
+
         {/* Tools icon */}
         <div className="game-actionbar-repair-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M1 0 0 1l2.2 3.081a1 1 0 0 0 .815.419h.07a1 1 0 0 1 .708.293l2.675 2.675-2.617 2.654A3.003 3.003 0 0 0 0 13a3 3 0 1 0 5.878-.851l2.654-2.617.968.968-.305.914a1 1 0 0 0 .242 1.023l3.27 3.27a.997.997 0 0 0 1.414 0l1.586-1.586a.997.997 0 0 0 0-1.414l-3.27-3.27a1 1 0 0 0-1.023-.242L10.5 9.5l-.96-.96 2.68-2.643A3.005 3.005 0 0 0 16 3q0-.405-.102-.777l-2.14 2.141L12 4l-.364-1.757L13.777.102a3 3 0 0 0-3.675 3.68L7.462 6.46 4.793 3.793a1 1 0 0 1-.293-.707v-.071a1 1 0 0 0-.419-.814zm9.646 10.646a.5.5 0 0 1 .708 0l2.914 2.915a.5.5 0 0 1-.707.707l-2.915-2.914a.5.5 0 0 1 0-.708M3 11l.471.242.529.026.287.445.445.287.026.529L5 13l-.242.471-.026.529-.445.287-.287.445-.529.026L3 15l-.471-.242L2 14.732l-.287-.445L1.268 14l-.026-.529L1 13l.242-.471.026-.529.445-.287.287-.445.529-.026z"/>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="botBodyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#94a3b8" />
+                <stop offset="50%" stopColor="#475569" />
+                <stop offset="100%" stopColor="#1e293b" />
+              </linearGradient>
+              <filter id="visorGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="0.8" result="blur" />
+              </filter>
+            </defs>
+
+            {/* Robot Base/Shoulders */}
+            <path d="M4 18 C4 16 6 15 12 15 C18 15 20 16 20 18 L20 20 L4 20 Z" fill="#334155" />
+
+            {/* Main Robot Head/Body */}
+            <rect x="6" y="6" width="12" height="10" rx="3" fill="url(#botBodyGradient)" />
+
+            {/* Visor/Eye area */}
+            <rect x="8" y="9" width="8" height="3" rx="1.5" fill="#0f172a" />
+
+            {/* Glowing Visor */}
+            <g filter="url(#visorGlow)">
+              <rect x="9" y="10" width="6" height="1" rx="0.5" fill={isRepairing ? "#00ff88" : "#00ffff"} opacity="0.8" />
+            </g>
+
+            {/* Antennas */}
+            <line x1="9" y1="6" x2="7" y2="3" stroke="#94a3b8" strokeWidth="1" />
+            <line x1="15" y1="6" x2="17" y2="3" stroke="#94a3b8" strokeWidth="1" />
+            <circle cx="7" cy="3" r="1" fill={isRepairing ? "#00ff88" : "#64748b"} />
+            <circle cx="17" cy="3" r="1" fill={isRepairing ? "#00ff88" : "#64748b"} />
+
+            {/* Side mechanical detail */}
+            <rect x="5" y="11" width="2" height="4" rx="1" fill="#1e293b" />
+            <rect x="17" y="11" width="2" height="4" rx="1" fill="#1e293b" />
           </svg>
         </div>
-        
+
         {/* Slot number badge */}
         <span className="game-actionbar-badge">{slotNumber}</span>
       </button>
-      
+
       {/* Hover tooltip */}
       {isHovered && (
         <div className="game-actionbar-laser-tooltip">
           <div className="game-actionbar-laser-tooltip-name">RPR-1</div>
           <div className="game-actionbar-laser-tooltip-amount" style={{ fontSize: '11px', marginTop: '2px' }}>
-            {isRepairing 
-              ? 'Repairing...' 
-              : cooldown > 0 
-                ? `Cooldown: ${cooldown.toFixed(1)}s` 
+            {isRepairing
+              ? 'Repairing...'
+              : cooldown > 0
+                ? `Cooldown: ${cooldown.toFixed(1)}s`
                 : 'Ready to repair'}
           </div>
         </div>
