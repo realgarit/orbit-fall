@@ -176,6 +176,8 @@ interface GameState {
   removeOre: (id: string) => void;
   setTargetOreId: (id: string | null) => void;
   collectOre: (id: string) => boolean;
+  sellOre: (type: OreType, amount: number) => void;
+  sellAllOres: () => void;
   addAmmo: (type: LaserAmmoType, amount: number) => void;
 
   // Actions - Utility
@@ -312,10 +314,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   addOreToCargo: (type, amount) => {
     const state = get();
     const currentCargoAmount = (Object.entries(state.playerCargo) as [OreType, number][]).reduce((sum, [t, count]) => {
-      const space = (ORE_CONFIG as any)[t.toUpperCase()]?.cargoSpace || 1;
+      const config = ORE_CONFIG[t.toUpperCase() as keyof typeof ORE_CONFIG];
+      const space = config?.cargoSpace || 1;
       return sum + count * space;
     }, 0);
-    const addedSpace = (ORE_CONFIG as any)[type.toUpperCase()]?.cargoSpace || 1;
+    const config = ORE_CONFIG[type.toUpperCase() as keyof typeof ORE_CONFIG];
+    const addedSpace = config?.cargoSpace || 1;
 
     if (currentCargoAmount + addedSpace * amount > state.playerMaxCargo) {
       return false;
@@ -496,6 +500,42 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     return false;
   },
+  sellOre: (type, amount) => {
+    const state = get();
+    const currentAmount = state.playerCargo[type] || 0;
+    const amountToSell = Math.min(amount, currentAmount);
+
+    if (amountToSell <= 0) return;
+
+    const config = ORE_CONFIG[type.toUpperCase() as keyof typeof ORE_CONFIG];
+    const resaleValue = (config as any)?.resaleValue || 0;
+    const creditsToGain = amountToSell * resaleValue;
+
+    set({
+      playerCargo: {
+        ...state.playerCargo,
+        [type]: currentAmount - amountToSell,
+      },
+      playerCredits: state.playerCredits + creditsToGain,
+    });
+  },
+  sellAllOres: () => {
+    const state = get();
+    let totalCredits = 0;
+    const nextCargo = { ...state.playerCargo };
+
+    (Object.entries(state.playerCargo) as [OreType, number][]).forEach(([type, amount]) => {
+      const config = ORE_CONFIG[type.toUpperCase() as keyof typeof ORE_CONFIG];
+      const resaleValue = (config as any)?.resaleValue || 0;
+      totalCredits += amount * resaleValue;
+      nextCargo[type as OreType] = 0;
+    });
+
+    set({
+      playerCargo: nextCargo,
+      playerCredits: state.playerCredits + totalCredits,
+    });
+  },
   addAmmo: (type, amount) => {
     const state = get();
     set({
@@ -534,6 +574,7 @@ export const selectAliveEnemies = (state: GameState) =>
   );
 export const selectCurrentCargoUsage = (state: GameState) =>
   (Object.entries(state.playerCargo) as [OreType, number][]).reduce((sum, [type, amount]) => {
-    const space = (ORE_CONFIG as any)[type.toUpperCase()]?.cargoSpace || 1;
+    const config = ORE_CONFIG[type.toUpperCase() as keyof typeof ORE_CONFIG];
+    const space = config?.cargoSpace || 1;
     return sum + amount * space;
   }, 0);

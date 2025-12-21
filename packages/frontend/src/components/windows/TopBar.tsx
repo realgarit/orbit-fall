@@ -2,6 +2,7 @@ import React from 'react';
 import { useWindowStore } from '../../stores/windowStore';
 import { DeathIcon } from './DeathWindow';
 import { DebugIcon } from './DebugWindow';
+import { TradeIcon } from './TradeWindow';
 
 interface TopBarProps {
   windowIcons?: Map<string, React.ReactNode>;
@@ -82,6 +83,7 @@ const defaultIcons = new Map<string, React.ReactNode>([
   ['death-window', <DeathIcon key="death-icon" />],
   ['ore-window', <OreIcon key="ore-icon" />],
   ['debug-window', <DebugIcon key="debug-icon" />],
+  ['trade-window', <TradeIcon key="trade-icon" />],
 ]);
 
 export function TopBar({ windowIcons = new Map() }: TopBarProps) {

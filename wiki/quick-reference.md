@@ -139,20 +139,20 @@
 ## 💎 Ores
 
 ### 🌍 Common & Rare
-| Name | Cargo | Size | Color | Spawn Type |
-|:-----|:------|:-----|:------|:-----------|
-| 🔴 **Pyrite** | 1 | Small | Red | Cluster |
-| 🔵 **Beryl** | 1 | Small | Blue | Scattered |
-| 🟡 **Citrine** | 1 | Small | Yellow | Rare |
+| Name | Cargo | Resale | Size | Color | Spawn Type |
+|:-----|:------|:-------|:-----|:------|:-----------|
+| 🔴 **Pyrite** | 1 | 10 C | Small | Red | Cluster |
+| 🔵 **Beryl** | 1 | 15 C | Blue | Scattered |
+| 🟡 **Citrine** | 1 | 30 C | Yellow | Rare |
 
 ---
 
 ### 🔨 Refined (Melting)
-| Name | Cargo | Recipe |
-|:-----|:------|:-------|
-| 💗 **Roseon** | 1 | 20 Pyrite + 10 Beryl |
-| 💚 **Veridian** | 1 | 10 Beryl + 20 Citrine |
-| 🟡 **Aurum** | 1 | 10 Roseon + 10 Veridian + 1 Argent |
+| Name | Cargo | Resale | Recipe |
+|:-----|:------|:-------|:-------|
+| 💗 **Roseon** | 1 | 200 C | 20 Pyrite + 10 Beryl |
+| 💚 **Veridian** | 1 | 200 C | 10 Beryl + 20 Citrine |
+| 🟡 **Aurum** | 1 | 1000 C | 10 Roseon + 10 Veridian + 1 Argent |
 
 ---
 

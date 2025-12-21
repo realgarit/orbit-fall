@@ -188,6 +188,7 @@ export const ORE_CONFIG = {
     spawnRate: 0.8,
     cargoSpace: 1,
     size: 'small' as const,
+    resaleValue: 10,
   },
   BERYL: {
     type: 'Beryl' as const,
@@ -195,6 +196,7 @@ export const ORE_CONFIG = {
     spawnRate: 0.2,
     cargoSpace: 1,
     size: 'small' as const,
+    resaleValue: 15,
   },
   CITRINE: {
     type: 'Citrine' as const,
@@ -202,24 +204,28 @@ export const ORE_CONFIG = {
     spawnRate: 0, // Later map
     cargoSpace: 1,
     size: 'small' as const,
+    resaleValue: 30,
   },
   ROSEON: {
     type: 'Roseon' as const,
     color: 0xff66cc, // Pinkish
     cargoSpace: 1,
     size: 'large' as const,
+    resaleValue: 200,
   },
   VERIDIAN: {
     type: 'Veridian' as const,
     color: 0x44ff44, // Greenish
     cargoSpace: 1,
     size: 'large' as const,
+    resaleValue: 200,
   },
   AURUM: {
     type: 'Aurum' as const,
     color: 0xffd700, // Goldish
     cargoSpace: 1,
     size: 'large' as const,
+    resaleValue: 1000,
   },
   UMBRA: {
     type: 'Umbra' as const,

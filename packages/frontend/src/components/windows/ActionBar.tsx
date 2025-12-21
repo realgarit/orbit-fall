@@ -2,6 +2,7 @@ import React from 'react';
 import { LaserSlot } from './LaserSlot';
 import { RocketSlot } from './RocketSlot';
 import { RepairSlot } from './RepairSlot';
+import { TradeIcon } from './TradeWindow';
 
 interface ActionBarProps {
   laserAmmo?: number;
@@ -13,9 +14,9 @@ interface ActionBarProps {
   onRepairClick?: () => void;
 }
 
-export function ActionBar({ 
-  laserAmmo = 0, 
-  rocketAmmo = 0, 
+export function ActionBar({
+  laserAmmo = 0,
+  rocketAmmo = 0,
   rocketCooldown = 0,
   repairCooldown = 0,
   isRepairing = false,
@@ -40,7 +41,7 @@ export function ActionBar({
         ammo={laserAmmo}
         onActionClick={handleClick}
       />
-      
+
       {/* Slot 2: RT-01 Rocket */}
       <RocketSlot
         slotNumber={2}
@@ -48,9 +49,19 @@ export function ActionBar({
         cooldown={rocketCooldown}
         onActionClick={handleClick}
       />
-      
-      {/* Slots 3-9: Regular numbered buttons */}
-      {keys.slice(2).map((key) => (
+
+      {/* Slot 3: Trade Window Toggle */}
+      <button
+        className="game-actionbar-item"
+        onClick={() => handleClick(3)}
+        title="Trade Window (3)"
+      >
+        <TradeIcon />
+        <span className="game-actionbar-badge">3</span>
+      </button>
+
+      {/* Slots 4-9: Regular numbered buttons */}
+      {keys.slice(3).map((key) => (
         <button
           key={key}
           className="game-actionbar-item"
@@ -60,7 +71,7 @@ export function ActionBar({
           <span className="game-actionbar-badge">{key}</span>
         </button>
       ))}
-      
+
       {/* Slot 0: RPR-1 Repair Robot */}
       <RepairSlot
         slotNumber={0}
