@@ -53,6 +53,42 @@ export function Game() {
   // Damage numbers ref
   const damageNumbersRef = useRef<DamageNumbersHandle>(null);
 
+  // Subscribe to state for rendering
+  const shipPosition = useGameStore((state) => state.shipPosition);
+  const shipVelocity = useGameStore((state) => state.shipVelocity);
+  const shipRotation = useGameStore((state) => state.shipRotation);
+  const playerHealth = useGameStore((state) => state.playerHealth);
+  const playerShield = useGameStore((state) => state.playerShield);
+  const playerMaxShield = useGameStore((state) => state.playerMaxShield);
+  const enemies = useGameStore((state) => state.enemies);
+  const enemyPositions = useGameStore((state) => state.enemyPositions);
+  const deadEnemies = useGameStore((state) => state.deadEnemies);
+  const selectedEnemyId = useGameStore((state) => state.selectedEnemyId);
+  const inCombat = useGameStore((state) => state.inCombat);
+  const playerFiring = useGameStore((state) => state.playerFiring);
+  const playerFiringRocket = useGameStore((state) => state.playerFiringRocket);
+  const isRepairing = useGameStore((state) => state.isRepairing);
+  const isDead = useGameStore((state) => state.isDead);
+  const deathPosition = useGameStore((state) => state.deathPosition);
+  const showDeathWindow = useGameStore((state) => state.showDeathWindow);
+  const instaShieldActive = useGameStore((state) => state.instaShieldActive);
+  const targetPosition = useGameStore((state) => state.targetPosition);
+  const bonusBoxes = useGameStore((state) => state.bonusBoxes);
+  const targetBonusBoxId = useGameStore((state) => state.targetBonusBoxId);
+  const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
+  const currentLaserAmmoType = useGameStore((state) => state.currentLaserAmmoType);
+  const currentRocketType = useGameStore((state) => state.currentRocketType);
+  const rocketCooldown = useGameStore((state) => state.rocketCooldown);
+  const repairCooldown = useGameStore((state) => state.repairCooldown);
+
+  // Memoize entity lists to avoid re-calculating every frame
+  const enemyList = useMemo(() => Array.from(enemies.entries()), [enemies]);
+  const bonusBoxList = useMemo(() => Array.from(bonusBoxes.values()), [bonusBoxes]);
+  const engagedEnemyList = useMemo(() =>
+    enemyList.filter(([enemyId, enemy]) =>
+      !deadEnemies.has(enemyId) && enemy.health > 0 && enemy.isEngaged
+    ), [enemyList, deadEnemies]);
+
   const { containerRef } = usePixiApp({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -753,7 +789,8 @@ export function Game() {
 
     const checkShield = () => {
       const now = Date.now();
-      if (now >= state.instaShieldEndTime) {
+      const currentState = useGameStore.getState();
+      if (now >= currentState.instaShieldEndTime) {
         useGameStore.getState().setInstaShieldActive(false);
         addMessage('Insta-shield expired', 'warning');
       }
@@ -761,7 +798,7 @@ export function Game() {
 
     const interval = setInterval(checkShield, 100);
     return () => clearInterval(interval);
-  }, [addMessage]);
+  }, [addMessage, instaShieldActive]);
 
   // Cancel repair when entering combat or when any enemy becomes aggressive
   useEffect(() => {
@@ -814,46 +851,10 @@ export function Game() {
     }
   }, [addMessage]);
 
-  // Subscribe to state for rendering (only what we need in JSX)
-  const shipPosition = useGameStore((state) => state.shipPosition);
-  const shipVelocity = useGameStore((state) => state.shipVelocity);
-  const shipRotation = useGameStore((state) => state.shipRotation);
-  const playerHealth = useGameStore((state) => state.playerHealth);
-  const playerShield = useGameStore((state) => state.playerShield);
-  const playerMaxShield = useGameStore((state) => state.playerMaxShield);
-  const enemies = useGameStore((state) => state.enemies);
-  const enemyPositions = useGameStore((state) => state.enemyPositions);
-  const deadEnemies = useGameStore((state) => state.deadEnemies);
-  const selectedEnemyId = useGameStore((state) => state.selectedEnemyId);
-  const inCombat = useGameStore((state) => state.inCombat);
-  const playerFiring = useGameStore((state) => state.playerFiring);
-  const playerFiringRocket = useGameStore((state) => state.playerFiringRocket);
-  const isRepairing = useGameStore((state) => state.isRepairing);
-  const isDead = useGameStore((state) => state.isDead);
-  const deathPosition = useGameStore((state) => state.deathPosition);
-  const showDeathWindow = useGameStore((state) => state.showDeathWindow);
-  const instaShieldActive = useGameStore((state) => state.instaShieldActive);
-  const targetPosition = useGameStore((state) => state.targetPosition);
-  const bonusBoxes = useGameStore((state) => state.bonusBoxes);
-  const targetBonusBoxId = useGameStore((state) => state.targetBonusBoxId);
-
-  // Memoize entity lists to avoid re-calculating Every frame
-  const enemyList = useMemo(() => Array.from(enemies.entries()), [enemies]);
-  const bonusBoxList = useMemo(() => Array.from(bonusBoxes.values()), [bonusBoxes]);
-  const engagedEnemyList = useMemo(() =>
-    enemyList.filter(([enemyId, enemy]) =>
-      !deadEnemies.has(enemyId) && enemy.health > 0 && enemy.isEngaged
-    ), [enemyList, deadEnemies]);
-
-  const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
-  const currentLaserAmmoType = useGameStore((state) => state.currentLaserAmmoType);
-  const currentRocketType = useGameStore((state) => state.currentRocketType);
-  const rocketCooldown = useGameStore((state) => state.rocketCooldown);
-  const repairCooldown = useGameStore((state) => state.repairCooldown);
 
   const inSafetyZone = isInSafetyZone();
-  const currentLaserAmmoQuantity = useGameStore.getState().laserAmmo[currentLaserAmmoType];
-  const currentRocketAmmoQuantity = useGameStore.getState().rocketAmmo[currentRocketType];
+  const currentLaserAmmoQuantity = useGameStore((state) => state.laserAmmo[currentLaserAmmoType]);
+  const currentRocketAmmoQuantity = useGameStore((state) => state.rocketAmmo[currentRocketType]);
 
   return (
     <div
