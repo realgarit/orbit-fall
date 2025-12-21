@@ -17,15 +17,11 @@ export function StatsWindow() {
   const restoreWindow = useWindowStore((state) => state.restoreWindow);
 
   // Get state from Zustand
-  const shipVelocity = useGameStore((state) => state.shipVelocity);
-  const fps = useGameStore((state) => state.fps);
   const playerLevel = useGameStore((state) => state.playerLevel);
   const playerExperience = useGameStore((state) => state.playerExperience);
   const playerCredits = useGameStore((state) => state.playerCredits);
   const playerHonor = useGameStore((state) => state.playerHonor);
   const playerAetherium = useGameStore((state) => state.playerAetherium);
-
-  const speed = Math.sqrt(shipVelocity.vx * shipVelocity.vx + shipVelocity.vy * shipVelocity.vy);
   const expForNextLevel = getExpForNextLevel(playerLevel);
   const levelProgress = getLevelProgress(playerExperience, playerLevel);
 
@@ -125,28 +121,6 @@ export function StatsWindow() {
         <div className="stats-section">
           <div className="stats-label">Aetherium</div>
           <div className="stats-value">{playerAetherium.toLocaleString()}</div>
-        </div>
-
-        {/* Technical Stats */}
-        <div className="stats-section" style={{ marginTop: '8px', borderTop: '1px solid #333', paddingTop: '8px' }}>
-          <div className="stats-label">Speed</div>
-          <div className="stats-value">
-            {speed.toFixed(2)}
-          </div>
-        </div>
-
-        <div className="stats-section">
-          <div className="stats-label">Velocity</div>
-          <div className="stats-value" style={{ fontSize: '11px' }}>
-            X: {shipVelocity.vx.toFixed(2)}, Y: {shipVelocity.vy.toFixed(2)}
-          </div>
-        </div>
-
-        <div className="stats-section">
-          <div className="stats-label">FPS</div>
-          <div className="stats-value">
-            {fps.toFixed(0)}
-          </div>
         </div>
       </div>
     </Window>

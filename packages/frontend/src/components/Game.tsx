@@ -6,7 +6,6 @@ import { MarsBackground } from './MarsBackground';
 import { Ship } from './Ship';
 import { Enemy } from './Enemy';
 import { Base } from './Base';
-import { HUD } from './HUD';
 import { RepairRobot } from './RepairRobot';
 import { HPBar } from './HPBar';
 import { SelectionCircle } from './SelectionCircle';
@@ -21,6 +20,7 @@ import { useMessageStore } from '../stores/messageStore';
 import { TopBar } from './windows/TopBar';
 import { ActionBar } from './windows/ActionBar';
 import { StatsWindow } from './windows/StatsWindow';
+import { DebugWindow } from './windows/DebugWindow';
 import { BattleWindow } from './windows/BattleWindow';
 import { MinimapWindow } from './windows/MinimapWindow';
 import { SettingsWindow } from './windows/SettingsWindow';
@@ -780,7 +780,7 @@ export function Game() {
     return () => clearInterval(interval);
   }, []);
 
-  // Safety zone messages and combat exit
+  // Safety zone combat exit
   useEffect(() => {
     const state = useGameStore.getState();
     const inSafetyZone = isInSafetyZone();
@@ -790,11 +790,6 @@ export function Game() {
       state.setPlayerFiring(false);
     }
 
-    if (inSafetyZone && !prevSafetyZoneRef.current) {
-      addMessage('Entered safety zone', 'success');
-    } else if (!inSafetyZone && prevSafetyZoneRef.current) {
-      addMessage('Left safety zone', 'warning');
-    }
     prevSafetyZoneRef.current = inSafetyZone;
   });
 
@@ -986,7 +981,6 @@ export function Game() {
           }}
         />
       )}
-      <HUD position={shipPosition} velocity={shipVelocity} fps={useGameStore.getState().fps} />
       <TopBar />
       <MessageSystem />
       <ActionBar
@@ -1206,6 +1200,7 @@ export function Game() {
           )}
           <ShipWindow />
           <StatsWindow />
+          <DebugWindow />
           <BattleWindow />
           <MinimapWindow
             key={`minimap-${Array.from(deadEnemies).join(',')}`}
