@@ -45,6 +45,9 @@ export function Game() {
   // Track previous state for messages (keep as local refs - UI only)
   const prevSafetyZoneRef = useRef(false);
   const prevInCombatRef = useRef(false);
+
+  // Debounce ref for click handling
+  const lastClickProcessedTimeRef = useRef(0);
   const prevIsRepairingRef = useRef(false);
 
   // Damage numbers ref
@@ -428,6 +431,13 @@ export function Game() {
         if (!enemy || enemy.health <= 0) continue;
 
         const now = Date.now();
+
+        // Prevent duplicate events (Ship.tsx and Game.tsx both triggering)
+        if (now - lastClickProcessedTimeRef.current < 50) {
+          return true; // Consider it handled
+        }
+        lastClickProcessedTimeRef.current = now;
+
         const isDoubleClick =
           now - lastClickTimeRef.current < 300 &&
           lastClickEnemyIdRef.current === enemyId;
