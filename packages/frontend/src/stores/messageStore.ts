@@ -15,7 +15,7 @@ interface MessageState {
   clearMessages: () => void;
 }
 
-export const useMessageStore = create<MessageState>((set, get) => ({
+export const useMessageStore = create<MessageState>((set, _get) => ({
   messages: [],
 
   addMessage: (text: string, type: MessageType = 'info') => {

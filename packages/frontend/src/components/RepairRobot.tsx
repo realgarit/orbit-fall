@@ -11,7 +11,6 @@ interface RepairRobotProps {
   maxHealth: number;
 }
 
-const REPAIR_DURATION = 3000; // 3 seconds repair time
 const ORBIT_RADIUS = 40; // Distance from ship
 const ORBIT_SPEED = 0.3; // Radians per second (very slow orbit like a mechanic)
 

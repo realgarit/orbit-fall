@@ -22,8 +22,8 @@ export const DeathIcon = () => (
 );
 
 export function DeathWindow({
-  onRepairAtHomeBase,
-  onRepairAtJumpGate,
+  onRepairAtHomeBase: _onRepairAtHomeBase,
+  onRepairAtJumpGate: _onRepairAtJumpGate,
   onRepairOnSpot,
   windowId = 'death-window',
 }: DeathWindowProps) {

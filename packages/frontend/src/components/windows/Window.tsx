@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useWindowStore, type WindowState } from '../../stores/windowStore';
+import { useWindowStore } from '../../stores/windowStore';
 
 interface WindowProps {
   id: string;
@@ -30,7 +30,7 @@ export function Window({
   initialHeight = 200,
   children,
   onMinimize,
-  onRestore,
+  onRestore: _onRestore,
   onClose,
   minWidth = 200,
   minHeight = 150,
@@ -40,7 +40,6 @@ export function Window({
 }: WindowProps) {
   const windows = useWindowStore((state) => state.windows);
   const registerWindow = useWindowStore((state) => state.registerWindow);
-  const updateWindow = useWindowStore((state) => state.updateWindow);
   const savedState = windows.get(id);
   
   // For fixed windows, ignore savedState to ensure proper centering
@@ -233,14 +232,6 @@ export function Window({
     setMinimized(true);
     onMinimize?.(id);
   }, [id, onMinimize]);
-
-  // Restore handler
-  const handleRestore = useCallback(() => {
-    const newZIndex = Date.now();
-    setZIndex(newZIndex);
-    setMinimized(false);
-    onRestore?.(id);
-  }, [id, onRestore]);
 
   // Notify WindowManager of state changes
   useEffect(() => {

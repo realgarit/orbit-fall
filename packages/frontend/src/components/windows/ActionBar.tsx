@@ -1,4 +1,3 @@
-import React from 'react';
 import { LaserSlot } from './LaserSlot';
 import { RocketSlot } from './RocketSlot';
 import { RepairSlot } from './RepairSlot';

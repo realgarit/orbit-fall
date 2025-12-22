@@ -8,8 +8,8 @@ export function LevelUpAnimation() {
   const setShowLevelUpAnimation = useGameStore((state) => state.setShowLevelUpAnimation);
   
   const [isVisible, setIsVisible] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const fadeOutTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fadeOutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Memoize particles generation to avoid recalculation
   const particles = useMemo(() => {
