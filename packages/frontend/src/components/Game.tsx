@@ -30,7 +30,6 @@ import { MessageSystem } from './MessageSystem';
 import { LevelUpAnimation } from './LevelUpAnimation';
 import { OreWindow } from './windows/OreWindow';
 import { TradeWindow } from './windows/TradeWindow';
-import { useWindowStore } from '../stores/windowStore';
 import { useGameStore } from '../stores/gameStore';
 import { MAP_WIDTH, MAP_HEIGHT, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP, BONUS_BOX_CONFIG, ORE_CONFIG } from '@shared/constants';
 import type { EnemyState, BonusBoxState, OreState } from '@shared/types';
@@ -128,6 +127,7 @@ export function Game() {
       (enemy) => enemy.health > 0 && enemy.isEngaged && !state.deadEnemies.has(enemy.id)
     );
   };
+
 
   // Handle window resize
   useEffect(() => {
@@ -730,14 +730,6 @@ export function Game() {
             }
           }
         }
-      } else if (e.key === '3' || e.key === 'Digit3') {
-        const windowStore = useWindowStore.getState();
-        const window = windowStore.windows.get('trade-window');
-        if (window?.minimized) {
-          windowStore.restoreWindow('trade-window');
-        } else {
-          windowStore.minimizeWindow('trade-window');
-        }
       } else if (e.key === ' ' || e.key === 'Space') {
         e.preventDefault();
         if (state.selectedEnemyId && state.enemies.has(state.selectedEnemyId) && !isInSafetyZone() && !state.instaShieldActive) {
@@ -1005,17 +997,6 @@ export function Game() {
           const timeSinceLastRepair = (now - state.lastRepairTime) / 1000;
           if (!state.inCombat && !hasAggressiveEnemies() && timeSinceLastRepair >= 5 && !state.isRepairing) {
             state.setIsRepairing(true);
-          }
-        }}
-        onActionClick={(key) => {
-          if (key === 3) {
-            const windowStore = useWindowStore.getState();
-            const window = windowStore.windows.get('trade-window');
-            if (window?.minimized) {
-              windowStore.restoreWindow('trade-window');
-            } else {
-              windowStore.minimizeWindow('trade-window');
-            }
           }
         }}
       />

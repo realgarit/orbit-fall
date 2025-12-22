@@ -1,7 +1,6 @@
 import { LaserSlot } from './LaserSlot';
 import { RocketSlot } from './RocketSlot';
 import { RepairSlot } from './RepairSlot';
-import { TradeIcon } from './TradeWindow';
 
 interface ActionBarProps {
   laserAmmo?: number;
@@ -49,18 +48,8 @@ export function ActionBar({
         onActionClick={handleClick}
       />
 
-      {/* Slot 3: Trade Window Toggle */}
-      <button
-        className="game-actionbar-item"
-        onClick={() => handleClick(3)}
-        title="Trade Window (3)"
-      >
-        <TradeIcon />
-        <span className="game-actionbar-badge">3</span>
-      </button>
-
-      {/* Slots 4-9: Regular numbered buttons */}
-      {keys.slice(3).map((key) => (
+      {/* Slots 3-9: Regular numbered buttons */}
+      {keys.slice(2).map((key) => (
         <button
           key={key}
           className="game-actionbar-item"

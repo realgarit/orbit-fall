@@ -100,6 +100,8 @@ export const DamageNumbers = forwardRef<DamageNumbersHandle, DamageNumbersProps>
 
     // Ticker-based animation loop
     useEffect(() => {
+      if (!app?.ticker) return;
+
       const tickerCallback = () => {
         const now = Date.now();
         const toRemove: string[] = [];
@@ -153,7 +155,9 @@ export const DamageNumbers = forwardRef<DamageNumbersHandle, DamageNumbersProps>
       app.ticker.add(tickerCallback);
 
       return () => {
-        app.ticker.remove(tickerCallback);
+        if (app?.ticker) {
+          app.ticker.remove(tickerCallback);
+        }
         // Cleanup all remaining instances
         instancesRef.current.forEach(instance => {
           cameraContainer.removeChild(instance.text);

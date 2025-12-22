@@ -109,10 +109,13 @@ export const ResourceCrystal = memo(function ResourceCrystal({ app, cameraContai
             }
         };
 
+        if (!app?.ticker) return;
         app.ticker.add(tickerCallback);
 
         return () => {
-            app.ticker.remove(tickerCallback);
+            if (app?.ticker) {
+                app.ticker.remove(tickerCallback);
+            }
             if (containerRef.current) {
                 cameraContainer.removeChild(containerRef.current);
                 containerRef.current.destroy({ children: true });

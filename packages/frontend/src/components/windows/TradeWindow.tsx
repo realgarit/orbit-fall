@@ -147,7 +147,9 @@ export function TradeWindow() {
                             </div>
                             <div style={{ display: 'flex', gap: '4px' }}>
                                 <button
-                                    onClick={() => sellOre(type, 1)}
+                                    onClick={() => {
+                                        sellOre(type, 1);
+                                    }}
                                     disabled={!inBase || amount <= 0}
                                     style={{
                                         ...buttonStyle,
@@ -173,7 +175,9 @@ export function TradeWindow() {
                                     Sell 1
                                 </button>
                                 <button
-                                    onClick={() => sellOre(type, amount)}
+                                    onClick={() => {
+                                        sellOre(type, amount);
+                                    }}
                                     disabled={!inBase || amount <= 0}
                                     style={{
                                         ...buttonStyle,
@@ -221,7 +225,9 @@ export function TradeWindow() {
                     </div>
                 </div>
                 <button
-                    onClick={sellAllOres}
+                    onClick={() => {
+                        sellAllOres();
+                    }}
                     disabled={!inBase || totalCargoValue <= 0}
                     style={{
                         ...buttonStyle,
@@ -306,7 +312,9 @@ export function TradeWindow() {
                                     Refine {resultType}
                                 </div>
                                 <button
-                                    onClick={() => refineOre(resultType)}
+                                    onClick={() => {
+                                        refineOre(resultType);
+                                    }}
                                     disabled={!canRefine}
                                     style={{
                                         ...buttonStyle,
