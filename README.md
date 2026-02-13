@@ -1,4 +1,4 @@
-# Orbit Fall - DarkOrbit Clone
+# Orbit Fall
 
 A 2D space shooter game clone built with modern web technologies.
 

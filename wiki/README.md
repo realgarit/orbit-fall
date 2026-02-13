@@ -6,7 +6,7 @@
 
 ## 🌌 What is Orbit Fall?
 
-**Orbit Fall** is a space MMO where you pilot ships, fight enemies, mine resources, and level up. Think of it like DarkOrbit but built with modern tech.
+**Orbit Fall** is a space MMO where you pilot ships, fight enemies, mine resources, and level up. It is built with modern tech.
 
 You start with a basic ship and work your way up. Fight NPCs, collect ores, upgrade your gear, and get stronger. It's that simple.
 

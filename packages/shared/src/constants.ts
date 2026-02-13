@@ -3,7 +3,7 @@ export const MAP_WIDTH = 1200;
 export const MAP_HEIGHT = 800;
 
 // Coordinate display scale - coordinates are displayed divided by this value
-// This makes coordinates change more slowly, similar to DarkOrbit (e.g., 260/120)
+// This makes coordinates change more slowly (e.g., 260/120)
 // Internal system still uses pixels, but displayed coordinates are in "map units"
 // Higher value = slower coordinate changes (1 click should move ~1 coordinate point)
 export const COORDINATE_SCALE = 100; // 1 coordinate unit = 100 pixels
