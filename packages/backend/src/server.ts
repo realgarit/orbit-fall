@@ -4,6 +4,22 @@ import { Server } from 'socket.io';
 import { Pool } from 'pg';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dns from 'dns';
+
+/**
+ * Resolves a hostname to an IPv4 address.
+ * This is useful on Render where IPv6 might be preferred by default but fails with ENETUNREACH.
+ */
+async function resolveToIPv4(hostname: string): Promise<string> {
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return hostname;
+  try {
+    const { address } = await dns.promises.lookup(hostname, { family: 4 });
+    return address;
+  } catch (error) {
+    console.warn(`IPv4 resolution failed for ${hostname}, falling back to original hostname:`, (error as Error).message);
+    return hostname;
+  }
+}
 
 export function createApp() {
   const app = express();
@@ -62,13 +78,24 @@ export function createApp() {
   return { app, server, io };
 }
 
-export function createDatabasePool(): Pool {
-  const connectionString = process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
+export async function createDatabasePool(): Promise<Pool> {
+  let connectionString = process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
 
   // Parse host for logging, removing credentials
-  const dbHost = connectionString.includes('@')
-    ? connectionString.split('@')[1].split('/')[0]
-    : connectionString.split('//')[1]?.split('/')[0] || 'unknown';
+  const dbHostMatch = connectionString.match(/@([^/]+)/) || connectionString.match(/\/\/([^/]+)/);
+  let dbHost = dbHostMatch ? dbHostMatch[1] : 'unknown';
+
+  // Extract hostname and port
+  const [hostname, port] = dbHost.split(':');
+
+  if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    const ipv4 = await resolveToIPv4(hostname);
+    if (ipv4 !== hostname) {
+      console.log(`Resolved database host ${hostname} to IPv4: ${ipv4}`);
+      // Replace hostname with IP in connection string
+      connectionString = connectionString.replace(hostname, ipv4);
+    }
+  }
 
   const pool = new Pool({
     connectionString,
@@ -76,15 +103,14 @@ export function createDatabasePool(): Pool {
   });
 
   // Test connection
-  pool.query('SELECT NOW()', (err, res) => {
-    if (err) {
-      console.error(`Database connection error [Host: ${dbHost}]:`, err.message);
-      if ((err as any).code) console.error(`Error Code: ${(err as any).code}`);
-      if ((err as any).address) console.error(`Address: ${(err as any).address}`);
-    } else {
-      console.log(`Database connected successfully to ${dbHost}`);
-    }
-  });
+  try {
+    await pool.query('SELECT NOW()');
+    console.log(`Database connected successfully to ${dbHost}`);
+  } catch (err) {
+    console.error(`Database connection error [Host: ${dbHost}]:`, (err as Error).message);
+    if ((err as any).code) console.error(`Error Code: ${(err as any).code}`);
+    if ((err as any).address) console.error(`Address: ${(err as any).address}`);
+  }
 
   return pool;
 }

@@ -5,37 +5,35 @@ import { createApp, createDatabasePool } from './server.js';
 
 const PORT = process.env.PORT || 3000;
 
-const { app, server } = createApp();
-const dbPool = createDatabasePool();
+async function startServer() {
+  const { app, server } = createApp();
+  const dbPool = await createDatabasePool();
 
-// Store database pool in app for potential use in routes
-(app as any).dbPool = dbPool;
+  // Store database pool in app for potential use in routes
+  (app as any).dbPool = dbPool;
 
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📡 Socket.IO server ready`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    dbPool.end(() => {
-      console.log('Database pool closed');
-      process.exit(0);
-    });
+  server.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`📡 Socket.IO server ready`);
   });
-});
 
-process.on('SIGINT', () => {
-  console.log('SIGINT signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    dbPool.end(() => {
-      console.log('Database pool closed');
-      process.exit(0);
+  // Graceful shutdown
+  const shutdown = () => {
+    console.log('Shutdown signal received: closing HTTP server');
+    server.close(() => {
+      console.log('HTTP server closed');
+      dbPool.end(() => {
+        console.log('Database pool closed');
+        process.exit(0);
+      });
     });
-  });
-});
+  };
 
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+}
+
+startServer().catch(err => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
+});
