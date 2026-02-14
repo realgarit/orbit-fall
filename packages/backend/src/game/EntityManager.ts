@@ -62,7 +62,6 @@ export class EntityManager {
   }
 
   private initializeWorld() {
-    // Spawn server-side enemies
     for (let i = 1; i <= 5; i++) {
       this.enemies.set(`enemy-${i}`, {
         id: `enemy-${i}`,
@@ -75,7 +74,6 @@ export class EntityManager {
         maxShield: 600
       });
     }
-    // Spawn server-side ores
     for (let i = 1; i <= 20; i++) {
       this.ores.set(`ore-${i}`, {
         id: `ore-${i}`,
@@ -92,6 +90,10 @@ export class EntityManager {
 
   private calculateMaxShield(level: number): number {
     return (level - 1) * 250;
+  }
+
+  getPlayer(socketId: string) {
+    return this.players.get(socketId);
   }
 
   addPlayer(socketId: string, dbUser: any): PlayerEntity {
@@ -117,7 +119,6 @@ export class EntityManager {
       aetherium: Number(dbUser.aetherium ?? 0),
       cargo: dbUser.cargo || {},
       ammo: dbUser.ammo || {},
-      // Use saved health/shield if available, else max
       health: Number(dbUser.current_health ?? maxH),
       maxHealth: maxH,
       shield: Number(dbUser.current_shield ?? maxS),
@@ -128,6 +129,7 @@ export class EntityManager {
       speed: convertSpeed(BASE_SPEED),
     };
     this.players.set(socketId, player);
+    console.log(`[EntityManager] Player joined: ${username}`);
     return player;
   }
 
@@ -135,7 +137,67 @@ export class EntityManager {
     const player = this.players.get(socketId);
     if (player) {
       await this.savePlayerToDB(socketId);
+      console.log(`[EntityManager] Player left: ${player.username}`);
       this.players.delete(socketId);
+    }
+  }
+
+  addExperience(socketId: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) {
+      player.experience += amount;
+      const newLevel = Math.max(1, Math.floor(Math.log2(player.experience / 10000) + 2));
+      if (newLevel > player.level) {
+        player.level = newLevel;
+        player.maxHealth = this.calculateMaxHealth(newLevel);
+        player.maxShield = this.calculateMaxShield(newLevel);
+        player.health = player.maxHealth;
+        player.shield = player.maxShield;
+      }
+    }
+  }
+
+  addCredits(socketId: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) player.credits += amount;
+  }
+
+  addHonor(socketId: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) player.honor += amount;
+  }
+
+  addAetherium(socketId: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) player.aetherium += amount;
+  }
+
+  addCargo(socketId: string, type: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) player.cargo[type] = (player.cargo[type] || 0) + amount;
+  }
+
+  addAmmo(socketId: string, type: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) player.ammo[type] = (player.ammo[type] || 0) + amount;
+  }
+
+  consumeAmmo(socketId: string, type: string): boolean {
+    const player = this.players.get(socketId);
+    if (player && (player.ammo[type] || 0) > 0) {
+      player.ammo[type]--;
+      return true;
+    }
+    return false;
+  }
+
+  updatePlayerInput(socketId: string, input: { thrust?: boolean; angle?: number; targetPosition?: { x: number; y: number } | null }) {
+    const player = this.players.get(socketId);
+    if (player) {
+      player.lastInputTime = Date.now();
+      if (input.thrust !== undefined) player.thrust = !!input.thrust;
+      if (input.angle !== undefined && !isNaN(input.angle)) player.angle = Number(input.angle);
+      if (input.targetPosition !== undefined) player.targetPosition = input.targetPosition;
     }
   }
 
@@ -144,7 +206,6 @@ export class EntityManager {
     this.players.forEach(player => {
       let isMoving = false;
       let moveAngle = player.angle;
-
       if (player.targetPosition) {
         const dx = player.targetPosition.x - player.x;
         const dy = player.targetPosition.y - player.y;
@@ -158,14 +219,12 @@ export class EntityManager {
       } else if (player.thrust) {
         isMoving = true;
       }
-
       if (isMoving) {
         player.x += Math.cos(moveAngle - Math.PI / 2) * player.speed * dt;
         player.y += Math.sin(moveAngle - Math.PI / 2) * player.speed * dt;
         player.x = Math.max(0, Math.min(MAP_WIDTH, player.x));
         player.y = Math.max(0, Math.min(MAP_HEIGHT, player.y));
       }
-
       if (now - player.lastDamageTime > 5000 && player.shield < player.maxShield) {
         const regenAmount = player.maxShield * 0.05 * dt;
         player.shield = Math.min(player.maxShield, player.shield + regenAmount);
