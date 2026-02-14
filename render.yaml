@@ -9,17 +9,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # We don't define DATABASE_URL here to keep it secret.
+      # You should link an "Environment Group" in the Render UI 
+      # to provide the DATABASE_URL to both Production and PR Previews.
     autoDeploy: true
-    # This enables PR Previews for this service
-    # It will create a temporary version of this service for every PR
-    # AND (crucially) it will inject the DATABASE_URL from the temporary DB defined below
-    previewPlan: free
-
-databases:
-  - name: orbit-fall-db
-    plan: free
-    region: frankfurt
-    # This enables PR Previews for the database
-    # Render will spin up a temporary Postgres instance for every PR
-    # and automatically link it to the web service above via DATABASE_URL
-    previewPlan: free
