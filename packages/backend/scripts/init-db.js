@@ -72,6 +72,11 @@ async function initDb() {
     }
 
   } catch (err) {
+    if (err.code === "ENETUNREACH") {
+      console.warn("⚠️ Could not reach database. This is expected during Render build phase.");
+      console.warn("⚠️ Database initialization will be retried during service start.");
+      process.exit(0);
+    }
     console.error('❌ Error initializing database:', err);
     process.exit(1);
   } finally {
