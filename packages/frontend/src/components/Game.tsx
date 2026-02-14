@@ -283,12 +283,12 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   }, []); // Only run once on mount
 
   // Handle ship state updates
-  const handleShipStateUpdate = useCallback((pos: { x: number; y: number }, vel: { vx: number; vy: number }, rotation: number, thrust: boolean) => {
+  const handleShipStateUpdate = useCallback((pos: { x: number; y: number }, vel: { vx: number; vy: number }, rotation: number, thrust: boolean, targetPos: { x: number; y: number } | null) => {
     const state = useGameStore.getState();
     state.setShipPosition(pos);
     state.setShipVelocity(vel);
     state.setShipRotation(rotation);
-    socket.emit("player_input", { thrust, angle: rotation });
+    socket.emit("player_input", { thrust, angle: rotation, targetPosition: targetPos });
   }, [socket]);
 
   // Handle enemy state updates

@@ -3,9 +3,6 @@ import { SPARROW_SHIP, MAP_WIDTH, MAP_HEIGHT, SPEED_SCALE_FACTOR } from '@orbit-
 
 // Helper to convert base speed to game units per second
 function convertSpeed(baseSpeed: number): number {
-  // Frontend uses speed * delta (usually ~1 at 60fps)
-  // To match that on the server with a dt in seconds, 
-  // we need to scale the display speed.
   const displaySpeed = baseSpeed * SPEED_SCALE_FACTOR;
   return displaySpeed * 60; // scale to units per second
 }
@@ -19,6 +16,7 @@ interface PlayerEntity {
   y: number;
   angle: number;
   thrust: boolean;
+  targetPosition: { x: number; y: number } | null;
   
   // Progression
   level: number;
@@ -80,6 +78,7 @@ export class EntityManager {
       y: Number(dbUser.last_y ?? 1000),
       angle: 0,
       thrust: false,
+      targetPosition: null,
       
       // Progression (from DB)
       level: level,
@@ -89,7 +88,7 @@ export class EntityManager {
       aetherium: Number(dbUser.aetherium ?? 0),
       
       // Combat Stats (Calculated)
-      health: this.calculateMaxHealth(level), // Initialized to full
+      health: this.calculateMaxHealth(level),
       maxHealth: this.calculateMaxHealth(level),
       shield: this.calculateMaxShield(level),
       maxShield: this.calculateMaxShield(level),
@@ -121,17 +120,13 @@ export class EntityManager {
     const player = this.players.get(socketId);
     if (player) {
       player.experience += amount;
-      // Formula: 10000 * 2^(x-2)
       const newLevel = Math.max(1, Math.floor(Math.log2(player.experience / 10000) + 2));
       if (newLevel > player.level) {
         player.level = newLevel;
-        // Recalculate max stats on level up
         player.maxHealth = this.calculateMaxHealth(newLevel);
         player.maxShield = this.calculateMaxShield(newLevel);
-        // Heal on level up
         player.health = player.maxHealth;
         player.shield = player.maxShield;
-        console.log(`[EntityManager] Player ${player.username} reached level ${newLevel}`);
       }
     }
   }
@@ -146,18 +141,18 @@ export class EntityManager {
   addHonor(socketId: string, amount: number) {
     const player = this.players.get(socketId);
     if (player) {
-      player.honor += amount;
+      player.honor += (player.honor || 0) + amount;
     }
   }
 
   addAetherium(socketId: string, amount: number) {
     const player = this.players.get(socketId);
     if (player) {
-      player.aetherium += amount;
+      player.aetherium += (player.aetherium || 0) + amount;
     }
   }
 
-  updatePlayerInput(socketId: string, input: { thrust?: boolean; angle?: number }) {
+  updatePlayerInput(socketId: string, input: { thrust?: boolean; angle?: number; targetPosition?: { x: number; y: number } | null }) {
     const player = this.players.get(socketId);
     if (player) {
       player.lastInputTime = Date.now();
@@ -167,23 +162,47 @@ export class EntityManager {
       if (input.angle !== undefined && !isNaN(input.angle)) {
         player.angle = Number(input.angle);
       }
+      if (input.targetPosition !== undefined) {
+        player.targetPosition = input.targetPosition;
+      }
     }
   }
 
   update(dt: number) {
     const now = Date.now();
     this.players.forEach(player => {
-      // 1. Movement
-      if (player.thrust) {
-        const vx = Math.cos(player.angle - Math.PI / 2) * player.speed;
-        const vy = Math.sin(player.angle - Math.PI / 2) * player.speed;
+      // 1. Movement Logic
+      let isMoving = false;
+      let moveAngle = player.angle;
+
+      // Click-to-move (Highest priority)
+      if (player.targetPosition) {
+        const dx = player.targetPosition.x - player.x;
+        const dy = player.targetPosition.y - player.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+
+        if (dist > 10) {
+          isMoving = true;
+          moveAngle = Math.atan2(dy, dx) + Math.PI/2;
+        } else {
+          player.targetPosition = null;
+        }
+      } 
+      // Manual Thrust
+      else if (player.thrust) {
+        isMoving = true;
+      }
+
+      if (isMoving) {
+        const vx = Math.cos(moveAngle - Math.PI / 2) * player.speed;
+        const vy = Math.sin(moveAngle - Math.PI / 2) * player.speed;
         player.x += vx * dt;
         player.y += vy * dt;
         player.x = Math.max(0, Math.min(MAP_WIDTH, player.x));
         player.y = Math.max(0, Math.min(MAP_HEIGHT, player.y));
       }
 
-      // 2. Shield Regeneration (e.g., 5% per second after 5s of no damage)
+      // 2. Shield Regeneration
       if (now - player.lastDamageTime > 5000 && player.shield < player.maxShield) {
         const regenAmount = player.maxShield * 0.05 * dt;
         player.shield = Math.min(player.maxShield, player.shield + regenAmount);
@@ -198,16 +217,7 @@ export class EntityManager {
     try {
       await this.dbPool.query(
         'UPDATE players SET last_x = $1, last_y = $2, level = $3, experience = $4, credits = $5, honor = $6, aetherium = $7, updated_at = NOW() WHERE id = $8',
-        [
-          Math.round(player.x), 
-          Math.round(player.y), 
-          player.level, 
-          player.experience, 
-          player.credits, 
-          player.honor, 
-          player.aetherium, 
-          player.dbId
-        ]
+        [Math.round(player.x), Math.round(player.y), player.level, player.experience, player.credits, player.honor, player.aetherium, player.dbId]
       );
     } catch (error) {
       console.error(`[EntityManager] Error saving player ${player.username}:`, error);
@@ -219,8 +229,6 @@ export class EntityManager {
     await Promise.all(savePromises);
   }
 
-  // --- State Export ---
-
   getSnapshot() {
     return {
       players: Array.from(this.players.values()).map(p => ({
@@ -230,8 +238,6 @@ export class EntityManager {
         y: p.y,
         angle: p.angle,
         thrust: p.thrust,
-        
-        // Authoritative Stats
         level: p.level,
         experience: p.experience,
         credits: p.credits,
@@ -241,7 +247,6 @@ export class EntityManager {
         maxHealth: p.maxHealth,
         shield: p.shield,
         maxShield: p.maxShield,
-        
         ship_type: p.ship_type
       })),
       enemies: Array.from(this.enemies.values()),

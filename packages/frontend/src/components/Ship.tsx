@@ -6,7 +6,7 @@ import { convertSpeedToDisplay } from '@shared/utils/speedConversion';
 interface ShipProps {
   app: Application;
   cameraContainer: Container;
-  onStateUpdate?: (position: { x: number; y: number }, velocity: { vx: number; vy: number }, rotation: number, thrust: boolean) => void;
+  onStateUpdate?: (position: { x: number; y: number }, velocity: { vx: number; vy: number }, rotation: number, thrust: boolean, targetPosition: { x: number; y: number } | null) => void;
   targetPosition?: { x: number; y: number } | null;
   onTargetReached?: () => void;
   onEnemyClick?: (worldX: number, worldY: number) => boolean;
@@ -467,7 +467,7 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
 
       // Notify parent component of state changes
       if (onStateUpdate) {
-        onStateUpdate({ x: pos.x, y: pos.y }, { vx: velocity.vx, vy: velocity.vy }, rotationRef.current, Math.abs(velocity.vx) > 0.1 || Math.abs(velocity.vy) > 0.1);
+        onStateUpdate({ x: pos.x, y: pos.y }, { vx: velocity.vx, vy: velocity.vy }, rotationRef.current, Math.abs(velocity.vx) > 0.1 || Math.abs(velocity.vy) > 0.1, currentTarget);
       }
 
       // Final Name Tag Sync (ensures it matches the latest ship.x/y)
