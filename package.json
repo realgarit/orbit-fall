@@ -15,11 +15,9 @@
     "build:backend": "npm run build --workspace=packages/backend"
   },
   "dependencies": {
-    "@types/express": "^5.0.6",
-    "@types/node": "^25.2.3",
-    "@types/pg": "^8.16.0",
-    "@vitejs/plugin-react": "^5.1.4",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "typescript": "^5.3.3",
+    "vite": "^5.4.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@types/node": "^20.10.6"
   }
 }
