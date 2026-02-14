@@ -18,7 +18,7 @@ async function resolveToIPv4(hostname) {
     const { address } = await dns.promises.lookup(hostname, { family: 4 });
     return address;
   } catch (error) {
-    return hostname;
+    return null;
   }
 }
 
@@ -29,8 +29,26 @@ async function getClient(connectionString) {
 
   if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
     const ipv4 = await resolveToIPv4(hostname);
-    if (ipv4 !== hostname) {
-      connectionString = connectionString.replace(hostname, ipv4);
+    if (ipv4) {
+      if (ipv4 !== hostname) {
+        connectionString = connectionString.replace(hostname, ipv4);
+      }
+    } else {
+      // IPv4 resolution failed. Check if it's a Supabase direct host.
+      const supabaseMatch = hostname.match(/db\.([^.]+)\.supabase\.co/);
+      if (supabaseMatch) {
+        const projectRef = supabaseMatch[1];
+        const poolerHost = `aws-0-eu-west-1.pooler.supabase.com`;
+        console.warn(`⚠️ IPv4 resolution failed for Supabase direct host ${hostname}.`);
+        console.log(`🔄 Falling back to Supabase Connection Pooler: ${poolerHost}`);
+
+        // Transform connection string: replace host and update user
+        connectionString = connectionString.replace(hostname, poolerHost);
+        // Username needs to be postgres.[projectRef]
+        if (!connectionString.includes(`postgres.${projectRef}`)) {
+          connectionString = connectionString.replace("://postgres:", `://postgres.${projectRef}:`);
+        }
+      }
     }
   }
 
