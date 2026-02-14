@@ -18,21 +18,33 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     const newSocket = io(window.location.origin);
     setSocket(newSocket);
 
-    newSocket.on('login_response', (data) => {
+    // Auto-resume session if token exists
+    const savedToken = localStorage.getItem('orbitfall_session');
+    const savedUsername = localStorage.getItem('orbitfall_username');
+    if (savedToken && savedUsername) {
+      setLoading(true);
+      newSocket.emit('resume_session', { token: savedToken, username: savedUsername });
+    }
+
+    newSocket.on('login_response', (data: { success: boolean; message: string }) => {
       setLoading(false);
-      if (data.success) {
-        // This will be handled by login_success for game data
-      } else {
+      if (!data.success) {
         setError(data.message);
+        localStorage.removeItem('orbitfall_session');
       }
     });
 
-    newSocket.on('login_success', (data) => {
+    newSocket.on('login_success', (data: any) => {
       setLoading(false);
+      // Save for persistence
+      if (data.sessionToken) {
+        localStorage.setItem('orbitfall_session', data.sessionToken);
+        localStorage.setItem('orbitfall_username', data.username);
+      }
       onLoginSuccess(data, newSocket);
     });
 
-    newSocket.on('register_response', (data) => {
+    newSocket.on('register_response', (data: { success: boolean; message: string }) => {
       setLoading(false);
       if (data.success) {
         setSuccessMessage('Registration successful! Please log in.');

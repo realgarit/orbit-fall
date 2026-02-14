@@ -122,7 +122,12 @@ export function SettingsWindow({
 
           {activeTab === 'general' && (
             <div className="settings-section">
-              <div className="settings-empty">No general settings yet.</div>
+              <div className="settings-label">Account</div>
+              {createButton('LOGOUT', () => {
+                localStorage.removeItem('orbitfall_session');
+                localStorage.removeItem('orbitfall_username');
+                window.location.reload();
+              }, { ...primaryButtonStyle, background: 'linear-gradient(180deg, #991b1b 0%, #7f1d1d 100%)', borderColor: '#ef4444' })}
             </div>
           )}
         </div>

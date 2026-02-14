@@ -20,7 +20,7 @@
     "verbatimModuleSyntax": false,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["../../packages/shared/src/*"]
+      "@shared/*": ["../shared/src/*"]
     }
   },
   "include": ["src/**/*"],

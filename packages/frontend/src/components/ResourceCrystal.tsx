@@ -103,9 +103,9 @@ export const ResourceCrystal = memo(function ResourceCrystal({ app, cameraContai
 
             // Collection "abduction" effect
             if (isCollecting && containerRef.current) {
-                containerRef.current.y -= 3 * ticker.deltaTime;
-                containerRef.current.scale.set(Math.max(0, containerRef.current.scale.x - 0.04 * ticker.deltaTime));
-                containerRef.current.alpha -= 0.06 * ticker.deltaTime;
+                containerRef.current.y -= 10 * ticker.deltaTime;
+                containerRef.current.scale.set(Math.max(0, containerRef.current.scale.x - 0.15 * ticker.deltaTime));
+                containerRef.current.alpha -= 0.2 * ticker.deltaTime;
             }
         };
 

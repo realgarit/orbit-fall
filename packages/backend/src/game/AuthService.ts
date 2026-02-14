@@ -8,7 +8,7 @@ export class AuthService {
     this.dbPool = dbPool;
   }
 
-  async register(username: string, password: string): Promise<{ success: boolean; message: string }> {
+  async register(username: string, password: string, ip: string): Promise<{ success: boolean; message: string }> {
     if (!username || username.trim().length === 0) {
       return { success: false, message: 'Username cannot be empty' };
     }
@@ -19,7 +19,16 @@ export class AuthService {
     try {
       const client = await this.dbPool.connect();
       try {
-        // Check if user already exists
+        // 1. Check IP limit (Skip for localhost)
+        const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1');
+        if (!isLocalhost) {
+          const ipCheck = await client.query('SELECT COUNT(*) FROM players WHERE registration_ip = $1', [ip]);
+          if (parseInt(ipCheck.rows[0].count) >= 1) {
+            return { success: false, message: 'Registration failed. Please contact the administrator.' };
+          }
+        }
+
+        // 2. Check if user already exists
         const existingUser = await client.query('SELECT id FROM players WHERE username = $1', [username]);
         if (existingUser.rows.length > 0) {
           return { success: false, message: 'Username already exists' };
@@ -29,8 +38,8 @@ export class AuthService {
         const passwordHash = await bcrypt.hash(password, saltRounds);
 
         await client.query(
-          'INSERT INTO players (username, password_hash) VALUES ($1, $2)',
-          [username, passwordHash]
+          'INSERT INTO players (username, password_hash, registration_ip) VALUES ($1, $2, $3)',
+          [username, passwordHash, ip]
         );
 
         return { success: true, message: 'Registration successful' };

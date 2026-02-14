@@ -10,16 +10,17 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 const { Pool } = pg;
 
 async function initDb() {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = process.env.PREVIEW_DATABASE_URL || process.env.DATABASE_URL;
 
   if (!connectionString) {
-    console.error('❌ Error: DATABASE_URL is missing.');
+    console.error('❌ Error: DATABASE_URL or PREVIEW_DATABASE_URL is missing.');
     process.exit(1);
   }
 
   // Log connection attempt (hiding password)
+  const isStaging = !!process.env.PREVIEW_DATABASE_URL;
   const maskedUrl = connectionString.replace(/:([^:@]+)@/, ':****@');
-  console.log(`🔌 Connecting to database: ${maskedUrl}`);
+  console.log(`🔌 Connecting to ${isStaging ? 'STAGING' : 'PRODUCTION'} database: ${maskedUrl}`);
 
   const pool = new Pool({
     connectionString,
@@ -63,6 +64,9 @@ async function initDb() {
         -- Equipment (JSONB for flexibility)
         equipment JSONB DEFAULT '{}',
         
+        -- Registration tracking
+        registration_ip VARCHAR(45),
+        
         -- Timestamps
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -70,6 +74,29 @@ async function initDb() {
     `);
 
     console.log('✅ Tables created successfully.');
+
+    // Ensure registration_ip column exists (Migration)
+    console.log('🔍 Checking for missing columns...');
+    await client.query(`
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='registration_ip') THEN
+          ALTER TABLE players ADD COLUMN registration_ip VARCHAR(45);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='honor') THEN
+          ALTER TABLE players ADD COLUMN honor BIGINT DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='aetherium') THEN
+          ALTER TABLE players ADD COLUMN aetherium BIGINT DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='cargo') THEN
+          ALTER TABLE players ADD COLUMN cargo JSONB DEFAULT '{}';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='ammo') THEN
+          ALTER TABLE players ADD COLUMN ammo JSONB DEFAULT '{}';
+        END IF;
+      END $$;
+    `);
 
     // Check for seed data
     const res = await client.query('SELECT COUNT(*) FROM players');

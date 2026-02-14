@@ -85,9 +85,9 @@ export const BonusBox = memo(function BonusBox({ app, cameraContainer, boxState,
             // Collection "abduction" effect
             if (isCollecting && containerRef.current) {
                 // Move upwards and shrink
-                containerRef.current.y -= 2 * ticker.deltaTime;
-                containerRef.current.scale.set(Math.max(0, containerRef.current.scale.x - 0.05 * ticker.deltaTime));
-                containerRef.current.alpha -= 0.05 * ticker.deltaTime;
+                containerRef.current.y -= 10 * ticker.deltaTime;
+                containerRef.current.scale.set(Math.max(0, containerRef.current.scale.x - 0.15 * ticker.deltaTime));
+                containerRef.current.alpha -= 0.2 * ticker.deltaTime;
             }
         };
 

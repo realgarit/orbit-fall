@@ -1,509 +1,114 @@
 import { useEffect, useRef, memo } from 'react';
 import { Application, Graphics, Container, Text } from 'pixi.js';
-import { MAP_WIDTH, MAP_HEIGHT, ENEMY_STATS } from '@shared/constants';
+import { ENEMY_STATS } from '@shared/constants';
 import type { EnemyState } from '@shared/types';
 
 interface EnemyProps {
   app: Application;
   cameraContainer: Container;
-  playerPosition: { x: number; y: number };
-  enemyState?: EnemyState | null;
-  onStateUpdate?: (state: EnemyState) => void;
-  onPositionUpdate?: (position: { x: number; y: number }) => void;
+  enemyState: EnemyState | null;
   isDead?: boolean;
 }
 
-export const Enemy = memo(function Enemy({ app, cameraContainer, playerPosition, enemyState: externalState, onStateUpdate, onPositionUpdate, isDead = false }: EnemyProps) {
+export const Enemy = memo(function Enemy({ app, cameraContainer, enemyState, isDead = false }: EnemyProps) {
   const enemyRef = useRef<Container | null>(null);
   const nameTextRef = useRef<Text | null>(null);
-  const explosionRef = useRef<Graphics | null>(null);
-  const stateRef = useRef<EnemyState>({
-    id: 'drifter-1',
-    name: ENEMY_STATS.DRIFTER.NAME,
-    x: 0,
-    y: 0,
-    vx: 0,
-    vy: 0,
-    health: ENEMY_STATS.DRIFTER.MAX_HEALTH,
-    maxHealth: ENEMY_STATS.DRIFTER.MAX_HEALTH,
-    shield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
-    maxShield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
-    rotation: 0,
-    isEngaged: false,
-    lastFireTime: 0,
-    attitude: ENEMY_STATS.DRIFTER.ATTITUDE,
-  });
-  const patrolVelocityRef = useRef({ vx: 0, vy: 0 });
-  const lastPatrolChangeRef = useRef(0);
-  const spawnedRef = useRef(false);
-  const playerPositionRef = useRef(playerPosition);
-  const onStateUpdateRef = useRef(onStateUpdate);
-  const onPositionUpdateRef = useRef(onPositionUpdate);
-  const tickerAddedRef = useRef(false);
-  const tickerCallbackRef = useRef<((ticker: any) => void) | null>(null);
-  const deathTimeRef = useRef<number | null>(null);
-  const explosionTimeRef = useRef<number | null>(null);
-  const fadeAlphaRef = useRef(1);
-  const previousHealthRef = useRef<number>(ENEMY_STATS.DRIFTER.MAX_HEALTH);
-
-  // Keep refs updated
-  useEffect(() => {
-    playerPositionRef.current = playerPosition;
-    onStateUpdateRef.current = onStateUpdate;
-    onPositionUpdateRef.current = onPositionUpdate;
-  }, [playerPosition, onStateUpdate, onPositionUpdate]);
-
-  // Sync external state when provided (for health, shield, engagement status)
-  // Don't sync position/velocity as those are managed internally
-  useEffect(() => {
-    // Initialize state from externalState on first mount if available
-    if (externalState && !spawnedRef.current) {
-      stateRef.current.id = externalState.id;
-      stateRef.current.name = externalState.name;
-      stateRef.current.x = externalState.x;
-      stateRef.current.y = externalState.y;
-      stateRef.current.health = externalState.health;
-      stateRef.current.maxHealth = externalState.maxHealth;
-      stateRef.current.shield = externalState.shield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
-      stateRef.current.maxShield = externalState.maxShield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
-      stateRef.current.rotation = externalState.rotation;
-      stateRef.current.isEngaged = externalState.isEngaged;
-      stateRef.current.lastFireTime = externalState.lastFireTime;
-      stateRef.current.attitude = externalState.attitude;
-      previousHealthRef.current = externalState.health;
-    }
-
-    // Check for death even when externalState is null (enemy marked as dead in parent)
-    // This handles the case where death is detected in parent before externalState becomes null
-    if (!externalState) {
-      // ExternalState is null - enemy is marked as dead
-      // If isDead prop is true and we haven't set deathTimeRef yet, initialize death animation
-      if (isDead && previousHealthRef.current > 0 && !deathTimeRef.current) {
-        // Death just happened - update health to 0 and initialize death animation
-        stateRef.current.health = 0;
-        deathTimeRef.current = Date.now();
-        explosionTimeRef.current = Date.now();
-        // Hide enemy model immediately so explosion looks better
-        if (enemyRef.current) {
-          enemyRef.current.visible = false;
-        }
-        if (nameTextRef.current) {
-          nameTextRef.current.visible = false;
-        }
-        // Create explosion
-        if (enemyRef.current && !explosionRef.current) {
-          const explosion = new Graphics();
-          const radius = 30;
-          // Outer explosion ring
-          explosion.circle(0, 0, radius);
-          explosion.fill({ color: 0xff8800, alpha: 0.8 });
-          // Middle ring
-          explosion.circle(0, 0, radius * 0.7);
-          explosion.fill({ color: 0xff0000, alpha: 0.9 });
-          // Inner core
-          explosion.circle(0, 0, radius * 0.4);
-          explosion.fill({ color: 0xffff00, alpha: 1.0 });
-
-          explosion.x = stateRef.current.x;
-          explosion.y = stateRef.current.y;
-          cameraContainer.addChild(explosion);
-          explosionRef.current = explosion;
-        }
-      }
-      // Update previous health for next check
-      previousHealthRef.current = stateRef.current.health;
-      return;
-    }
-
-    if (externalState) {
-      const wasAlive = stateRef.current.health > 0;
-      const wasDead = stateRef.current.health <= 0;
-      const isNowAlive = externalState.health > 0;
-
-      // Update previous health before changing current health
-      previousHealthRef.current = stateRef.current.health;
-
-      stateRef.current.health = externalState.health;
-      stateRef.current.maxHealth = externalState.maxHealth;
-      stateRef.current.shield = externalState.shield;
-      stateRef.current.maxShield = externalState.maxShield;
-      stateRef.current.isEngaged = externalState.isEngaged;
-      stateRef.current.lastFireTime = externalState.lastFireTime;
-      stateRef.current.attitude = externalState.attitude;
-
-      // Check if enemy just died
-      if (wasAlive && externalState.health <= 0 && !deathTimeRef.current) {
-        deathTimeRef.current = Date.now();
-        explosionTimeRef.current = Date.now();
-        // Hide enemy model immediately so explosion looks better
-        if (enemyRef.current) {
-          enemyRef.current.visible = false;
-        }
-        if (nameTextRef.current) {
-          nameTextRef.current.visible = false;
-        }
-        // Create explosion
-        if (enemyRef.current && !explosionRef.current) {
-          const explosion = new Graphics();
-          const radius = 30;
-          // Outer explosion ring
-          explosion.circle(0, 0, radius);
-          explosion.fill({ color: 0xff8800, alpha: 0.8 });
-          // Middle ring
-          explosion.circle(0, 0, radius * 0.7);
-          explosion.fill({ color: 0xff0000, alpha: 0.9 });
-          // Inner core
-          explosion.circle(0, 0, radius * 0.4);
-          explosion.fill({ color: 0xffff00, alpha: 1.0 });
-
-          explosion.x = stateRef.current.x;
-          explosion.y = stateRef.current.y;
-          cameraContainer.addChild(explosion);
-          explosionRef.current = explosion;
-        }
-      }
-
-      // Check if enemy just respawned (was dead, now alive)
-      if (wasDead && isNowAlive) {
-        // Reset death-related refs
-        deathTimeRef.current = null;
-        explosionTimeRef.current = null;
-        fadeAlphaRef.current = 1;
-
-        // Show enemy model again
-        if (enemyRef.current) {
-          enemyRef.current.visible = true;
-          enemyRef.current.alpha = 1;
-          // Update position to new spawn location
-          enemyRef.current.x = externalState.x;
-          enemyRef.current.y = externalState.y;
-        }
-        if (nameTextRef.current) {
-          nameTextRef.current.visible = true;
-          nameTextRef.current.alpha = 1;
-          // Update position to new spawn location
-          nameTextRef.current.x = externalState.x;
-          nameTextRef.current.y = externalState.y + 35;
-        }
-
-        // Clean up any existing explosion
-        if (explosionRef.current) {
-          if (explosionRef.current.parent) {
-            cameraContainer.removeChild(explosionRef.current);
-          }
-          explosionRef.current.destroy();
-          explosionRef.current = null;
-        }
-
-        // Update internal state position and restore shield
-        stateRef.current.x = externalState.x;
-        stateRef.current.y = externalState.y;
-        stateRef.current.vx = 0;
-        stateRef.current.vy = 0;
-        stateRef.current.rotation = 0;
-        stateRef.current.shield = externalState.shield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
-        stateRef.current.maxShield = externalState.maxShield ?? ENEMY_STATS.DRIFTER.MAX_SHIELD;
-
-        // Force position update to parent immediately after respawn
-        if (onPositionUpdateRef.current) {
-          onPositionUpdateRef.current({ x: externalState.x, y: externalState.y });
-        }
-      }
-    }
-  }, [externalState?.health, externalState?.maxHealth, externalState?.shield, externalState?.maxShield, externalState?.isEngaged, externalState?.lastFireTime, externalState?.x, externalState?.y, isDead, cameraContainer]);
+  const targetRef = useRef<{ x: number; y: number; rotation: number }>({ x: 0, y: 0, rotation: 0 });
 
   useEffect(() => {
-    if (!app) return;
-
-    // Only create Graphics if it doesn't exist
-    if (!enemyRef.current) {
-      // Spawn enemy near player (200-400px away) - only once
-      if (!spawnedRef.current && externalState) {
-        // Use external state position if available
-        stateRef.current.x = externalState.x;
-        stateRef.current.y = externalState.y;
-        stateRef.current.id = externalState.id;
-        spawnedRef.current = true;
-      } else if (!spawnedRef.current) {
-        const angle = Math.random() * Math.PI * 2;
-        const distance = 200 + Math.random() * 200;
-        const spawnX = playerPosition.x + Math.cos(angle) * distance;
-        const spawnY = playerPosition.y + Math.sin(angle) * distance;
-
-        // Clamp to map bounds
-        stateRef.current.x = Math.max(0, Math.min(MAP_WIDTH, spawnX));
-        stateRef.current.y = Math.max(0, Math.min(MAP_HEIGHT, spawnY));
-        spawnedRef.current = true;
-      }
-
-      // Create enemy ship container
-      const enemy = new Container();
-      const enemyBody = new Graphics();
-      const engineGlow = new Graphics();
-
-      enemy.addChild(engineGlow);
-      enemy.addChild(enemyBody);
-
-      const drawEnemyBody = (g: Graphics) => {
-        g.clear();
-
-        // 1. Side Engine Pods (Bulkier/Metallic)
-        g.ellipse(-14, 2, 6, 12);
-        g.fill(0x333333); // Dark grey engine body
-        g.ellipse(14, 2, 6, 12);
-        g.fill(0x333333);
-
-        // 2. Main Hull (Organic/Beetle-like)
-        g.moveTo(0, -22); // Rounded nose
-        g.bezierCurveTo(-15, -15, -18, 5, -10, 15); // Left curve
-        g.lineTo(0, 10); // Back indent
-        g.lineTo(10, 15); // Right back
-        g.bezierCurveTo(18, 5, 15, -15, 0, -22); // Right curve to nose
-        g.fill(0x8b0000); // Dark Crimson/Red body
-
-        // 3. Hull Markings (Top layer)
-        g.moveTo(0, -18);
-        g.lineTo(-8, -5);
-        g.lineTo(-6, 5);
-        g.lineTo(0, 0);
-        g.lineTo(6, 5);
-        g.lineTo(8, -5);
-        g.lineTo(0, -18);
-        g.fill({ color: 0xff4d4d, alpha: 0.4 }); // Lighter red highlight pattern
-
-        // 4. Cockpit (Yellowish/Bug-like)
-        g.ellipse(0, -10, 5, 3);
-        g.fill({ color: 0xffcc00, alpha: 0.9 }); // Amber cockpit
-
-        // 5. Engine Housings/Exhaust ports
-        g.rect(-17, 10, 6, 4);
-        g.fill(0x1a1a1a);
-        g.rect(11, 10, 6, 4);
-        g.fill(0x1a1a1a);
+    if (enemyState) {
+      targetRef.current = {
+        x: enemyState.x,
+        y: enemyState.y,
+        rotation: enemyState.rotation || 0
       };
-
-      drawEnemyBody(enemyBody);
-
-      enemy.x = stateRef.current.x;
-      enemy.y = stateRef.current.y;
-
-      cameraContainer.addChild(enemy);
-      enemyRef.current = enemy;
-
-      // Create name text
-      const nameText = new Text({
-        text: ENEMY_STATS.DRIFTER.NAME,
-        style: {
-          fontFamily: 'Verdana, Arial, sans-serif',
-          fontSize: 14,
-          fontWeight: 'bold',
-          fill: 0xff3333, // Bright vibrant red
-          align: 'center',
-        },
-      });
-      nameText.anchor.set(0.5, 0);
-      nameText.x = stateRef.current.x;
-      nameText.y = stateRef.current.y + 35; // Below ship, closer to selection circle (radius 30 + gap 5 = 35)
-      cameraContainer.addChild(nameText);
-      nameTextRef.current = nameText;
-
-      // Initialize random patrol velocity
-      const randomAngle = Math.random() * Math.PI * 2;
-      const patrolSpeed = 0.5; // Slow drift
-      patrolVelocityRef.current.vx = Math.cos(randomAngle) * patrolSpeed;
-      patrolVelocityRef.current.vy = Math.sin(randomAngle) * patrolSpeed;
-      lastPatrolChangeRef.current = Date.now();
     }
+  }, [enemyState]);
 
-    // Animation ticker - only add once and only if enemy exists
-    if (!tickerAddedRef.current && enemyRef.current) {
-      tickerAddedRef.current = true;
-      const tickerCallback = (ticker: any) => {
-        // Always get fresh refs in case they changed
-        const enemy = enemyRef.current;
-        const nameText = nameTextRef.current;
-        const explosion = explosionRef.current;
-        // Early return if enemy or nameText don't exist
-        if (!enemy || !nameText) {
-          return;
-        }
+  useEffect(() => {
+    if (!app || !cameraContainer) return;
 
-        const delta = ticker.deltaTime;
-        const state = stateRef.current;
-        const now = Date.now();
+    // Create enemy ship container
+    const enemy = new Container();
+    const enemyBody = new Graphics();
+    const engineGlow = new Graphics();
 
-        // Engine glow animation
-        const engineGlow = enemy.children[0] as Graphics;
-        if (engineGlow && state.health > 0) {
-          engineGlow.clear();
-          const flicker = Math.random() * 0.3 + 0.7;
-          const isMoving = Math.abs(state.vx) > 0.1 || Math.abs(state.vy) > 0.1;
-          const size = isMoving ? 6 : 3;
+    enemy.addChild(engineGlow);
+    enemy.addChild(enemyBody);
 
-          // Left engine
-          engineGlow.circle(-14, 14, size * flicker);
-          engineGlow.fill({ color: 0xff4400, alpha: 0.4 * flicker });
+    const drawEnemyBody = (g: Graphics) => {
+      g.clear();
+      g.ellipse(-14, 2, 6, 12); g.fill(0x333333);
+      g.ellipse(14, 2, 6, 12); g.fill(0x333333);
+      g.moveTo(0, -22); 
+      g.bezierCurveTo(-15, -15, -18, 5, -10, 15); g.lineTo(0, 10); g.lineTo(10, 15);
+      g.bezierCurveTo(18, 5, 15, -15, 0, -22); g.fill(0x8b0000);
+      g.moveTo(0, -18); g.lineTo(-8, -5); g.lineTo(-6, 5); g.lineTo(0, 0); g.lineTo(6, 5); g.lineTo(8, -5); g.lineTo(0, -18);
+      g.fill({ color: 0xff4d4d, alpha: 0.4 });
+      g.ellipse(0, -10, 5, 3); g.fill({ color: 0xffcc00, alpha: 0.9 });
+      g.rect(-17, 10, 6, 4); g.fill(0x1a1a1a);
+      g.rect(11, 10, 6, 4); g.fill(0x1a1a1a);
+    };
 
-          // Right engine
-          engineGlow.circle(14, 14, size * flicker);
-          engineGlow.fill({ color: 0xff4400, alpha: 0.4 * flicker });
-        }
+    drawEnemyBody(enemyBody);
+    cameraContainer.addChild(enemy);
+    enemyRef.current = enemy;
 
-        // Handle death and explosion
-        // Enemy is dead if: health <= 0 OR deathTimeRef is set (death animation in progress)
-        // After respawn, health > 0 and deathTimeRef is null, so enemy is alive
-        if (state.health <= 0 || deathTimeRef.current !== null) {
-          // Update explosion animation
-          if (explosion && explosionTimeRef.current) {
-            const explosionAge = now - explosionTimeRef.current;
-            const explosionDuration = 500; // 500ms explosion
+    const nameText = new Text({
+      text: ENEMY_STATS.DRIFTER.NAME,
+      style: {
+        fontFamily: 'Verdana, Arial, sans-serif',
+        fontSize: 14,
+        fontWeight: 'bold',
+        fill: 0xff3333,
+        align: 'center',
+      },
+    });
+    nameText.anchor.set(0.5, 0);
+    cameraContainer.addChild(nameText);
+    nameTextRef.current = nameText;
 
-            if (explosionAge < explosionDuration) {
-              // Expand and fade explosion
-              const progress = explosionAge / explosionDuration;
-              const scale = 1 + progress * 2; // Expand to 3x size
-              const alpha = 1 - progress;
-              explosion.scale.set(scale);
-              explosion.alpha = alpha;
-            } else {
-              // Remove explosion after duration
-              if (explosion.parent) {
-                cameraContainer.removeChild(explosion);
-                explosion.destroy();
-                explosionRef.current = null;
-              }
-            }
-          }
-
-          // Fade out enemy after explosion
-          if (deathTimeRef.current) {
-            const deathAge = now - deathTimeRef.current;
-            const fadeStart = 500; // Start fading after explosion
-            const fadeDuration = 1000; // 1 second fade
-
-            if (deathAge > fadeStart) {
-              const fadeProgress = Math.min(1, (deathAge - fadeStart) / fadeDuration);
-              fadeAlphaRef.current = 1 - fadeProgress;
-              enemy.alpha = fadeAlphaRef.current;
-              nameText.alpha = fadeAlphaRef.current;
-            }
-          }
-
-          // Don't update position or rotation when dead
-          return;
-        }
-
-        const currentPlayerPos = playerPositionRef.current;
-        const dx = currentPlayerPos.x - state.x;
-        const dy = currentPlayerPos.y - state.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-
-        if (state.isEngaged) {
-          // Engaged/aggressive: always chase player and maintain combat distance,
-          // regardless of whether the player considers themselves "in combat".
-          const COMBAT_DISTANCE = 200; // Preferred combat distance
-
-          if (distance > COMBAT_DISTANCE) {
-            // Move toward player
-            const followSpeed = 1.5;
-            const normalizedDx = dx / distance;
-            const normalizedDy = dy / distance;
-            state.vx = normalizedDx * followSpeed;
-            state.vy = normalizedDy * followSpeed;
-          } else {
-            // At combat distance, stop closing further
-            state.vx = 0;
-            state.vy = 0;
-          }
-        } else {
-          // Not engaged yet: pure AI patrol, ignore player position entirely.
-          // Change patrol direction periodically (every 3-5 seconds)
-          if (now - lastPatrolChangeRef.current > 3000 + Math.random() * 2000) {
-            const randomAngle = Math.random() * Math.PI * 2;
-            const patrolSpeed = 0.5; // Slow drift
-            patrolVelocityRef.current.vx = Math.cos(randomAngle) * patrolSpeed;
-            patrolVelocityRef.current.vy = Math.sin(randomAngle) * patrolSpeed;
-            lastPatrolChangeRef.current = now;
-          }
-
-          // Use patrol velocity (AI movement)
-          state.vx = patrolVelocityRef.current.vx;
-          state.vy = patrolVelocityRef.current.vy;
-        }
-
-        // Update position
-        state.x += state.vx * delta;
-        state.y += state.vy * delta;
-
-        // Boundary constraints
-        state.x = Math.max(0, Math.min(MAP_WIDTH, state.x));
-        state.y = Math.max(0, Math.min(MAP_HEIGHT, state.y));
-
-        // Update visuals - enemy and nameText already checked at start
-        enemy.x = state.x;
-        enemy.y = state.y;
-        nameText.x = state.x;
-        nameText.y = state.y + 35; // Below ship, closer to selection circle (radius 30 + gap 5 = 35)
-
-        // Update rotation:
-        // - When engaged: always face the player
-        // - When not engaged: face patrol movement direction only (never track player)
-        if (state.isEngaged) {
-          if (distance > 0.01) {
-            const targetRotation = Math.atan2(dy, dx) + Math.PI / 2;
-            state.rotation = targetRotation;
-            enemy.rotation = state.rotation;
-          }
-        } else if (Math.abs(state.vx) > 0.01 || Math.abs(state.vy) > 0.01) {
-          const targetRotation = Math.atan2(state.vy, state.vx) + Math.PI / 2;
-          state.rotation = targetRotation;
-          enemy.rotation = state.rotation;
-        }
-
-        // Notify parent of state changes
-        if (onStateUpdateRef.current) {
-          onStateUpdateRef.current({ ...state });
-        }
-        if (onPositionUpdateRef.current) {
-          onPositionUpdateRef.current({ x: state.x, y: state.y });
-        }
-      };
-
-      tickerCallbackRef.current = tickerCallback;
-      if (app?.ticker) {
-        app.ticker.add(tickerCallback);
+    const tickerCallback = () => {
+      if (!enemyRef.current || !nameTextRef.current || isDead) {
+        if (enemyRef.current) enemyRef.current.visible = false;
+        if (nameTextRef.current) nameTextRef.current.visible = false;
+        return;
       }
-    }
+
+      enemyRef.current.visible = true;
+      nameTextRef.current.visible = true;
+
+      // Smooth Interpolation
+      const lerpFactor = 0.1;
+      enemyRef.current.x += (targetRef.current.x - enemyRef.current.x) * lerpFactor;
+      enemyRef.current.y += (targetRef.current.y - enemyRef.current.y) * lerpFactor;
+
+      let diff = targetRef.current.rotation - enemyRef.current.rotation;
+      while (diff > Math.PI) diff -= 2 * Math.PI;
+      while (diff < -Math.PI) diff += 2 * Math.PI;
+      enemyRef.current.rotation += diff * lerpFactor;
+
+      // Sync name tag
+      nameTextRef.current.x = enemyRef.current.x;
+      nameTextRef.current.y = enemyRef.current.y + 35;
+
+      // Engine glow
+      engineGlow.clear();
+      const flicker = Math.random() * 0.3 + 0.7;
+      engineGlow.circle(-14, 14, 6 * flicker);
+      engineGlow.fill({ color: 0xff4400, alpha: 0.4 * flicker });
+      engineGlow.circle(14, 14, 6 * flicker);
+      engineGlow.fill({ color: 0xff4400, alpha: 0.4 * flicker });
+    };
+
+    app.ticker.add(tickerCallback);
 
     return () => {
-      if (tickerAddedRef.current && tickerCallbackRef.current && app?.ticker) {
-        app.ticker.remove(tickerCallbackRef.current);
-        tickerAddedRef.current = false;
-        tickerCallbackRef.current = null;
-      }
-      if (explosionRef.current) {
-        cameraContainer.removeChild(explosionRef.current);
-        explosionRef.current.destroy();
-        explosionRef.current = null;
-      }
-      if (enemyRef.current) {
-        cameraContainer.removeChild(enemyRef.current);
-        enemyRef.current.destroy();
-        enemyRef.current = null;
-      }
-      if (nameTextRef.current) {
-        cameraContainer.removeChild(nameTextRef.current);
-        nameTextRef.current.destroy();
-        nameTextRef.current = null;
-      }
+      app.ticker.remove(tickerCallback);
+      if (enemyRef.current) cameraContainer.removeChild(enemyRef.current);
+      if (nameTextRef.current) cameraContainer.removeChild(nameTextRef.current);
     };
-  }, [app, cameraContainer]);
-
-  // Expose method to update state from parent
-  useEffect(() => {
-    // This allows parent to update enemy state (e.g., health, engagement)
-    return () => { };
-  }, []);
+  }, [app, cameraContainer, isDead]);
 
   return null;
 });
