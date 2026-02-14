@@ -43,11 +43,20 @@ async function initDb() {
         console.warn(`⚠️ IPv4 resolution failed for Supabase direct host ${hostname}.`);
         console.log(`🔄 Falling back to Supabase Connection Pooler: ${poolerHost}`);
 
-        // Transform connection string: replace host and update user
-        connectionString = connectionString.replace(hostname, poolerHost);
-        // Username needs to be postgres.[projectRef]
-        if (!connectionString.includes(`postgres.${projectRef}`)) {
-          connectionString = connectionString.replace("://postgres:", `://postgres.${projectRef}:`);
+        try {
+          const url = new URL(connectionString);
+          url.hostname = poolerHost;
+          url.port = "6543";
+          if (!url.username.includes(projectRef)) {
+            url.username = `${url.username}.${projectRef}`;
+          }
+          connectionString = url.toString();
+        } catch (e) {
+          // Fallback to manual replacement if URL parsing fails
+          connectionString = connectionString.replace(hostname, poolerHost);
+          if (!connectionString.includes(`postgres.${projectRef}`)) {
+            connectionString = connectionString.replace("://postgres:", `://postgres.${projectRef}:`);
+          }
         }
       }
     }
