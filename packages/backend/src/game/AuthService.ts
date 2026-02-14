@@ -24,7 +24,7 @@ export class AuthService {
         if (!isLocalhost) {
           const ipCheck = await client.query('SELECT COUNT(*) FROM players WHERE registration_ip = $1', [ip]);
           if (parseInt(ipCheck.rows[0].count) >= 1) {
-            return { success: false, message: 'Registration Limit: 1 account per Public IP' };
+            return { success: false, message: 'Registration failed. Please contact the administrator.' };
           }
         }
 
