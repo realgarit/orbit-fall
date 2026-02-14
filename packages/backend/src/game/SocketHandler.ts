@@ -117,6 +117,18 @@ export class SocketHandler {
       }
     });
 
+    socket.on('sell_ore', (data: { type: string, amount: number }) => {
+      if (this.entityManager.sellOre(socket.id, data.type, data.amount)) {
+        this.entityManager.savePlayerToDB(socket.id);
+      }
+    });
+
+    socket.on('refine_ore', (data: { targetType: string }) => {
+      if (this.entityManager.refineOre(socket.id, data.targetType)) {
+        this.entityManager.savePlayerToDB(socket.id);
+      }
+    });
+
     socket.on('fire_laser', (data: { ammoType: string }) => {
       if (this.entityManager.consumeAmmo(socket.id, data.ammoType)) {
         this.entityManager.savePlayerToDB(socket.id);

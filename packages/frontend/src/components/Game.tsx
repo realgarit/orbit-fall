@@ -415,7 +415,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           ))}
           <DamageNumbers ref={damageNumbersRef} app={app} cameraContainer={cameraContainer} playerPosition={shipPosition} />
           {isInSafetyZone() && <div style={{ position: 'fixed', top: '190px', left: '50%', transform: 'translateX(-50%)', color: '#ffffff', fontFamily: 'monospace', fontSize: '16px', fontWeight: 'bold', zIndex: 1000, pointerEvents: 'none', textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>Safety Zone - Combat Disabled</div>}
-          <ShipWindow /><StatsWindow /><DebugWindow /><BattleWindow /><MinimapWindow onTargetChange={(pos) => useGameStore.getState().setTargetPosition(pos)} /><SettingsWindow /><OreWindow /><TradeWindow />
+          <ShipWindow /><StatsWindow /><DebugWindow /><BattleWindow /><MinimapWindow onTargetChange={(pos) => useGameStore.getState().setTargetPosition(pos)} /><SettingsWindow /><OreWindow /><TradeWindow socket={socket} />
           {isDead && showDeathWindow && <DeathWindow onRepairOnSpot={handleRepairOnSpot} />}
         </>
       )}
