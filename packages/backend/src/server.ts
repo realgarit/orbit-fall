@@ -85,7 +85,7 @@ export async function createDatabasePool(): Promise<Pool> {
   let dbHost = dbHostMatch ? dbHostMatch[1] : 'unknown';
 
   // Extract hostname and port
-  const [hostname, port] = dbHost.split(':');
+  const [hostname] = dbHost.split(':');
 
   if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
     const ipv4 = await resolveToIPv4(hostname);
@@ -104,11 +104,20 @@ export async function createDatabasePool(): Promise<Pool> {
         console.warn(`IPv4 resolution failed for Supabase direct host ${hostname}.`);
         console.log(`Falling back to Supabase Connection Pooler: ${poolerHost}`);
 
-        // Transform connection string: replace host and update user
-        connectionString = connectionString.replace(hostname, poolerHost);
-        // Username needs to be postgres.[projectRef]
-        if (!connectionString.includes(`postgres.${projectRef}`)) {
-          connectionString = connectionString.replace("://postgres:", `://postgres.${projectRef}:`);
+        try {
+          const url = new URL(connectionString);
+          url.hostname = poolerHost;
+          url.port = "6543";
+          if (!url.username.includes(projectRef)) {
+            url.username = `${url.username}.${projectRef}`;
+          }
+          connectionString = url.toString();
+        } catch (e) {
+          // Fallback to manual replacement if URL parsing fails
+          connectionString = connectionString.replace(hostname, poolerHost);
+          if (!connectionString.includes(`postgres.${projectRef}`)) {
+            connectionString = connectionString.replace("://postgres:", `://postgres.${projectRef}:`);
+          }
         }
         dbHost = `${poolerHost} (Fallback from ${hostname})`;
       } else {
