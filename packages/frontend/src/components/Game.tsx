@@ -207,7 +207,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       if (state.deadEnemies.has(enemyId)) continue;
       const dx = worldX - enemy.x;
       const dy = worldY - enemy.y;
-      if (Math.sqrt(dx * dx + dy * dy) < 50) {
+      if (Math.sqrt(dx * dx + dy * dy) < 60) { // Hitbox boost
         const now = Date.now();
         if (now - lastClickProcessedTimeRef.current < 50) return true;
         lastClickProcessedTimeRef.current = now;
@@ -234,7 +234,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     for (const box of state.bonusBoxes.values()) {
       const dx = worldX - box.x;
       const dy = worldY - box.y;
-      if (Math.sqrt(dx * dx + dy * dy) < 30) {
+      if (Math.sqrt(dx * dx + dy * dy) < 40) {
         state.setTargetPosition({ x: box.x, y: box.y - 25 });
         state.setTargetBonusBoxId(box.id);
         return true;
@@ -248,7 +248,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     for (const ore of state.ores.values()) {
       const dx = worldX - ore.x;
       const dy = worldY - ore.y;
-      if (Math.sqrt(dx * dx + dy * dy) < 35) {
+      if (Math.sqrt(dx * dx + dy * dy) < 40) {
         state.setTargetPosition({ x: ore.x, y: ore.y - 20 });
         state.setTargetOreId(ore.id);
         return true;
@@ -300,8 +300,8 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       const canvas = app.canvas as HTMLCanvasElement;
       if (canvas && (target === canvas || canvas.contains(target))) {
         const rect = canvas.getBoundingClientRect();
-        const worldX = (e.clientX - rect.left) - cameraContainer.x;
-        const worldY = (e.clientY - rect.top) - cameraContainer.y;
+        const worldX = Math.round((e.clientX - rect.left) - cameraContainer.x);
+        const worldY = Math.round((e.clientY - rect.top) - cameraContainer.y);
         if (handleEnemyClick(worldX, worldY) || handleBonusBoxClick(worldX, worldY) || handleOreClick(worldX, worldY)) return;
         state.setTargetBonusBoxId(null); state.setTargetOreId(null);
         if (Date.now() - lastOutsideClickTimeRef.current < 300) {
