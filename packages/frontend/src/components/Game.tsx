@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Application, Container } from 'pixi.js';
 import { usePixiApp } from '../hooks/usePixiApp';
 import { Starfield } from './Starfield';
@@ -31,8 +31,7 @@ import { TradeWindow } from './windows/TradeWindow';
 import { useGameStore } from '../stores/gameStore';
 import { Socket } from "socket.io-client";
 import { RemoteShip } from "./RemoteShip";
-import { BASE_SAFETY_ZONE, ENEMY_STATS, SPARROW_SHIP, BONUS_BOX_CONFIG } from '@shared/constants';
-import { useRef } from 'react';
+import { BASE_SAFETY_ZONE, SPARROW_SHIP, BONUS_BOX_CONFIG } from '@shared/constants';
 import '../styles/windows.css';
 
 export function Game({ socket, initialPlayerData }: { socket: Socket, initialPlayerData: any }) {
@@ -106,8 +105,13 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
 
       if (data.enemies) {
         const enemyMap = new Map();
-        data.enemies.forEach((e: any) => enemyMap.set(e.id, { ...e, name: '-=[ Drifter ]=-', attitude: 'defensive' }));
+        const posMap = new Map();
+        data.enemies.forEach((e: any) => {
+          enemyMap.set(e.id, { ...e, name: '-=[ Drifter ]=-', attitude: 'defensive' });
+          posMap.set(e.id, { x: e.x, y: e.y });
+        });
         state.setEnemies(enemyMap);
+        state.setEnemyPositions(posMap); // Sync Minimap
       }
       if (data.ores) {
         const oreMap = new Map();
@@ -177,8 +181,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     if (health <= 0 && !state.deadEnemies.has(enemyId)) {
       state.updateEnemy(enemyId, { ...enemy, health, isEngaged: false });
       socket.emit('enemy_destroyed', { type: 'DRIFTER' });
-      const reward = ENEMY_STATS.DRIFTER.REWARD;
-      addMessage(`Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits`, 'combat');
+      addMessage(`Enemy destroyed!`, 'combat');
       state.addDeadEnemy(enemyId);
       if (state.selectedEnemyId === enemyId) {
         state.setInCombat(false); state.setPlayerFiring(false); state.setSelectedEnemyId(null);
@@ -280,32 +283,22 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
             if (rewardRoll <= currentWeight) { selectedReward = reward; break; }
           }
           const amount = selectedReward.amounts[Math.floor(Math.random() * selectedReward.amounts.length)];
-          if (selectedReward.type === 'credits') {
-            state.addCredits(amount); addMessage(`Bonus Box: +${amount} Credits`, 'success');
-            socket.emit('collect_bonus_box', { id: box.id, reward: { type: 'credits', amount } });
-          } else if (selectedReward.type === 'aetherium') {
-            state.addAetherium(amount); addMessage(`Bonus Box: +${amount} Aetherium`, 'success');
-            socket.emit('collect_bonus_box', { id: box.id, reward: { type: 'aetherium', amount } });
-          } else if (selectedReward.type === 'ammo' && selectedReward.ammoType) {
-            state.addAmmo(selectedReward.ammoType, amount); addMessage(`Bonus Box: +${amount} ${selectedReward.ammoType} Ammo`, 'success');
-            socket.emit('collect_bonus_box', { id: box.id, reward: { type: 'ammo', ammoType: selectedReward.ammoType, amount } });
-          }
-          state.removeBonusBox(box.id); state.setTargetBonusBoxId(null);
+          // Only emit, don't delete locally (Wait for server sync)
+          socket.emit('collect_bonus_box', { id: box.id, reward: { type: selectedReward.type, amount, ammoType: selectedReward.ammoType } });
+          state.setTargetBonusBoxId(null);
         }
       });
       state.ores.forEach((ore) => {
         if (state.targetOreId !== ore.id) return;
         if (Math.sqrt(Math.pow(shipPos.x - ore.x, 2) + Math.pow(shipPos.y - ore.y, 2)) < 50) {
-          if (state.collectOre(ore.id)) {
-            addMessage(`Collected ${ore.type}`, 'success');
-            socket.emit('collect_ore', { id: ore.id });
-          }
+          socket.emit('collect_ore', { id: ore.id });
+          state.setTargetOreId(null);
         }
       });
     };
     const interval = setInterval(checkCollections, 100);
     return () => clearInterval(interval);
-  }, [addMessage, socket]);
+  }, [socket]);
 
   useEffect(() => {
     if (!app) return;

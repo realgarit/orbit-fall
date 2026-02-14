@@ -43,6 +43,7 @@ interface WorldEntity {
   type: string;
   x: number;
   y: number;
+  rotation: number;
   vx?: number;
   vy?: number;
   health?: number;
@@ -71,8 +72,9 @@ export class EntityManager {
         type: 'DRIFTER',
         x: Math.random() * MAP_WIDTH,
         y: Math.random() * MAP_HEIGHT,
-        vx: (Math.random() - 0.5) * 50,
-        vy: (Math.random() - 0.5) * 50,
+        rotation: 0,
+        vx: (Math.random() - 0.5) * 40,
+        vy: (Math.random() - 0.5) * 40,
         health: 1000,
         maxHealth: 1000,
         shield: 600,
@@ -86,7 +88,8 @@ export class EntityManager {
         id,
         type: Math.random() > 0.8 ? 'Beryl' : 'Pyrite',
         x: Math.random() * MAP_WIDTH,
-        y: Math.random() * MAP_HEIGHT
+        y: Math.random() * MAP_HEIGHT,
+        rotation: 0
       });
     }
     for (let i = 1; i <= 5; i++) {
@@ -95,12 +98,11 @@ export class EntityManager {
         id,
         type: 'standard',
         x: Math.random() * MAP_WIDTH,
-        y: Math.random() * MAP_HEIGHT
+        y: Math.random() * MAP_HEIGHT,
+        rotation: 0
       });
     }
   }
-
-  // --- Methods ---
 
   getPlayer(socketId: string) { return this.players.get(socketId); }
 
@@ -128,8 +130,11 @@ export class EntityManager {
   }
 
   async removePlayer(socketId: string) {
-    const p = this.players.get(socketId);
-    if (p) { await this.savePlayerToDB(socketId); this.players.delete(socketId); }
+    const player = this.players.get(socketId);
+    if (player) {
+      await this.savePlayerToDB(socketId);
+      this.players.delete(socketId);
+    }
   }
 
   addExperience(socketId: string, amount: number) {
@@ -157,7 +162,7 @@ export class EntityManager {
       p.cargo[ore.type] = (p.cargo[ore.type] || 0) + 1;
       this.ores.delete(oreId);
       setTimeout(() => {
-        this.ores.set(oreId, { id: oreId, type: ore.type, x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT });
+        this.ores.set(oreId, { id: oreId, type: ore.type, x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT, rotation: 0 });
       }, 30000);
       return true;
     }
@@ -173,7 +178,7 @@ export class EntityManager {
       
       this.boxes.delete(boxId);
       setTimeout(() => {
-        this.boxes.set(boxId, { id: boxId, type: 'standard', x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT });
+        this.boxes.set(boxId, { id: boxId, type: 'standard', x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT, rotation: 0 });
       }, 15000);
       return true;
     }
@@ -203,7 +208,6 @@ export class EntityManager {
 
   update(dt: number) {
     const now = Date.now();
-    // 1. Update Players
     this.players.forEach(p => {
       let isMoving = false;
       let moveAngle = p.angle;
@@ -224,11 +228,11 @@ export class EntityManager {
       }
     });
 
-    // 2. Update Enemies (Authoritative AI)
     this.enemies.forEach(e => {
       if (now - (e.lastPatrolChange || 0) > 3000 + Math.random() * 2000) {
         const angle = Math.random() * Math.PI * 2;
         e.vx = Math.cos(angle) * 40; e.vy = Math.sin(angle) * 40;
+        e.rotation = angle + Math.PI/2; // Sync rotation with movement
         e.lastPatrolChange = now;
       }
       e.x += (e.vx || 0) * dt; e.y += (e.vy || 0) * dt;
