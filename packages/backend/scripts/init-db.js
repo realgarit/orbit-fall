@@ -15,8 +15,9 @@ const pool = new Pool({
 });
 
 async function initDb() {
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     console.log('🔌 Connected to database...');
 
     console.log('🏗️ Creating tables...');
@@ -80,7 +81,9 @@ async function initDb() {
     console.error('❌ Error initializing database:', err);
     process.exit(1);
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
     await pool.end();
     console.log('👋 Database connection closed.');
   }
