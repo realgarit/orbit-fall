@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Application, Container } from 'pixi.js';
 import { usePixiApp } from '../hooks/usePixiApp';
 import { Starfield } from './Starfield';
@@ -32,7 +32,7 @@ import { useGameStore } from '../stores/gameStore';
 import { Socket } from "socket.io-client";
 import { RemoteShip } from "./RemoteShip";
 import { BASE_SAFETY_ZONE, ENEMY_STATS, SPARROW_SHIP, BONUS_BOX_CONFIG } from '@shared/constants';
-import type { EnemyState } from '@shared/types';
+import { useRef } from 'react';
 import '../styles/windows.css';
 
 export function Game({ socket, initialPlayerData }: { socket: Socket, initialPlayerData: any }) {
@@ -168,17 +168,6 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     state.setShipRotation(rotation);
     socket.emit("player_input", { thrust, angle: rotation, targetPosition: targetPos });
   }, [socket]);
-
-  const handleEnemyStateUpdate = useCallback((enemyId: string, enemyState: EnemyState) => {
-    const state = useGameStore.getState();
-    const existing = state.enemies.get(enemyId);
-    state.updateEnemy(enemyId, {
-      ...enemyState,
-      isEngaged: (existing && existing.isEngaged) || enemyState.isEngaged,
-      shield: enemyState.shield ?? existing?.shield,
-      maxShield: enemyState.maxShield ?? existing?.maxShield,
-    });
-  }, []);
 
   const handleEnemyHealthChange = useCallback((enemyId: string, health: number) => {
     const state = useGameStore.getState();
@@ -378,7 +367,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           <Starfield app={app} cameraContainer={cameraContainer} />
           <MarsBackground app={app} cameraContainer={cameraContainer} />
           <Base app={app} cameraContainer={cameraContainer} position={basePosition} />
-          {enemyList.map(([id, e]) => <Enemy key={id} app={app} cameraContainer={cameraContainer} playerPosition={shipPosition} enemyState={deadEnemies.has(id) ? null : e} onStateUpdate={(st) => handleEnemyStateUpdate(id, st)} onPositionUpdate={(pos) => useGameStore.getState().updateEnemyPosition(id, pos)} isDead={deadEnemies.has(id)} />)}
+          {enemyList.map(([id, e]) => <Enemy key={id} app={app} cameraContainer={cameraContainer} enemyState={deadEnemies.has(id) ? null : e} isDead={deadEnemies.has(id)} />)}
           {bonusBoxList.map((box) => <BonusBox key={box.id} app={app} cameraContainer={cameraContainer} boxState={box} isCollecting={targetBonusBoxId === box.id} />)}
           {oreList.map((ore) => <ResourceCrystal key={ore.id} app={app} cameraContainer={cameraContainer} oreState={ore} isCollecting={targetOreId === ore.id} />)}
           {Array.from(remotePlayers.values()).map((p) => <RemoteShip key={p.id} app={app} cameraContainer={cameraContainer} x={p.x} y={p.y} rotation={p.angle} username={p.username} isMoving={p.thrust} />)}

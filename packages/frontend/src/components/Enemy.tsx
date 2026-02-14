@@ -68,7 +68,7 @@ export const Enemy = memo(function Enemy({ app, cameraContainer, enemyState, isD
     cameraContainer.addChild(nameText);
     nameTextRef.current = nameText;
 
-    const tickerCallback = (ticker: any) => {
+    const tickerCallback = () => {
       if (!enemyRef.current || !nameTextRef.current || isDead) {
         if (enemyRef.current) enemyRef.current.visible = false;
         if (nameTextRef.current) nameTextRef.current.visible = false;
