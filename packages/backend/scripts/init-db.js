@@ -1,5 +1,3 @@
-import dns from "dns";
-dns.setDefaultResultOrder("ipv4first");
 import pg from 'pg';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -11,66 +9,28 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const { Pool } = pg;
 
-async function resolveToIPv4(hostname) {
-  if (hostname === 'localhost' || hostname === '127.0.0.1') return hostname;
-  try {
-    const { address } = await dns.promises.lookup(hostname, { family: 4 });
-    return address;
-  } catch (error) {
-    return null;
-  }
-}
-
 async function initDb() {
-  let connectionString = process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
+  const connectionString = process.env.DATABASE_URL;
 
-  const dbHostMatch = connectionString.match(/@([^/]+)/) || connectionString.match(/\/\/([^/]+)/);
-  const dbHost = dbHostMatch ? dbHostMatch[1] : 'unknown';
-  const [hostname] = dbHost.split(':');
-
-  if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-    const ipv4 = await resolveToIPv4(hostname);
-    if (ipv4) {
-      if (ipv4 !== hostname) {
-        connectionString = connectionString.replace(hostname, ipv4);
-      }
-    } else {
-      // IPv4 resolution failed. Check if it's a Supabase direct host.
-      const supabaseMatch = hostname.match(/db\.([^.]+)\.supabase\.co/);
-      if (supabaseMatch) {
-        const projectRef = supabaseMatch[1];
-        const poolerHost = `aws-0-eu-west-1.pooler.supabase.com`;
-        console.warn(`⚠️ IPv4 resolution failed for Supabase direct host ${hostname}.`);
-        console.log(`🔄 Falling back to Supabase Connection Pooler: ${poolerHost}`);
-
-        try {
-          const url = new URL(connectionString);
-          url.hostname = poolerHost;
-          url.port = "6543";
-          if (!url.username.includes(projectRef)) {
-            url.username = `${url.username}.${projectRef}`;
-          }
-          connectionString = url.toString();
-        } catch (e) {
-          // Fallback to manual replacement if URL parsing fails
-          connectionString = connectionString.replace(hostname, poolerHost);
-          if (!connectionString.includes(`postgres.${projectRef}`)) {
-            connectionString = connectionString.replace("://postgres:", `://postgres.${projectRef}:`);
-          }
-        }
-      }
-    }
+  if (!connectionString) {
+    console.error('❌ Error: DATABASE_URL is missing.');
+    process.exit(1);
   }
+
+  // Log connection attempt (hiding password)
+  const maskedUrl = connectionString.replace(/:([^:@]+)@/, ':****@');
+  console.log(`🔌 Connecting to database: ${maskedUrl}`);
 
   const pool = new Pool({
     connectionString,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 5000,
   });
 
   let client;
   try {
     client = await pool.connect();
-    console.log('🔌 Connected to database...');
+    console.log('✅ Connected successfully.');
 
     console.log('🏗️ Creating tables...');
 
@@ -125,12 +85,10 @@ async function initDb() {
     }
 
   } catch (err) {
-    if (err.code === "ENETUNREACH") {
-      console.warn("⚠️ Could not reach database. This is expected during Render build phase.");
-      console.warn("⚠️ Database initialization will be retried during service start.");
-      process.exit(0);
+    console.error('❌ Error initializing database:', err.message);
+    if (err.message.includes('getaddrinfo') || err.message.includes('connect ETIMEDOUT')) {
+      console.error('💡 HINT: If you are on Render/Vercel, ensure you are using the Supabase "Transaction Pooler" connection string (port 6543) which supports IPv4, not the "Direct" connection string (port 5432) which is often IPv6 only.');
     }
-    console.error('❌ Error initializing database:', err);
     process.exit(1);
   } finally {
     if (client) {
