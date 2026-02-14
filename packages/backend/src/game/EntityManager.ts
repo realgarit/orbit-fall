@@ -32,6 +32,7 @@ interface PlayerEntity {
   maxHealth: number;
   shield: number;
   maxShield: number;
+  ship_type: string;
   
   lastInputTime: number;
   lastDamageTime: number; // For shield regeneration
