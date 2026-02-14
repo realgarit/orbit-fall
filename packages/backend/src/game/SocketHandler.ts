@@ -22,7 +22,19 @@ export class SocketHandler {
 
     // 1. Register
     socket.on('register', async (data: { username: string; password: string }) => {
+      const ip = this.getClientIp(socket);
+      const isLocalhost = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1';
+
+      if (!isLocalhost && this.activeIps.has(ip)) {
+        socket.emit('register_response', { success: false, message: 'Registration Limit: 1 account per Public IP' });
+        return;
+      }
+
       const result = await this.authService.register(data.username, data.password);
+      if (result.success) {
+         // Registration successful, but we don't automatically log them in or block the IP yet
+         // The user must click "Login" next, which handles the activeIps check
+      }
       socket.emit('register_response', result);
     });
 
@@ -31,15 +43,18 @@ export class SocketHandler {
       const ip = this.getClientIp(socket);
       const isLocalhost = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1';
 
-      if (!isLocalhost && this.activeIps.has(ip)) {
-        socket.emit('login_response', { success: false, message: 'Limit: 1 account per Public IP' });
+      // Concurrent Session Limit (Anti-Multibox)
+      if (!isLocalhost && Array.from(this.activeIps.keys()).includes(ip)) {
+        socket.emit('login_response', { success: false, message: 'Login Limit: 1 active session per Public IP' });
         return;
       }
 
       const result = await this.authService.login(data.username, data.password);
       if (result.success) {
         // Add to game world
-        this.entityManager.addPlayer(socket.id, result.user);
+        // FIX: addPlayer expects (socketId, username), NOT (socketId, userObject)
+        this.entityManager.addPlayer(socket.id, result.user.username);
+        
         this.activeIps.set(ip, socket.id);
 
         socket.emit('login_success', {

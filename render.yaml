@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: orbit-fall
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+    autoDeploy: true
+    # This enables PR Previews for this service
+    # It will create a temporary version of this service for every PR
+    # AND (crucially) it will inject the DATABASE_URL from the temporary DB defined below
+    previewPlan: free
+
+databases:
+  - name: orbit-fall-db
+    plan: free
+    region: frankfurt
+    # This enables PR Previews for the database
+    # Render will spin up a temporary Postgres instance for every PR
+    # and automatically link it to the web service above via DATABASE_URL
+    previewPlan: free

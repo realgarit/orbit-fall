@@ -1238,9 +1238,10 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
               Safety Zone - Combat Disabled
             </div>
           )}
-          <ShipWindow />
+          <ShipWindow
             serverPosition={serverPosition}
             username={initialPlayerData.username}
+          />
           <StatsWindow />
           <DebugWindow />
           <BattleWindow />
