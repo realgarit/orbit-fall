@@ -9,22 +9,34 @@ export class AuthService {
   }
 
   async register(username: string, password: string): Promise<{ success: boolean; message: string }> {
+    if (!username || username.trim().length === 0) {
+      return { success: false, message: 'Username cannot be empty' };
+    }
+    if (!password || password.trim().length === 0) {
+      return { success: false, message: 'Password cannot be empty' };
+    }
+
     try {
-      // Check if user already exists
-      const existingUser = await this.dbPool.query('SELECT id FROM players WHERE username = $1', [username]);
-      if (existingUser.rows.length > 0) {
-        return { success: false, message: 'Username already exists' };
+      const client = await this.dbPool.connect();
+      try {
+        // Check if user already exists
+        const existingUser = await client.query('SELECT id FROM players WHERE username = $1', [username]);
+        if (existingUser.rows.length > 0) {
+          return { success: false, message: 'Username already exists' };
+        }
+
+        const saltRounds = 10;
+        const passwordHash = await bcrypt.hash(password, saltRounds);
+
+        await client.query(
+          'INSERT INTO players (username, password_hash) VALUES ($1, $2)',
+          [username, passwordHash]
+        );
+
+        return { success: true, message: 'Registration successful' };
+      } finally {
+        client.release();
       }
-
-      const saltRounds = 10;
-      const passwordHash = await bcrypt.hash(password, saltRounds);
-
-      await this.dbPool.query(
-        'INSERT INTO players (username, password_hash) VALUES ($1, $2)',
-        [username, passwordHash]
-      );
-
-      return { success: true, message: 'Registration successful' };
     } catch (error) {
       console.error('[AuthService] Registration error:', error);
       return { success: false, message: 'An error occurred during registration' };
