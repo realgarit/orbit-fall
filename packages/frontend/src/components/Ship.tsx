@@ -1,5 +1,5 @@
 import { useEffect, useRef, memo } from 'react';
-import { Application, Graphics, Container, Text, TextStyle } from 'pixi.js';
+import { Application, Graphics, Container, Text } from 'pixi.js';
 import { MAP_WIDTH, MAP_HEIGHT, SPARROW_SHIP } from '@shared/constants';
 import { convertSpeedToDisplay } from '@shared/utils/speedConversion';
 
