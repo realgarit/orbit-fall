@@ -78,13 +78,13 @@ export function createApp(dbPool: Pool) {
 }
 
 export async function createDatabasePool(): Promise<Pool> {
-  const connectionString = process.env.PREVIEW_DB_URL || process.env.DATABASE_URL;
+  const connectionString = process.env.PREVIEW_DATABASE_URL || process.env.DATABASE_URL;
   
   if (!connectionString) {
-    console.warn('⚠️ No database connection string found (PREVIEW_DB_URL or DATABASE_URL).');
+    console.warn('⚠️ No database connection string found (PREVIEW_DATABASE_URL or DATABASE_URL).');
   } else {
     // Log which one we are using (safely)
-    const isStaging = !!process.env.PREVIEW_DB_URL;
+    const isStaging = !!process.env.PREVIEW_DATABASE_URL;
     const maskedUrl = connectionString.replace(/:([^:@]+)@/, ':****@');
     console.log(`🔌 Connecting to ${isStaging ? 'STAGING' : 'PRODUCTION'} database: ${maskedUrl}`);
   }

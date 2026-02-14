@@ -10,15 +10,15 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 const { Pool } = pg;
 
 async function initDb() {
-  const connectionString = process.env.PREVIEW_DB_URL || process.env.DATABASE_URL;
+  const connectionString = process.env.PREVIEW_DATABASE_URL || process.env.DATABASE_URL;
 
   if (!connectionString) {
-    console.error('❌ Error: DATABASE_URL or PREVIEW_DB_URL is missing.');
+    console.error('❌ Error: DATABASE_URL or PREVIEW_DATABASE_URL is missing.');
     process.exit(1);
   }
 
   // Log connection attempt (hiding password)
-  const isStaging = !!process.env.PREVIEW_DB_URL;
+  const isStaging = !!process.env.PREVIEW_DATABASE_URL;
   const maskedUrl = connectionString.replace(/:([^:@]+)@/, ':****@');
   console.log(`🔌 Connecting to ${isStaging ? 'STAGING' : 'PRODUCTION'} database: ${maskedUrl}`);
 
