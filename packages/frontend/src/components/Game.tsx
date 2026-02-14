@@ -203,12 +203,12 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       if (state.deadEnemies.has(enemyId)) continue;
       const dx = worldX - enemy.x;
       const dy = worldY - enemy.y;
-      if (Math.sqrt(dx * dx + dy * dy) < 40) {
+      if (Math.sqrt(dx * dx + dy * dy) < 50) {
         const now = Date.now();
         if (now - lastClickProcessedTimeRef.current < 50) return true;
         lastClickProcessedTimeRef.current = now;
         
-        const isDoubleClick = now - lastClickTimeRef.current < 300 && lastClickEnemyIdRef.current === enemyId;
+        const isDoubleClick = now - lastClickTimeRef.current < 350 && lastClickEnemyIdRef.current === enemyId;
         
         if (isDoubleClick) {
           state.setSelectedEnemyId(enemyId);
@@ -248,7 +248,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     for (const ore of state.ores.values()) {
       const dx = worldX - ore.x;
       const dy = worldY - ore.y;
-      if (Math.sqrt(dx * dx + dy * dy) < 25) {
+      if (Math.sqrt(dx * dx + dy * dy) < 35) {
         state.setTargetPosition({ x: ore.x, y: ore.y - 20 });
         state.setTargetOreId(ore.id);
         return true;
@@ -263,7 +263,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       const shipPos = state.shipPosition;
       state.bonusBoxes.forEach((box) => {
         if (state.targetBonusBoxId !== box.id) return;
-        if (Math.sqrt(Math.pow(shipPos.x - box.x, 2) + Math.pow(shipPos.y - box.y, 2)) < 50) {
+        if (Math.sqrt(Math.pow(shipPos.x - box.x, 2) + Math.pow(shipPos.y - box.y, 2)) < 55) {
           const rewardRoll = Math.random() * 100;
           let currentWeight = 0;
           let selectedReward: any = BONUS_BOX_CONFIG.REWARDS[0];
@@ -278,8 +278,10 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       });
       state.ores.forEach((ore) => {
         if (state.targetOreId !== ore.id) return;
-        if (Math.sqrt(Math.pow(shipPos.x - ore.x, 2) + Math.pow(shipPos.y - ore.y, 2)) < 50) {
-          socket.emit('collect_ore', { id: ore.id });
+        if (Math.sqrt(Math.pow(shipPos.x - ore.x, 2) + Math.pow(shipPos.y - ore.y, 2)) < 55) {
+          if (state.collectOre(ore.id)) {
+            socket.emit('collect_ore', { id: ore.id });
+          }
           state.setTargetOreId(null);
         }
       });
@@ -289,27 +291,35 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   }, [socket]);
 
   useEffect(() => {
-    if (!app) return;
+    if (!app || !cameraContainer) return;
     const handleCanvasClick = (e: MouseEvent) => {
       const state = useGameStore.getState();
       const target = e.target as HTMLElement;
       if (target.closest('.game-window')) return;
       const canvas = app.canvas as HTMLCanvasElement;
       if (canvas && (target === canvas || canvas.contains(target))) {
+        // COORDINATE CONVERSION FIX
         const rect = canvas.getBoundingClientRect();
-        const worldX = (e.clientX - rect.left) - (-state.shipPosition.x + app.screen.width / 2);
-        const worldY = (e.clientY - rect.top) - (-state.shipPosition.y + app.screen.height / 2);
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+        const worldX = screenX - cameraContainer.x;
+        const worldY = screenY - cameraContainer.y;
+
         if (handleEnemyClick(worldX, worldY) || handleBonusBoxClick(worldX, worldY) || handleOreClick(worldX, worldY)) return;
-        state.setTargetBonusBoxId(null); state.setTargetOreId(null);
-        if (Date.now() - lastOutsideClickTimeRef.current < 300) {
+        
+        state.setTargetBonusBoxId(null); 
+        state.setTargetOreId(null);
+        
+        const now = Date.now();
+        if (now - lastOutsideClickTimeRef.current < 300) {
           state.setSelectedEnemyId(null); state.setInCombat(false); state.setPlayerFiring(false);
         }
-        lastOutsideClickTimeRef.current = Date.now();
+        lastOutsideClickTimeRef.current = now;
       }
     };
     window.addEventListener('mousedown', handleCanvasClick);
     return () => window.removeEventListener('mousedown', handleCanvasClick);
-  }, [app, handleEnemyClick, handleBonusBoxClick, handleOreClick]);
+  }, [app, cameraContainer, handleEnemyClick, handleBonusBoxClick, handleOreClick]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

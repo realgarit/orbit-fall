@@ -490,14 +490,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     const ore = state.ores.get(id);
     if (!ore) return false;
 
-    if (state.addOreToCargo(ore.type, 1)) {
-      state.removeOre(id);
-      if (state.targetOreId === id) {
-        state.setTargetOreId(null);
-      }
-      return true;
+    // Check cargo space only
+    const currentCargoAmount = (Object.entries(state.playerCargo) as [OreType, number][]).reduce((sum, [t, count]) => {
+      const config = ORE_CONFIG[t.toUpperCase() as keyof typeof ORE_CONFIG];
+      return sum + count * (config?.cargoSpace || 1);
+    }, 0);
+    const config = ORE_CONFIG[ore.type.toUpperCase() as keyof typeof ORE_CONFIG];
+    
+    if (currentCargoAmount + (config?.cargoSpace || 1) > state.playerMaxCargo) {
+      return false;
     }
-    return false;
+    return true; // We don't remove locally anymore
   },
   sellOre: (type, amount) => {
     const state = get();
