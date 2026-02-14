@@ -374,7 +374,24 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
             onEnemyClick={handleEnemyClick} onBonusBoxClick={handleBonusBoxClick} inCombat={!!(inCombat && selectedEnemyId)} isDead={isDead} 
           />
           {isDead && deathPosition && <ShipExplosion app={app} cameraContainer={cameraContainer} position={deathPosition} active={isDead} onComplete={() => setTimeout(() => useGameStore.getState().setShowDeathWindow(true), 1000)} />}
-          {isRepairing && <RepairRobot app={app} cameraContainer={cameraContainer} shipPosition={shipPosition} onRepairComplete={() => { useGameStore.getState().setIsRepairing(false); addMessage('Repair complete', 'success'); }} onHealTick={(amt) => useGameStore.getState().setPlayerHealth(Math.min(SPARROW_SHIP.hitpoints, playerHealth + amt))} playerHealth={playerHealth} maxHealth={SPARROW_SHIP.hitpoints} />}
+          {isRepairing && (
+            <RepairRobot 
+              app={app} 
+              cameraContainer={cameraContainer} 
+              shipPosition={shipPosition} 
+              onRepairComplete={() => { 
+                useGameStore.getState().setIsRepairing(false); 
+                addMessage('Repair complete', 'success'); 
+                socket.emit('player_heal', { amount: 0 }); // Final sync
+              }} 
+              onHealTick={(amt) => {
+                useGameStore.getState().setPlayerHealth(Math.min(SPARROW_SHIP.hitpoints, playerHealth + amt));
+                socket.emit('player_heal', { amount: amt });
+              }} 
+              playerHealth={playerHealth} 
+              maxHealth={SPARROW_SHIP.hitpoints} 
+            />
+          )}
           <HPBar app={app} cameraContainer={cameraContainer} position={shipPosition} health={playerHealth} maxHealth={SPARROW_SHIP.hitpoints} visible={true} shield={playerShield ?? 0} maxShield={playerMaxShield ?? 0} />
           {instaShieldActive && <Shield app={app} cameraContainer={cameraContainer} position={shipPosition} active={true} />}
           {engagedEnemyList.map(([id, e]) => (

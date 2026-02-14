@@ -159,6 +159,18 @@ export class SocketHandler {
       }
     });
 
+    socket.on('player_heal', (data: { amount: number }) => {
+      const player = this.entityManager.getPlayer(socket.id);
+      if (player) {
+        player.health = Math.min(player.maxHealth, player.health + data.amount);
+        // We don't save to DB on every tick to save IO, snapshot will handle persistence eventually
+        // But if they are full health, let's do one save
+        if (player.health >= player.maxHealth) {
+          this.entityManager.savePlayerToDB(socket.id);
+        }
+      }
+    });
+
     socket.on('respawn', (data: { type: 'base' | 'spot' }) => {
       const player = this.entityManager.getPlayer(socket.id);
       if (player && player.health <= 0) {
