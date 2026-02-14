@@ -350,6 +350,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const engagedEnemyList = useMemo(() => enemyList.filter(([id, e]) => {
     if (deadEnemies.has(id)) return false;
     if (e.health <= 0) return false;
+    // CRITICAL: CombatSystem must mount if server says engaged OR if local player is actively attacking
     return e.isEngaged || (id === selectedEnemyId && inCombat);
   }), [enemyList, deadEnemies, selectedEnemyId, inCombat]);
 

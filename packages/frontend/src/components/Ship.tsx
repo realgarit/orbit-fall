@@ -67,16 +67,10 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
     const ship = new Container();
     const shipBody = new Graphics();
     const engineGlow = new Graphics();
-    const serverGhost = new Graphics(); 
 
     ship.addChild(engineGlow);
     ship.addChild(shipBody);
     
-    serverGhost.circle(0, 0, 20);
-    serverGhost.stroke({ color: 0xffffff, width: 1, alpha: 0.3 });
-    serverGhost.visible = false;
-    cameraContainer.addChild(serverGhost);
-
     const drawShipBody = (g: Graphics) => {
       g.clear();
       g.roundRect(-15, 6, 30, 4, 1.5); g.fill(0xcccccc); 
@@ -146,7 +140,6 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
         if (!hasInitializedPosRef.current) { pos.x = sPos.x; pos.y = sPos.y; hasInitializedPosRef.current = true; }
         const dx = sPos.x - pos.x; const dy = sPos.y - pos.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        serverGhost.x = sPos.x; serverGhost.y = sPos.y; serverGhost.visible = dist > 50;
         if (dist > 500) { pos.x = sPos.x; pos.y = sPos.y; }
       }
 
@@ -217,7 +210,6 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
       window.removeEventListener('mouseup', handleMouseUp);
       cameraContainer.removeChild(ship);
       cameraContainer.removeChild(nameText);
-      cameraContainer.removeChild(serverGhost);
     };
   }, [app, cameraContainer, username]);
 
