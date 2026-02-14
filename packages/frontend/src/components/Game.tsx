@@ -404,12 +404,15 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
 
   // Handle damage events for floating numbers
   const handlePlayerDamage = useCallback((event: { damage: number; position: { x: number; y: number } }) => {
+    // AUTHORITY: Notify server
+    socket.emit('player_damaged', { damage: event.damage });
+
     damageNumbersRef.current?.addDamageNumber(
       event.damage,
       event.position,
       true // isPlayerDamage = true (enemy damages player)
     );
-  }, []);
+  }, [socket]);
 
   const handleEnemyDamage = useCallback((event: { damage: number; position: { x: number; y: number } }) => {
     damageNumbersRef.current?.addDamageNumber(
@@ -899,6 +902,9 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const handleRepairOnSpot = useCallback(() => {
     const state = useGameStore.getState();
     if (state.deathPosition) {
+      // AUTHORITY: Notify server of respawn
+      socket.emit('respawn', { type: 'spot' });
+
       const restoredHealth = Math.floor(SPARROW_SHIP.hitpoints * 0.1);
       state.setPlayerHealth(restoredHealth);
       state.setIsDead(false);
@@ -925,7 +931,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       state.setTargetPosition(state.deathPosition);
       state.setDeathPosition(null);
     }
-  }, [addMessage]);
+  }, [addMessage, socket]);
 
   // Handle Insta-shield expiration
   useEffect(() => {

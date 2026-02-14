@@ -133,6 +133,49 @@ export class SocketHandler {
       }
     });
 
+    socket.on('player_damaged', (data: { damage: number }) => {
+      const player = this.entityManager.getPlayer(socket.id);
+      if (player) {
+        let remainingDamage = data.damage;
+        
+        // Apply to shield first
+        if (player.shield > 0) {
+          const shieldDamage = Math.min(remainingDamage, player.shield);
+          player.shield -= shieldDamage;
+          remainingDamage -= shieldDamage;
+        }
+        
+        // Apply remaining to health
+        if (remainingDamage > 0) {
+          player.health = Math.max(0, player.health - remainingDamage);
+        }
+        
+        player.lastDamageTime = Date.now();
+        
+        // Save periodically or on death
+        if (player.health <= 0) {
+          this.entityManager.savePlayerToDB(socket.id);
+        }
+      }
+    });
+
+    socket.on('respawn', (data: { type: 'base' | 'spot' }) => {
+      const player = this.entityManager.getPlayer(socket.id);
+      if (player && player.health <= 0) {
+        if (data.type === 'base') {
+          player.x = 200;
+          player.y = 200;
+          player.health = player.maxHealth;
+          player.shield = player.maxShield;
+        } else {
+          // Repair on spot (10% HP as per your frontend logic)
+          player.health = Math.floor(player.maxHealth * 0.1);
+          player.shield = 0;
+        }
+        this.entityManager.savePlayerToDB(socket.id);
+      }
+    });
+
     // 5. Disconnect
     socket.on('disconnect', () => {
       console.log(`[SocketHandler] Disconnect: ${socket.id}`);
