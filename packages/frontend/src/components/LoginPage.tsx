@@ -26,7 +26,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       newSocket.emit('resume_session', { token: savedToken, username: savedUsername });
     }
 
-    newSocket.on('login_response', (data) => {
+    newSocket.on('login_response', (data: { success: boolean; message: string }) => {
       setLoading(false);
       if (!data.success) {
         setError(data.message);
@@ -34,7 +34,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       }
     });
 
-    newSocket.on('login_success', (data) => {
+    newSocket.on('login_success', (data: any) => {
       setLoading(false);
       // Save for persistence
       if (data.sessionToken) {
@@ -44,7 +44,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       onLoginSuccess(data, newSocket);
     });
 
-    newSocket.on('register_response', (data) => {
+    newSocket.on('register_response', (data: { success: boolean; message: string }) => {
       setLoading(false);
       if (data.success) {
         setSuccessMessage('Registration successful! Please log in.');
