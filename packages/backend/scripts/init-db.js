@@ -75,6 +75,18 @@ async function initDb() {
 
     console.log('✅ Tables created successfully.');
 
+    // Ensure registration_ip column exists (Migration)
+    console.log('🔍 Checking for missing columns...');
+    await client.query(`
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='registration_ip') THEN
+          ALTER TABLE players ADD COLUMN registration_ip VARCHAR(45);
+          RAISE NOTICE 'Added registration_ip column';
+        END IF;
+      END $$;
+    `);
+
     // Check for seed data
     const res = await client.query('SELECT COUNT(*) FROM players');
     if (parseInt(res.rows[0].count) === 0) {
