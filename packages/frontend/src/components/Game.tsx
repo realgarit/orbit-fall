@@ -111,7 +111,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           posMap.set(e.id, { x: e.x, y: e.y });
         });
         state.setEnemies(enemyMap);
-        state.setEnemyPositions(posMap); // Sync Minimap
+        state.setEnemyPositions(posMap);
       }
       if (data.ores) {
         const oreMap = new Map();
@@ -173,32 +173,15 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     socket.emit("player_input", { thrust, angle: rotation, targetPosition: targetPos });
   }, [socket]);
 
-  const handleEnemyHealthChange = useCallback((enemyId: string, health: number) => {
-    const state = useGameStore.getState();
-    const enemy = state.enemies.get(enemyId);
-    if (!enemy) return;
-
-    if (health <= 0 && !state.deadEnemies.has(enemyId)) {
-      state.updateEnemy(enemyId, { ...enemy, health, isEngaged: false });
-      socket.emit('enemy_destroyed', { type: 'DRIFTER' });
-      addMessage(`Enemy destroyed!`, 'combat');
-      state.addDeadEnemy(enemyId);
-      if (state.selectedEnemyId === enemyId) {
-        state.setInCombat(false); state.setPlayerFiring(false); state.setSelectedEnemyId(null);
-      }
-    } else {
-      state.updateEnemy(enemyId, { ...enemy, health });
-    }
-  }, [addMessage, socket]);
-
   const handlePlayerDamage = useCallback((event: { damage: number; position: { x: number; y: number } }) => {
     socket.emit('player_damaged', { damage: event.damage });
     damageNumbersRef.current?.addDamageNumber(event.damage, event.position, true);
   }, [socket]);
 
-  const handleEnemyDamage = useCallback((event: { damage: number; position: { x: number; y: number } }) => {
+  const handleEnemyDamage = useCallback((event: { id: string, damage: number; position: { x: number; y: number } }) => {
+    socket.emit('enemy_damage', { id: event.id, damage: event.damage });
     damageNumbersRef.current?.addDamageNumber(event.damage, event.position, false);
-  }, []);
+  }, [socket]);
 
   const handleRepairOnSpot = useCallback(() => {
     const state = useGameStore.getState();
@@ -227,7 +210,6 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
         if (now - lastClickTimeRef.current < 300 && lastClickEnemyIdRef.current === enemyId) {
           if (!isInSafetyZone() && !state.instaShieldActive) {
             state.setInCombat(true); state.setPlayerFiring(true);
-            state.updateEnemy(enemyId, { ...enemy, isEngaged: true });
           }
           lastClickTimeRef.current = 0;
         } else {
@@ -283,7 +265,6 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
             if (rewardRoll <= currentWeight) { selectedReward = reward; break; }
           }
           const amount = selectedReward.amounts[Math.floor(Math.random() * selectedReward.amounts.length)];
-          // Only emit, don't delete locally (Wait for server sync)
           socket.emit('collect_bonus_box', { id: box.id, reward: { type: selectedReward.type, amount, ammoType: selectedReward.ammoType } });
           state.setTargetBonusBoxId(null);
         }
@@ -369,7 +350,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           {isRepairing && <RepairRobot app={app} cameraContainer={cameraContainer} shipPosition={shipPosition} onRepairComplete={() => { useGameStore.getState().setIsRepairing(false); addMessage('Repair complete', 'success'); }} onHealTick={(amt) => useGameStore.getState().setPlayerHealth(Math.min(SPARROW_SHIP.hitpoints, playerHealth + amt))} playerHealth={playerHealth} maxHealth={SPARROW_SHIP.hitpoints} />}
           <HPBar app={app} cameraContainer={cameraContainer} position={shipPosition} health={playerHealth} maxHealth={SPARROW_SHIP.hitpoints} visible={true} shield={playerShield ?? 0} maxShield={playerMaxShield ?? 0} />
           {instaShieldActive && <Shield app={app} cameraContainer={cameraContainer} position={shipPosition} active={true} />}
-          {engagedEnemyList.map(([id, e]) => <CombatSystem key={id} app={app} cameraContainer={cameraContainer} playerPosition={shipPosition} playerVelocity={shipVelocity} playerRotation={shipRotation} playerHealth={playerHealth} enemyState={e} playerFiring={playerFiring && selectedEnemyId === id} onPlayerHealthChange={(h) => useGameStore.getState().setPlayerHealth(h)} onEnemyHealthChange={(h) => handleEnemyHealthChange(id, h)} isInSafetyZone={isInSafetyZone()} laserAmmo={useGameStore.getState().laserAmmo[currentLaserAmmoType]} onLaserAmmoConsume={() => socket.emit('fire_laser', { ammoType: currentLaserAmmoType })} onPlayerDamage={handlePlayerDamage} onEnemyDamage={handleEnemyDamage} />)}
+          {engagedEnemyList.map(([id, e]) => <CombatSystem key={id} app={app} cameraContainer={cameraContainer} playerPosition={shipPosition} playerVelocity={shipVelocity} playerRotation={shipRotation} playerHealth={playerHealth} enemyState={e} playerFiring={playerFiring && selectedEnemyId === id} onPlayerHealthChange={(h) => useGameStore.getState().setPlayerHealth(h)} onEnemyHealthChange={(h) => handleEnemyDamage({ id: id, damage: e.health - h, position: { x: e.x, y: e.y } })} isInSafetyZone={isInSafetyZone()} laserAmmo={useGameStore.getState().laserAmmo[currentLaserAmmoType]} onLaserAmmoConsume={() => socket.emit('fire_laser', { ammoType: currentLaserAmmoType })} onPlayerDamage={handlePlayerDamage} onEnemyDamage={(ev) => handleEnemyDamage({ id: id, ...ev })} />)}
           <DamageNumbers ref={damageNumbersRef} app={app} cameraContainer={cameraContainer} playerPosition={shipPosition} />
           {isInSafetyZone() && (
             <div style={{ position: 'fixed', top: '190px', left: '50%', transform: 'translateX(-50%)', color: '#ffffff', fontFamily: 'monospace', fontSize: '16px', fontWeight: 'bold', zIndex: 1000, pointerEvents: 'none', textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>

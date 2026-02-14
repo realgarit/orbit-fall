@@ -129,6 +129,10 @@ export class SocketHandler {
       }
     });
 
+    socket.on('enemy_damage', (data: { id: string, damage: number }) => {
+      this.entityManager.damageEnemy(data.id, data.damage);
+    });
+
     socket.on('player_damaged', (data: { damage: number }) => {
       const player = this.entityManager.getPlayer(socket.id);
       if (player) {

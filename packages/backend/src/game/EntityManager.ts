@@ -50,6 +50,7 @@ interface WorldEntity {
   maxHealth?: number;
   shield?: number;
   maxShield?: number;
+  isEngaged?: boolean;
   lastPatrolChange?: number;
 }
 
@@ -79,6 +80,7 @@ export class EntityManager {
         maxHealth: 1000,
         shield: 600,
         maxShield: 600,
+        isEngaged: false,
         lastPatrolChange: Date.now()
       });
     }
@@ -104,13 +106,21 @@ export class EntityManager {
     }
   }
 
+  private calculateMaxHealth(level: number): number {
+    return SPARROW_HITPOINTS + (level - 1) * 500;
+  }
+
+  private calculateMaxShield(level: number): number {
+    return (level - 1) * 250;
+  }
+
   getPlayer(socketId: string) { return this.players.get(socketId); }
 
   addPlayer(socketId: string, dbUser: any): PlayerEntity {
     const username = dbUser.username || 'Unknown Pilot';
     const level = Number(dbUser.level ?? 1);
-    const maxH = SPARROW_HITPOINTS + (level - 1) * 500;
-    const maxS = (level - 1) * 250;
+    const maxH = this.calculateMaxHealth(level);
+    const maxS = this.calculateMaxShield(level);
     
     const player: PlayerEntity = {
       id: socketId, socketId, dbId: dbUser.id, username,
@@ -144,8 +154,8 @@ export class EntityManager {
       const newLevel = Math.max(1, Math.floor(Math.log2(p.experience / 10000) + 2));
       if (newLevel > p.level) {
         p.level = newLevel;
-        p.maxHealth = SPARROW_HITPOINTS + (newLevel - 1) * 500;
-        p.maxShield = (newLevel - 1) * 250;
+        p.maxHealth = this.calculateMaxHealth(newLevel);
+        p.maxShield = this.calculateMaxShield(newLevel);
         p.health = p.maxHealth; p.shield = p.maxShield;
       }
     }
@@ -183,6 +193,32 @@ export class EntityManager {
       return true;
     }
     return false;
+  }
+
+  damageEnemy(enemyId: string, damage: number) {
+    const enemy = this.enemies.get(enemyId);
+    if (enemy) {
+      enemy.isEngaged = true;
+      let remainingDamage = damage;
+      if (enemy.shield !== undefined && enemy.shield > 0) {
+        const shieldDamage = Math.min(remainingDamage, enemy.shield);
+        enemy.shield -= shieldDamage;
+        remainingDamage -= shieldDamage;
+      }
+      if (remainingDamage > 0 && enemy.health !== undefined) {
+        enemy.health = Math.max(0, enemy.health - remainingDamage);
+      }
+
+      if (enemy.health !== undefined && enemy.health <= 0) {
+        setTimeout(() => {
+          if (enemy.health !== undefined) enemy.health = enemy.maxHealth || 1000;
+          if (enemy.shield !== undefined) enemy.shield = enemy.maxShield || 600;
+          enemy.isEngaged = false;
+          enemy.x = Math.random() * MAP_WIDTH;
+          enemy.y = Math.random() * MAP_HEIGHT;
+        }, 3000);
+      }
+    }
   }
 
   addAmmo(socketId: string, type: string, amount: number) {
@@ -232,7 +268,7 @@ export class EntityManager {
       if (now - (e.lastPatrolChange || 0) > 3000 + Math.random() * 2000) {
         const angle = Math.random() * Math.PI * 2;
         e.vx = Math.cos(angle) * 40; e.vy = Math.sin(angle) * 40;
-        e.rotation = angle + Math.PI/2; // Sync rotation with movement
+        e.rotation = angle + Math.PI/2;
         e.lastPatrolChange = now;
       }
       e.x += (e.vx || 0) * dt; e.y += (e.vy || 0) * dt;
