@@ -29,6 +29,7 @@ import { DeathWindow } from './windows/DeathWindow';
 import { MessageSystem } from './MessageSystem';
 import { OreWindow } from './windows/OreWindow';
 import { TradeWindow } from './windows/TradeWindow';
+import { LevelUpAnimation } from './LevelUpAnimation';
 import { useGameStore } from '../stores/gameStore';
 import { Socket } from "socket.io-client";
 import { RemoteShip } from "./RemoteShip";
@@ -376,20 +377,10 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           {isDead && deathPosition && <ShipExplosion app={app} cameraContainer={cameraContainer} position={deathPosition} active={isDead} onComplete={() => setTimeout(() => useGameStore.getState().setShowDeathWindow(true), 1000)} />}
           {isRepairing && (
             <RepairRobot 
-              app={app} 
-              cameraContainer={cameraContainer} 
-              shipPosition={shipPosition} 
-              onRepairComplete={() => { 
-                useGameStore.getState().setIsRepairing(false); 
-                addMessage('Repair complete', 'success'); 
-                socket.emit('player_heal', { amount: 0 }); // Final sync
-              }} 
-              onHealTick={(amt) => {
-                useGameStore.getState().setPlayerHealth(Math.min(SPARROW_SHIP.hitpoints, playerHealth + amt));
-                socket.emit('player_heal', { amount: amt });
-              }} 
-              playerHealth={playerHealth} 
-              maxHealth={SPARROW_SHIP.hitpoints} 
+              app={app} cameraContainer={cameraContainer} shipPosition={shipPosition} 
+              onRepairComplete={() => { useGameStore.getState().setIsRepairing(false); addMessage('Repair complete', 'success'); socket.emit('player_heal', { amount: 0 }); }} 
+              onHealTick={(amt) => { useGameStore.getState().setPlayerHealth(Math.min(SPARROW_SHIP.hitpoints, playerHealth + amt)); socket.emit('player_heal', { amount: amt }); }} 
+              playerHealth={playerHealth} maxHealth={SPARROW_SHIP.hitpoints} 
             />
           )}
           <HPBar app={app} cameraContainer={cameraContainer} position={shipPosition} health={playerHealth} maxHealth={SPARROW_SHIP.hitpoints} visible={true} shield={playerShield ?? 0} maxShield={playerMaxShield ?? 0} />
@@ -404,12 +395,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
               rocketAmmo={useGameStore.getState().rocketAmmo[currentRocketType]} currentRocketType={currentRocketType}
               onRocketAmmoConsume={() => socket.emit('fire_rocket', { rocketType: currentRocketType })}
               playerFiringRocket={playerFiringRocket && selectedEnemyId === id}
-              onRocketFired={() => {
-                if (selectedEnemyId === id) {
-                  useGameStore.getState().setPlayerFiringRocket(false);
-                  useGameStore.getState().setPlayerLastRocketFireTime(Date.now());
-                }
-              }}
+              onRocketFired={() => { if (selectedEnemyId === id) { useGameStore.getState().setPlayerFiringRocket(false); useGameStore.getState().setPlayerLastRocketFireTime(Date.now()); } }}
               onPlayerDamage={handlePlayerDamage} onEnemyDamage={(ev) => handleEnemyDamage({ id: id, ...ev })} 
             />
           ))}
@@ -417,6 +403,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           {isInSafetyZone() && <div style={{ position: 'fixed', top: '190px', left: '50%', transform: 'translateX(-50%)', color: '#ffffff', fontFamily: 'monospace', fontSize: '16px', fontWeight: 'bold', zIndex: 1000, pointerEvents: 'none', textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>Safety Zone - Combat Disabled</div>}
           <ShipWindow /><StatsWindow /><DebugWindow /><BattleWindow /><MinimapWindow onTargetChange={(pos) => useGameStore.getState().setTargetPosition(pos)} /><SettingsWindow /><OreWindow /><TradeWindow socket={socket} />
           {isDead && showDeathWindow && <DeathWindow onRepairOnSpot={handleRepairOnSpot} />}
+          <LevelUpAnimation />
         </>
       )}
     </div>
