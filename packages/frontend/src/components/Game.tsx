@@ -52,12 +52,18 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const [serverPosition, setServerPosition] = useState<{ x: number; y: number } | null>(null);
   useEffect(() => {
     socket.on("gameState", (data) => {
+      const state = useGameStore.getState();
       const playersMap = new Map();
+      
       data.players.forEach((p: any) => {
         if (p.id !== socket.id) {
           playersMap.set(p.id, p);
         } else {
           setServerPosition({ x: p.x, y: p.y });
+          // Authority: Always sync stats from the server
+          state.setPlayerLevel(p.level);
+          state.setPlayerExperience(p.experience);
+          state.setPlayerCredits(p.credits);
         }
       });
       setRemotePlayers(playersMap);
@@ -323,6 +329,8 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     // Update enemy health
     if (enemyDied) {
       state.updateEnemy(enemyId, { ...enemy, health, isEngaged: false });
+      // AUTHORITY: Notify server to award XP/Credits
+      socket.emit('enemy_destroyed', { type: 'DRIFTER' });
     } else {
       state.updateEnemy(enemyId, { ...enemy, health });
     }
@@ -331,26 +339,11 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     if (enemyDied) {
       const deadEnemyLastPos = state.enemyPositions.get(enemyId);
 
-      // Award rewards
+      // Award rewards (VISUAL ONLY - server snapshot will sync the real values)
       const reward = ENEMY_STATS.DRIFTER.REWARD;
-      const prevExp = state.playerExperience;
-      const newExp = prevExp + reward.experience;
-      const oldLevel = getLevelFromExp(prevExp);
-      const newLevel = getLevelFromExp(newExp);
-
-      state.addExperience(reward.experience);
-      state.addCredits(reward.credits);
-      state.addHonor(reward.honor);
-      state.addAetherium(reward.aetherium);
-
-      if (newLevel > oldLevel) {
-        // Trigger level-up animation
-        state.setShowLevelUpAnimation(true, newLevel);
-        queueMicrotask(() => addMessage(`Level up! You are now level ${newLevel}!`, 'success'));
-      }
 
       queueMicrotask(() => addMessage(
-        `Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits, +${reward.honor} Honor, +${reward.aetherium} Aetherium`,
+        `Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits`,
         'combat'
       ));
 
@@ -384,7 +377,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       const respawnTime = Date.now() + 3000;
       state.setEnemyRespawnTimer(enemyId, respawnTime);
     }
-  }, [addMessage]);
+  }, [addMessage, socket]);
 
   // Handle damage events for floating numbers
   const handlePlayerDamage = useCallback((event: { damage: number; position: { x: number; y: number } }) => {

@@ -329,13 +329,14 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
       const pos = positionRef.current;
       const currentTarget = targetPosRef.current;
 
-      // Priority: combat rotation (turn to enemy when in combat)
+      // --- ROTATION LOGIC ---
+      // PRIORITY 1: Combat (Look at enemy)
       const shouldBeInCombat = inCombatPropRef.current;
       const shouldHaveEnemyPos = enemyPositionPropRef.current;
       const isInCombat = inCombatRef.current;
       const currentEnemyPos = enemyPositionRef.current;
 
-      // Clear refs if props say we shouldn't have them (handles stale state)
+      // Clear refs if props say we shouldn't have them
       if (!shouldBeInCombat) {
         inCombatRef.current = false;
         if (currentEnemyPos) enemyPositionRef.current = null;
@@ -345,19 +346,12 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
         if (isInCombat) inCombatRef.current = false;
       }
 
-      // Get final values after clearing stale refs
       const finalIsInCombat = inCombatRef.current;
       const finalEnemyPos = enemyPositionRef.current;
 
-      // Only rotate if props and refs both indicate valid combat state
-      if (shouldBeInCombat && shouldHaveEnemyPos &&
-        finalIsInCombat && finalEnemyPos &&
-        typeof finalEnemyPos === 'object' &&
-        typeof finalEnemyPos.x === 'number' &&
-        typeof finalEnemyPos.y === 'number' &&
-        !isNaN(finalEnemyPos.x) &&
-        !isNaN(finalEnemyPos.y)) {
-        // Valid combat rotation - turn towards enemy
+      let rotationLockedByCombat = false;
+
+      if (shouldBeInCombat && shouldHaveEnemyPos && finalIsInCombat && finalEnemyPos) {
         const dx = finalEnemyPos.x - pos.x;
         const dy = finalEnemyPos.y - pos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
@@ -366,77 +360,50 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
           const angle = Math.atan2(dy, dx);
           const targetRotation = angle + Math.PI / 2;
 
-          // Smoothly interpolate rotation
           const currentRotation = rotationRef.current;
           let rotationDiff = targetRotation - currentRotation;
-
-          // Normalize rotation difference to [-PI, PI]
           while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
           while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
 
-          // Smooth rotation update
           const rotationSpeed = 0.2;
           const newRotation = currentRotation + rotationDiff * rotationSpeed;
           ship.rotation = newRotation;
           rotationRef.current = newRotation;
+          rotationLockedByCombat = true; // Block other rotations
         }
       }
 
-      // Priority: direct mouse control
+      // --- MOVEMENT & SECONDARY ROTATION ---
       if (isMouseDownRef.current) {
-        // Continuously update mouse world position based on current camera position
-        // This ensures the target stays relative to the screen position, not a fixed world position
         const screenPos = mouseScreenPosRef.current;
         const currentWorldPos = screenToWorld(screenPos.x, screenPos.y);
         mouseWorldPosRef.current = currentWorldPos;
 
-        // Calculate direction to mouse
         const dx = currentWorldPos.x - pos.x;
         const dy = currentWorldPos.y - pos.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        // Always move toward mouse while button is held down
-        // Use a minimum distance threshold to prevent rotation instability
-        const MIN_DISTANCE_FOR_ROTATION = 5.0; // Don't update rotation when closer than this
-        const MIN_DISTANCE_FOR_MOVEMENT = 0.5; // Stop movement when closer than this
-
-        if (distance > MIN_DISTANCE_FOR_MOVEMENT) {
-          // Only update rotation if we're far enough away to prevent spinning
-          // But don't override combat rotation if in combat
-          if (distance > MIN_DISTANCE_FOR_ROTATION && !isInCombat) {
-            // Calculate target rotation
+        if (distance > 0.5) {
+          // Only update rotation if NOT locked by combat
+          if (distance > 5.0 && !rotationLockedByCombat) {
             const angle = Math.atan2(dy, dx);
             const targetRotation = angle + Math.PI / 2;
 
-            // Smoothly interpolate rotation to prevent rapid spinning
             const currentRotation = rotationRef.current;
             let rotationDiff = targetRotation - currentRotation;
-
-            // Normalize rotation difference to [-PI, PI]
             while (rotationDiff > Math.PI) rotationDiff -= 2 * Math.PI;
             while (rotationDiff < -Math.PI) rotationDiff += 2 * Math.PI;
 
-            // Smooth rotation update
-            const rotationSpeed = 0.2; // Rotation interpolation speed
+            const rotationSpeed = 0.2;
             const newRotation = currentRotation + rotationDiff * rotationSpeed;
             ship.rotation = newRotation;
             rotationRef.current = newRotation;
           }
-          // If close but still moving, keep current rotation (don't update it)
 
-          // Set velocity in direction of mouse (continuous movement)
-          const normalizedDx = dx / distance;
-          const normalizedDy = dy / distance;
           const shipSpeed = convertSpeedToDisplay(SPARROW_SHIP.baseSpeed);
-          velocity.vx = normalizedDx * shipSpeed;
-          velocity.vy = normalizedDy * shipSpeed;
-          
-          // Force rotation update for thrust direction (0 is UP)
-          const angle = Math.atan2(dy, dx) + Math.PI / 2;
-          rotationRef.current = angle;
-          ship.rotation = angle;
+          velocity.vx = (dx / distance) * shipSpeed;
+          velocity.vy = (dy / distance) * shipSpeed;
         } else {
-          // At exact position (or extremely close), maintain current rotation and stop movement
           velocity.vx = 0;
           velocity.vy = 0;
         }

@@ -2,6 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { EntityManager } from './EntityManager.js';
 import { AuthService } from './AuthService.js';
 import { Pool } from 'pg';
+import { ENEMY_STATS } from '@orbit-fall/shared';
 
 export class SocketHandler {
   private io: Server;
@@ -72,7 +73,6 @@ export class SocketHandler {
     socket.on('resume_session', async (data: { token: string; username: string }) => {
       const ip = this.getClientIp(socket);
       // For prototype, we just trust the token if the username matches
-      // In production, you'd verify this against a Redis/DB session store
       const result = await this.dbPool.query('SELECT * FROM players WHERE username = $1', [data.username]);
       if (result.rows.length > 0) {
         const user = result.rows[0];
@@ -95,7 +95,16 @@ export class SocketHandler {
       this.entityManager.updatePlayerInput(socket.id, data);
     });
 
-    // 4. Disconnect
+    // 4. Rewards Authority
+    socket.on('enemy_destroyed', (data: { type: string }) => {
+      const reward = ENEMY_STATS.DRIFTER.REWARD;
+      this.entityManager.addExperience(socket.id, reward.experience);
+      this.entityManager.addCredits(socket.id, reward.credits);
+      // Force an immediate save for rewards
+      this.entityManager.savePlayerToDB(socket.id);
+    });
+
+    // 5. Disconnect
     socket.on('disconnect', () => {
       console.log(`[SocketHandler] Disconnect: ${socket.id}`);
       const ip = this.getClientIp(socket);

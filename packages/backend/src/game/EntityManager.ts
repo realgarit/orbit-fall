@@ -55,7 +55,8 @@ export class EntityManager {
       y: Number(dbUser.last_y ?? 1000),
       angle: 0, // Default UP
       thrust: false,
-      level: dbUser.level ?? 1,
+      level: Number(dbUser.level ?? 1),
+      experience: Number(dbUser.experience ?? 0),
       credits: Number(dbUser.credits ?? 0),
       ship_type: dbUser.ship_type ?? 'Sparrow',
       lastInputTime: Date.now(),
@@ -77,6 +78,26 @@ export class EntityManager {
 
   getPlayer(socketId: string) {
     return this.players.get(socketId);
+  }
+
+  addExperience(socketId: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) {
+      player.experience = (player.experience || 0) + amount;
+      // Formula: 10000 * 2^(x-2)
+      const newLevel = Math.max(1, Math.floor(Math.log2(player.experience / 10000) + 2));
+      if (newLevel > player.level) {
+        player.level = newLevel;
+        console.log(`[EntityManager] Player ${player.username} reached level ${newLevel}`);
+      }
+    }
+  }
+
+  addCredits(socketId: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) {
+      player.credits += amount;
+    }
   }
 
   updatePlayerInput(socketId: string, input: { thrust?: boolean; angle?: number }) {
@@ -118,8 +139,8 @@ export class EntityManager {
 
     try {
       await this.dbPool.query(
-        'UPDATE players SET last_x = $1, last_y = $2, level = $3, credits = $4, updated_at = NOW() WHERE id = $5',
-        [Math.round(player.x), Math.round(player.y), player.level, player.credits, player.dbId]
+        'UPDATE players SET last_x = $1, last_y = $2, level = $3, experience = $4, credits = $5, updated_at = NOW() WHERE id = $6',
+        [Math.round(player.x), Math.round(player.y), player.level, player.experience, player.credits, player.dbId]
       );
     } catch (error) {
       console.error(`[EntityManager] Error saving player ${player.username}:`, error);
@@ -143,6 +164,8 @@ export class EntityManager {
         angle: p.angle,
         thrust: p.thrust,
         level: p.level,
+        experience: p.experience,
+        credits: p.credits,
         ship_type: p.ship_type
       })),
       enemies: Array.from(this.enemies.values()),
