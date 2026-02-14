@@ -217,6 +217,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
         lastClickProcessedTimeRef.current = now;
         const isDoubleClick = now - lastClickTimeRef.current < 350 && lastClickEnemyIdRef.current === enemyId;
         if (isDoubleClick) {
+          console.log(`[Game] Double click on ${enemyId}. Starting combat.`);
           state.setSelectedEnemyId(enemyId);
           if (!isInSafetyZone() && !state.instaShieldActive) {
             state.setInCombat(true);
@@ -226,6 +227,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           }
           lastClickTimeRef.current = 0; lastClickEnemyIdRef.current = null;
         } else {
+          console.log(`[Game] Single click on ${enemyId}. Selecting.`);
           state.setSelectedEnemyId(enemyId);
           lastClickTimeRef.current = now; lastClickEnemyIdRef.current = enemyId;
         }

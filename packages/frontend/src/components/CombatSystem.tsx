@@ -576,8 +576,10 @@ export function CombatSystem({
       if (currentPlayerFiring && currentEnemyState && currentEnemyState.health > 0 && laserAmmoRef.current > 0) {
         const timeSinceLastFire = (now - playerLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
+          console.log(`[CombatSystem] Firing laser at ${currentEnemyState.id}. Ammo: ${laserAmmoRef.current}`);
           // Check if enemy is in range (player firing)
           if (!isInRange(currentPlayerPos.x, currentPlayerPos.y, currentEnemyState.x, currentEnemyState.y, true)) {
+            console.log(`[CombatSystem] Target out of range.`);
             // Throttle out-of-range messages to avoid spam (show once every 2 seconds)
             if (now - lastOutOfRangeMessageTimeRef.current >= 2000) {
               onOutOfRangeRef.current?.('laser');
@@ -592,6 +594,7 @@ export function CombatSystem({
               SPARROW_SHIP.laserSlots,
               0 // No bonuses yet
             );
+            console.log(`[CombatSystem] Creating laser graphics. Damage: ${damage}`);
             createLaser(
               currentPlayerPos.x,
               currentPlayerPos.y,
