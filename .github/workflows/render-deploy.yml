@@ -8,6 +8,8 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Added environment to ensure access to environment-specific secrets if any
+    environment: preview
     steps:
       - uses: actions/checkout@v4
       - name: Deploy to Render
