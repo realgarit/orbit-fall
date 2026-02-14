@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { ORE_CONFIG, ORE_REFINING_RECIPES } from '@shared/constants';
+import { ORE_CONFIG, ORE_REFINING_RECIPES } from '@orbit-fall/shared';
 
 const MAP_WIDTH = 1200;
 const MAP_HEIGHT = 800;

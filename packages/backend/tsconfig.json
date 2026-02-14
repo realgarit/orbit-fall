@@ -2,6 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
+    "rootDir": "./src",
     "module": "ESNext",
     "target": "ES2020",
     "moduleResolution": "node",
@@ -19,7 +20,7 @@
     "verbatimModuleSyntax": false,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["../../packages/shared/src/*"]
+      "@shared/*": ["../shared/src/*"]
     }
   },
   "include": ["src/**/*"],
