@@ -88,7 +88,9 @@ export class EntityManager {
     // dt is in seconds
     this.players.forEach(player => {
       if (player.thrust) {
-        // Ship faces UP at 0 radians, so we subtract PI/2 to align with PIXI coordinate system
+        // Correct vector: angle 0 is UP (-Y direction)
+        // Cos(angle) is X, Sin(angle) is Y. 
+        // Since 0 is UP, we subtract PI/2 from the mathematical 0 (which is RIGHT)
         const vx = Math.cos(player.angle - Math.PI / 2) * player.speed;
         const vy = Math.sin(player.angle - Math.PI / 2) * player.speed;
 

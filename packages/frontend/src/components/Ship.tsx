@@ -409,6 +409,11 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
           const shipSpeed = convertSpeedToDisplay(SPARROW_SHIP.baseSpeed);
           velocity.vx = normalizedDx * shipSpeed;
           velocity.vy = normalizedDy * shipSpeed;
+          
+          // Force rotation update for thrust direction (0 is UP)
+          const angle = Math.atan2(dy, dx) + Math.PI / 2;
+          rotationRef.current = angle;
+          ship.rotation = angle;
         } else {
           // At exact position (or extremely close), maintain current rotation and stop movement
           velocity.vx = 0;
