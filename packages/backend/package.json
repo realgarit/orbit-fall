@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "npm run db:init && node dist/index.js",
     "db:init": "node scripts/init-db.js",
     "db:export": "node scripts/db-sync.js --export",
     "db:import": "node scripts/db-sync.js --import"
