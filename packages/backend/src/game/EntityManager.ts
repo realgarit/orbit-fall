@@ -62,7 +62,6 @@ export class EntityManager {
   }
 
   private initializeWorld() {
-    // Spawn server-side enemies
     for (let i = 1; i <= 5; i++) {
       this.enemies.set(`enemy-${i}`, {
         id: `enemy-${i}`,
@@ -75,7 +74,6 @@ export class EntityManager {
         maxShield: 600
       });
     }
-    // Spawn server-side ores
     for (let i = 1; i <= 20; i++) {
       this.ores.set(`ore-${i}`, {
         id: `ore-${i}`,
@@ -84,7 +82,6 @@ export class EntityManager {
         y: Math.random() * MAP_HEIGHT
       });
     }
-    // Spawn server-side bonus boxes
     for (let i = 1; i <= 5; i++) {
       this.boxes.set(`box-${i}`, {
         id: `box-${i}`,
@@ -95,7 +92,13 @@ export class EntityManager {
     }
   }
 
-  // --- Methods ---
+  private calculateMaxHealth(level: number): number {
+    return SPARROW_HITPOINTS + (level - 1) * 500;
+  }
+
+  private calculateMaxShield(level: number): number {
+    return (level - 1) * 250;
+  }
 
   getPlayer(socketId: string) {
     return this.players.get(socketId);
@@ -179,12 +182,9 @@ export class EntityManager {
     const player = this.players.get(socketId);
     if (player) {
       player.cargo[type] = (player.cargo[type] || 0) + amount;
-      // Also remove ore from world
       for (const [id, ore] of this.ores.entries()) {
         if (ore.type === type) {
-          // In a real system, we'd match the ID, but for now we remove one of that type
           this.ores.delete(id);
-          // Respawn after 30s
           setTimeout(() => {
             this.ores.set(id, { id, type, x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT });
           }, 30000);
@@ -261,7 +261,11 @@ export class EntityManager {
     if (!p) return;
     try {
       await this.dbPool.query(
-        `UPDATE players SET last_x = $1, last_y = $2, level = $3, experience = $4, credits = $5, honor = $6, aetherium = $7, cargo = $8, ammo = $9, current_health = $10, current_shield = $11, updated_at = NOW() WHERE id = $12`,
+        `UPDATE players SET 
+          last_x = $1, last_y = $2, level = $3, experience = $4, 
+          credits = $5, honor = $6, aetherium = $7, cargo = $8, 
+          ammo = $9, current_health = $10, current_shield = $11, 
+          updated_at = NOW() WHERE id = $12`,
         [Math.round(p.x), Math.round(p.y), p.level, p.experience, p.credits, p.honor, p.aetherium, JSON.stringify(p.cargo), JSON.stringify(p.ammo), Math.round(p.health), Math.round(p.shield), p.dbId]
       );
     } catch (e) {}
