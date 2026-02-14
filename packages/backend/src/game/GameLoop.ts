@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { EntityManager } from './EntityManager.js';
 
-const TICK_RATE = 20; // 20 Hz
+const TICK_RATE = 60; // 60 Hz
 const TICK_INTERVAL_MS = 1000 / TICK_RATE;
 const SAVE_INTERVAL_MS = 30000; // Save all players every 30 seconds
 
