@@ -99,7 +99,6 @@ interface GameState {
   setPlayerHealth: (health: number) => void;
   setPlayerShield: (shield: number | undefined) => void;
   setPlayerLevel: (level: number) => void;
-  setPlayerCredits: (credits: number) => void;
   setPlayerMaxShield: (maxShield: number | undefined) => void;
   setPlayerExperience: (experience: number) => void;
   setPlayerCredits: (credits: number) => void;
@@ -107,9 +106,7 @@ interface GameState {
   setPlayerAetherium: (aetherium: number) => void;
   addExperience: (amount: number) => void;
   addCredits: (amount: number) => void;
-  setPlayerHonor: (honor: number) => void;
   addHonor: (amount: number) => void;
-  setPlayerAetherium: (aetherium: number) => void;
   addAetherium: (amount: number) => void;
   setPlayerCargo: (cargo: Record<OreType, number>) => void;
   addOreToCargo: (type: OreType, amount: number) => boolean; // Returns true if it fit
@@ -297,12 +294,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   setPlayerHealth: (health) => set({ playerHealth: health }),
   setPlayerShield: (shield) => set({ playerShield: shield }),
   setPlayerLevel: (level) => set({ playerLevel: level }),
+  setPlayerMaxShield: (maxShield) => set({ playerMaxShield: maxShield }),
   setPlayerExperience: (experience) => set({ playerExperience: experience, playerLevel: getLevelFromExp(experience) }),
   setPlayerCredits: (credits) => set({ playerCredits: credits }),
   setPlayerHonor: (honor) => set({ playerHonor: honor }),
   setPlayerAetherium: (aetherium) => set({ playerAetherium: aetherium }),
-  addCredits: (amount) => set({ playerCredits: get().playerCredits + amount }),
-  setPlayerMaxShield: (maxShield) => set({ playerMaxShield: maxShield }),
   addExperience: (amount) => {
     const newExperience = get().playerExperience + amount;
     set({
@@ -310,9 +306,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       playerLevel: getLevelFromExp(newExperience),
     });
   },
-  setPlayerHonor: (honor) => set({ playerHonor: honor }),
+  addCredits: (amount) => set({ playerCredits: get().playerCredits + amount }),
   addHonor: (amount) => set({ playerHonor: get().playerHonor + amount }),
-  setPlayerAetherium: (aetherium) => set({ playerAetherium: aetherium }),
   addAetherium: (amount) => set({ playerAetherium: get().playerAetherium + amount }),
   setPlayerCargo: (cargo) => set({ playerCargo: cargo }),
   addOreToCargo: (type, amount) => {
