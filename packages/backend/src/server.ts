@@ -5,6 +5,9 @@ import { Pool } from 'pg';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dns from 'dns';
+import { EntityManager } from './game/EntityManager.js';
+import { GameLoop } from './game/GameLoop.js';
+import { SocketHandler } from './game/SocketHandler.js';
 
 /**
  * Resolves a hostname to an IPv4 address.
@@ -31,6 +34,14 @@ export function createApp() {
     },
   });
 
+  // --- Game Infrastructure Setup ---
+  const entityManager = new EntityManager();
+  const gameLoop = new GameLoop(io, entityManager);
+  const socketHandler = new SocketHandler(io, entityManager);
+
+  // Start the Game Loop (60 Hz)
+  gameLoop.start();
+
   // Middleware
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
@@ -55,20 +66,7 @@ export function createApp() {
 
   // Socket.IO connection handling
   io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.id}`);
-
-    socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.id}`);
-    });
-
-    // Example: Handle game events
-    socket.on('player:move', (data) => {
-      // Broadcast player movement to other clients
-      socket.broadcast.emit('player:move', {
-        id: socket.id,
-        ...data,
-      });
-    });
+    socketHandler.handleConnection(socket);
   });
 
   // Catch-all to serve frontend index.html
