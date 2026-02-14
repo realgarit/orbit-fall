@@ -476,6 +476,13 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
       if (onStateUpdate) {
         onStateUpdate({ x: pos.x, y: pos.y }, { vx: velocity.vx, vy: velocity.vy }, rotationRef.current, Math.abs(velocity.vx) > 0.1 || Math.abs(velocity.vy) > 0.1);
       }
+
+      // Final Name Tag Sync (ensures it matches the latest ship.x/y)
+      if (nameText) {
+        nameText.x = ship.x;
+        nameText.y = ship.y + 35;
+        nameText.visible = ship.visible && !isDeadRef.current;
+      }
     };
 
     if (!app?.ticker) return;

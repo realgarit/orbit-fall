@@ -64,6 +64,9 @@ async function initDb() {
         -- Equipment (JSONB for flexibility)
         equipment JSONB DEFAULT '{}',
         
+        -- Registration tracking
+        registration_ip VARCHAR(45),
+        
         -- Timestamps
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

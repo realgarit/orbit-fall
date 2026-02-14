@@ -25,18 +25,8 @@ export class SocketHandler {
     // 1. Register
     socket.on('register', async (data: { username: string; password: string }) => {
       const ip = this.getClientIp(socket);
-      const isLocalhost = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1';
-
-      if (!isLocalhost && this.activeIps.has(ip)) {
-        socket.emit('register_response', { success: false, message: 'Registration Limit: 1 account per Public IP' });
-        return;
-      }
-
-      const result = await this.authService.register(data.username, data.password);
-      if (result.success) {
-         // Registration successful, but we don't automatically log them in or block the IP yet
-         // The user must click "Login" next, which handles the activeIps check
-      }
+      console.log(`[SocketHandler] Registration attempt for ${data.username} from IP: ${ip}`);
+      const result = await this.authService.register(data.username, data.password, ip);
       socket.emit('register_response', result);
     });
 
@@ -45,8 +35,11 @@ export class SocketHandler {
       const ip = this.getClientIp(socket);
       const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1');
 
+      console.log(`[SocketHandler] Login attempt for ${data.username} from IP: ${ip}`);
+
       // Concurrent Session Limit
       if (!isLocalhost && this.activeIps.has(ip)) {
+        console.warn(`[SocketHandler] Denied login for ${data.username}: IP ${ip} already active.`);
         socket.emit('login_response', { success: false, message: 'Login Limit: 1 active session per Public IP' });
         return;
       }
@@ -57,12 +50,12 @@ export class SocketHandler {
         this.entityManager.addPlayer(socket.id, result.user);
         this.activeIps.set(ip, socket.id);
 
-        // Create a simple session token (for prototype, just the username + salt)
+        // Create a simple session token
         const sessionToken = Buffer.from(`${result.user.username}:${Date.now()}`).toString('base64');
 
         socket.emit('login_success', {
           id: socket.id,
-          sessionToken, // Send token to client
+          sessionToken,
           username: result.user.username,
           x: result.user.last_x,
           y: result.user.last_y,
