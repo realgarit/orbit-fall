@@ -28,6 +28,7 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
   const mouseScreenPosRef = useRef({ x: 0, y: 0 }); // Track screen position for continuous updates
   const velocityRef = useRef({ vx: 0, vy: 0 });
   const targetPosRef = useRef<{ x: number; y: number } | null>(null);
+  const serverPositionRef = useRef<{ x: number; y: number } | null>(null);
   const onTargetReachedRef = useRef<(() => void) | undefined>(undefined);
   const onEnemyClickRef = useRef<((worldX: number, worldY: number) => boolean) | undefined>(undefined);
   const onBonusBoxClickRef = useRef<((worldX: number, worldY: number) => boolean) | undefined>(undefined);
@@ -38,6 +39,10 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
   // Store latest prop values to compare against refs in ticker
   const inCombatPropRef = useRef(inCombat ?? false);
   const enemyPositionPropRef = useRef<{ x: number; y: number } | null>(enemyPosition ?? null);
+
+  useEffect(() => {
+    serverPositionRef.current = serverPosition ?? null;
+  }, [serverPosition]);
 
   // Keep refs in sync with latest props without recreating Pixi objects
   useEffect(() => {
@@ -301,30 +306,29 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
 
       const delta = ticker.deltaTime;
       // Server reconciliation - be gentle to avoid fighting local movement
-      if (serverPosition && !isDeadRef.current) {
+      const sPos = serverPositionRef.current;
+      if (sPos && !isDeadRef.current) {
         // Initial spawn sync
         if (!hasInitializedPosRef.current) {
-          positionRef.current.x = serverPosition.x;
-          positionRef.current.y = serverPosition.y;
+          positionRef.current.x = sPos.x;
+          positionRef.current.y = sPos.y;
           hasInitializedPosRef.current = true;
         }
 
-        const dx = serverPosition.x - positionRef.current.x;
-        const dy = serverPosition.y - positionRef.current.y;
+        const dx = sPos.x - positionRef.current.x;
+        const dy = sPos.y - positionRef.current.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
         
         // Show server ghost if desync is > 50px
-        serverGhost.x = serverPosition.x;
-        serverGhost.y = serverPosition.y;
+        serverGhost.x = sPos.x;
+        serverGhost.y = sPos.y;
         serverGhost.visible = dist > 50;
 
         // If we are way off (> 500px), snap immediately
         if (dist > 500) {
-          positionRef.current.x = serverPosition.x;
-          positionRef.current.y = serverPosition.y;
+          positionRef.current.x = sPos.x;
+          positionRef.current.y = sPos.y;
         }
-        // NOTE: We removed the "pull" factor entirely because it fights the player.
-        // As long as backend and frontend math match, they will stay close.
       }
       const pos = positionRef.current;
       const currentTarget = targetPosRef.current;

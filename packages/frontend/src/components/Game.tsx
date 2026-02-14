@@ -55,20 +55,23 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       const playersMap = new Map();
       
       data.players.forEach((p: any) => {
-        if (p.id !== socket.id) {
+        // Robust check: Is this ME? (Match by Socket ID OR Username)
+        const isMe = p.id === socket.id || p.username === initialPlayerData.username;
+
+        if (!isMe) {
           playersMap.set(p.id, p);
         } else {
           setServerPosition({ x: p.x, y: p.y });
           
+          // Debugging: uncomment to see server coordinates in browser console
+          // console.log(`[Socket] Received My Position: ${Math.round(p.x)}, ${Math.round(p.y)}`);
+
           // --- FULL SERVER AUTHORITY SYNC ---
-          // Progression
           state.setPlayerLevel(p.level);
           state.setPlayerExperience(p.experience);
           state.setPlayerCredits(p.credits);
           state.setPlayerHonor(p.honor);
           state.setPlayerAetherium(p.aetherium);
-          
-          // Combat (Authoritative from server)
           state.setPlayerHealth(p.health);
           state.setPlayerShield(p.shield);
           state.setPlayerMaxShield(p.maxShield);
@@ -77,7 +80,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       setRemotePlayers(playersMap);
     });
     return () => { socket.off("gameState"); };
-  }, [socket]);
+  }, [socket, initialPlayerData.username]);
   const [cameraContainer, setCameraContainer] = useState<Container | null>(null);
 
   // Double-click detection (keep as local state - UI only)
