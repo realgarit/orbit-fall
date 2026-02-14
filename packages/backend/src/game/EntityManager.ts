@@ -95,7 +95,7 @@ export class EntityManager {
       speed: convertSpeed(BASE_SPEED),
     };
     this.players.set(socketId, player);
-    console.log(`[EntityManager] Player joined: ${username} at (${player.x}, ${player.y})`);
+    console.log(`[EntityManager] Player joined: ${username}`);
     return player;
   }
 
@@ -103,6 +103,7 @@ export class EntityManager {
     const player = this.players.get(socketId);
     if (player) {
       await this.savePlayerToDB(socketId);
+      console.log(`[EntityManager] Player left: ${player.username}`);
       this.players.delete(socketId);
     }
   }
@@ -128,23 +129,17 @@ export class EntityManager {
 
   addCredits(socketId: string, amount: number) {
     const player = this.players.get(socketId);
-    if (player) {
-      player.credits += amount;
-    }
+    if (player) player.credits += amount;
   }
 
   addHonor(socketId: string, amount: number) {
     const player = this.players.get(socketId);
-    if (player) {
-      player.honor += (player.honor || 0) + amount;
-    }
+    if (player) player.honor += (player.honor || 0) + amount;
   }
 
   addAetherium(socketId: string, amount: number) {
     const player = this.players.get(socketId);
-    if (player) {
-      player.aetherium += (player.aetherium || 0) + amount;
-    }
+    if (player) player.aetherium += (player.aetherium || 0) + amount;
   }
 
   updatePlayerInput(socketId: string, input: { thrust?: boolean; angle?: number; targetPosition?: { x: number; y: number } | null }) {
@@ -167,7 +162,6 @@ export class EntityManager {
         const dx = player.targetPosition.x - player.x;
         const dy = player.targetPosition.y - player.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
-
         if (dist > 5) {
           isMoving = true;
           moveAngle = Math.atan2(dy, dx) + Math.PI/2;
@@ -181,19 +175,10 @@ export class EntityManager {
       if (isMoving) {
         const vx = Math.cos(moveAngle - Math.PI / 2) * player.speed;
         const vy = Math.sin(moveAngle - Math.PI / 2) * player.speed;
-        
-        const oldX = player.x;
-        const oldY = player.y;
-        
         player.x += vx * dt;
         player.y += vy * dt;
         player.x = Math.max(0, Math.min(MAP_WIDTH, player.x));
         player.y = Math.max(0, Math.min(MAP_HEIGHT, player.y));
-
-        // Log if movement is significant (for debugging desync)
-        if (Math.abs(player.x - oldX) > 0.01) {
-           // Movement confirmed in memory
-        }
       }
 
       if (now - player.lastDamageTime > 5000 && player.shield < player.maxShield) {

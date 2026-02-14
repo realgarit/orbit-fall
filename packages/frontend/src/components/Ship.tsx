@@ -101,16 +101,9 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
     const ship = new Container();
     const shipBody = new Graphics();
     const engineGlow = new Graphics();
-    const serverGhost = new Graphics(); // Add debug ghost
 
     ship.addChild(engineGlow);
     ship.addChild(shipBody);
-    
-    // Setup debug ghost (faint circle)
-    serverGhost.circle(0, 0, 20);
-    serverGhost.stroke({ color: 0xffffff, width: 1, alpha: 0.3 });
-    serverGhost.visible = false;
-    cameraContainer.addChild(serverGhost);
 
     const drawShipBody = (g: Graphics) => {
       g.clear();
@@ -319,11 +312,6 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
         const dy = sPos.y - positionRef.current.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
         
-        // Show server ghost if desync is > 50px
-        serverGhost.x = sPos.x;
-        serverGhost.y = sPos.y;
-        serverGhost.visible = dist > 50;
-
         // If we are way off (> 500px), snap immediately
         if (dist > 500) {
           positionRef.current.x = sPos.x;
