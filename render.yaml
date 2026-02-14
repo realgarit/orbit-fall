@@ -1,0 +1,19 @@
+previews:
+  generation: automatic
+
+services:
+  - type: web
+    name: orbitfall
+    env: node
+    plan: starter
+    region: frankfurt
+    buildCommand: npm install && npm run build
+    startCommand: npm run start --workspace=packages/backend
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+    previews:
+      generation: automatic
