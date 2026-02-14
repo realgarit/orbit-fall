@@ -102,6 +102,9 @@ interface GameState {
   setPlayerCredits: (credits: number) => void;
   setPlayerMaxShield: (maxShield: number | undefined) => void;
   setPlayerExperience: (experience: number) => void;
+  setPlayerCredits: (credits: number) => void;
+  setPlayerHonor: (honor: number) => void;
+  setPlayerAetherium: (aetherium: number) => void;
   addExperience: (amount: number) => void;
   addCredits: (amount: number) => void;
   setPlayerHonor: (honor: number) => void;
@@ -294,14 +297,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   setPlayerHealth: (health) => set({ playerHealth: health }),
   setPlayerShield: (shield) => set({ playerShield: shield }),
   setPlayerLevel: (level) => set({ playerLevel: level }),
+  setPlayerExperience: (experience) => set({ playerExperience: experience, playerLevel: getLevelFromExp(experience) }),
   setPlayerCredits: (credits) => set({ playerCredits: credits }),
+  setPlayerHonor: (honor) => set({ playerHonor: honor }),
+  setPlayerAetherium: (aetherium) => set({ playerAetherium: aetherium }),
   addCredits: (amount) => set({ playerCredits: get().playerCredits + amount }),
   setPlayerMaxShield: (maxShield) => set({ playerMaxShield: maxShield }),
-  setPlayerExperience: (experience) =>
-    set({
-      playerExperience: experience,
-      playerLevel: getLevelFromExp(experience),
-    }),
   addExperience: (amount) => {
     const newExperience = get().playerExperience + amount;
     set({

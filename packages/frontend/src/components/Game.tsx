@@ -59,10 +59,19 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           playersMap.set(p.id, p);
         } else {
           setServerPosition({ x: p.x, y: p.y });
-          // Authority: Always sync stats from the server
+          
+          // --- FULL SERVER AUTHORITY SYNC ---
+          // Progression
           state.setPlayerLevel(p.level);
           state.setPlayerExperience(p.experience);
           state.setPlayerCredits(p.credits);
+          state.setPlayerHonor(p.honor);
+          state.setPlayerAetherium(p.aetherium);
+          
+          // Combat (Authoritative from server)
+          state.setPlayerHealth(p.health);
+          state.setPlayerShield(p.shield);
+          state.setPlayerMaxShield(p.maxShield);
         }
       });
       setRemotePlayers(playersMap);

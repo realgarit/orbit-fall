@@ -82,7 +82,12 @@ async function initDb() {
       BEGIN 
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='registration_ip') THEN
           ALTER TABLE players ADD COLUMN registration_ip VARCHAR(45);
-          RAISE NOTICE 'Added registration_ip column';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='honor') THEN
+          ALTER TABLE players ADD COLUMN honor BIGINT DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='aetherium') THEN
+          ALTER TABLE players ADD COLUMN aetherium BIGINT DEFAULT 0;
         END IF;
       END $$;
     `);

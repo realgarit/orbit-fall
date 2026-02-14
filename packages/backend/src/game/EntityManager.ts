@@ -19,10 +19,22 @@ interface PlayerEntity {
   y: number;
   angle: number;
   thrust: boolean;
+  
+  // Progression
   level: number;
+  experience: number;
   credits: number;
-  ship_type: string;
+  honor: number;
+  aetherium: number;
+  
+  // Combat Stats (Authoritative)
+  health: number;
+  maxHealth: number;
+  shield: number;
+  maxShield: number;
+  
   lastInputTime: number;
+  lastDamageTime: number; // For shield regeneration
   speed: number;
 }
 
@@ -42,10 +54,22 @@ export class EntityManager {
     this.dbPool = dbPool;
   }
 
+  // --- Stat Calculation (The Engine) ---
+
+  private calculateMaxHealth(level: number): number {
+    return SPARROW_SHIP.hitpoints + (level - 1) * 500;
+  }
+
+  private calculateMaxShield(level: number): number {
+    return (level - 1) * 250;
+  }
+
   // --- Player Management ---
 
   addPlayer(socketId: string, dbUser: any): PlayerEntity {
     const username = dbUser.username || 'Unknown Pilot';
+    const level = Number(dbUser.level ?? 1);
+    
     const player: PlayerEntity = {
       id: socketId,
       socketId,
@@ -53,17 +77,28 @@ export class EntityManager {
       username: username,
       x: Number(dbUser.last_x ?? 1000),
       y: Number(dbUser.last_y ?? 1000),
-      angle: 0, // Default UP
+      angle: 0,
       thrust: false,
-      level: Number(dbUser.level ?? 1),
+      
+      // Progression (from DB)
+      level: level,
       experience: Number(dbUser.experience ?? 0),
       credits: Number(dbUser.credits ?? 0),
-      ship_type: dbUser.ship_type ?? 'Sparrow',
+      honor: Number(dbUser.honor ?? 0),
+      aetherium: Number(dbUser.aetherium ?? 0),
+      
+      // Combat Stats (Calculated)
+      health: this.calculateMaxHealth(level), // Initialized to full
+      maxHealth: this.calculateMaxHealth(level),
+      shield: this.calculateMaxShield(level),
+      maxShield: this.calculateMaxShield(level),
+      
       lastInputTime: Date.now(),
+      lastDamageTime: 0,
       speed: convertSpeed(SPARROW_SHIP.baseSpeed),
     };
     this.players.set(socketId, player);
-    console.log(`[EntityManager] Player joined: ${username} (${socketId})`);
+    console.log(`[EntityManager] Player joined: ${username} (Lvl ${level})`);
     return player;
   }
 
@@ -83,11 +118,17 @@ export class EntityManager {
   addExperience(socketId: string, amount: number) {
     const player = this.players.get(socketId);
     if (player) {
-      player.experience = (player.experience || 0) + amount;
+      player.experience += amount;
       // Formula: 10000 * 2^(x-2)
       const newLevel = Math.max(1, Math.floor(Math.log2(player.experience / 10000) + 2));
       if (newLevel > player.level) {
         player.level = newLevel;
+        // Recalculate max stats on level up
+        player.maxHealth = this.calculateMaxHealth(newLevel);
+        player.maxShield = this.calculateMaxShield(newLevel);
+        // Heal on level up
+        player.health = player.maxHealth;
+        player.shield = player.maxShield;
         console.log(`[EntityManager] Player ${player.username} reached level ${newLevel}`);
       }
     }
@@ -97,6 +138,20 @@ export class EntityManager {
     const player = this.players.get(socketId);
     if (player) {
       player.credits += amount;
+    }
+  }
+
+  addHonor(socketId: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) {
+      player.honor += amount;
+    }
+  }
+
+  addAetherium(socketId: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) {
+      player.aetherium += amount;
     }
   }
 
@@ -114,21 +169,22 @@ export class EntityManager {
   }
 
   update(dt: number) {
-    // dt is in seconds
+    const now = Date.now();
     this.players.forEach(player => {
+      // 1. Movement
       if (player.thrust) {
-        // Correct vector: angle 0 is UP (-Y direction)
-        // Cos(angle) is X, Sin(angle) is Y. 
-        // Since 0 is UP, we subtract PI/2 from the mathematical 0 (which is RIGHT)
         const vx = Math.cos(player.angle - Math.PI / 2) * player.speed;
         const vy = Math.sin(player.angle - Math.PI / 2) * player.speed;
-
         player.x += vx * dt;
         player.y += vy * dt;
-
-        // Map boundaries
         player.x = Math.max(0, Math.min(MAP_WIDTH, player.x));
         player.y = Math.max(0, Math.min(MAP_HEIGHT, player.y));
+      }
+
+      // 2. Shield Regeneration (e.g., 5% per second after 5s of no damage)
+      if (now - player.lastDamageTime > 5000 && player.shield < player.maxShield) {
+        const regenAmount = player.maxShield * 0.05 * dt;
+        player.shield = Math.min(player.maxShield, player.shield + regenAmount);
       }
     });
   }
@@ -139,8 +195,17 @@ export class EntityManager {
 
     try {
       await this.dbPool.query(
-        'UPDATE players SET last_x = $1, last_y = $2, level = $3, experience = $4, credits = $5, updated_at = NOW() WHERE id = $6',
-        [Math.round(player.x), Math.round(player.y), player.level, player.experience, player.credits, player.dbId]
+        'UPDATE players SET last_x = $1, last_y = $2, level = $3, experience = $4, credits = $5, honor = $6, aetherium = $7, updated_at = NOW() WHERE id = $8',
+        [
+          Math.round(player.x), 
+          Math.round(player.y), 
+          player.level, 
+          player.experience, 
+          player.credits, 
+          player.honor, 
+          player.aetherium, 
+          player.dbId
+        ]
       );
     } catch (error) {
       console.error(`[EntityManager] Error saving player ${player.username}:`, error);
@@ -163,9 +228,18 @@ export class EntityManager {
         y: p.y,
         angle: p.angle,
         thrust: p.thrust,
+        
+        // Authoritative Stats
         level: p.level,
         experience: p.experience,
         credits: p.credits,
+        honor: p.honor,
+        aetherium: p.aetherium,
+        health: p.health,
+        maxHealth: p.maxHealth,
+        shield: p.shield,
+        maxShield: p.maxShield,
+        
         ship_type: p.ship_type
       })),
       enemies: Array.from(this.enemies.values()),

@@ -100,6 +100,8 @@ export class SocketHandler {
       const reward = ENEMY_STATS.DRIFTER.REWARD;
       this.entityManager.addExperience(socket.id, reward.experience);
       this.entityManager.addCredits(socket.id, reward.credits);
+      this.entityManager.addHonor(socket.id, reward.honor);
+      this.entityManager.addAetherium(socket.id, reward.aetherium);
       // Force an immediate save for rewards
       this.entityManager.savePlayerToDB(socket.id);
     });
