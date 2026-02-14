@@ -292,17 +292,20 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
       }
 
       const delta = ticker.deltaTime;
-      // Server reconciliation
+      // Server reconciliation - be gentle to avoid fighting local movement
       if (serverPosition && !isDeadRef.current) {
         const dx = serverPosition.x - positionRef.current.x;
         const dy = serverPosition.y - positionRef.current.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist > 50) {
+        
+        // If we are way off (more than 200px), snap immediately
+        if (dist > 200) {
           positionRef.current.x = serverPosition.x;
           positionRef.current.y = serverPosition.y;
-        } else if (dist > 0.1) {
-          positionRef.current.x += dx * 0.1;
-          positionRef.current.y += dy * 0.1;
+        } else if (dist > 10) {
+          // Gently pull toward server position (lower factor = less fighting)
+          positionRef.current.x += dx * 0.05;
+          positionRef.current.y += dy * 0.05;
         }
       }
       const pos = positionRef.current;
