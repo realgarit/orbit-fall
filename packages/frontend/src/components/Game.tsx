@@ -203,18 +203,25 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       if (state.deadEnemies.has(enemyId)) continue;
       const dx = worldX - enemy.x;
       const dy = worldY - enemy.y;
-      if (Math.sqrt(dx * dx + dy * dy) < 30) {
+      if (Math.sqrt(dx * dx + dy * dy) < 40) {
         const now = Date.now();
         if (now - lastClickProcessedTimeRef.current < 50) return true;
         lastClickProcessedTimeRef.current = now;
-        if (now - lastClickTimeRef.current < 300 && lastClickEnemyIdRef.current === enemyId) {
+        
+        const isDoubleClick = now - lastClickTimeRef.current < 300 && lastClickEnemyIdRef.current === enemyId;
+        
+        if (isDoubleClick) {
+          state.setSelectedEnemyId(enemyId);
           if (!isInSafetyZone() && !state.instaShieldActive) {
-            state.setInCombat(true); state.setPlayerFiring(true);
+            state.setInCombat(true);
+            state.setPlayerFiring(true);
           }
           lastClickTimeRef.current = 0;
+          lastClickEnemyIdRef.current = null;
         } else {
           state.setSelectedEnemyId(enemyId);
-          lastClickTimeRef.current = now; lastClickEnemyIdRef.current = enemyId;
+          lastClickTimeRef.current = now;
+          lastClickEnemyIdRef.current = enemyId;
         }
         return true;
       }
@@ -345,7 +352,17 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           {bonusBoxList.map((box) => <BonusBox key={box.id} app={app} cameraContainer={cameraContainer} boxState={box} isCollecting={targetBonusBoxId === box.id} />)}
           {oreList.map((ore) => <ResourceCrystal key={ore.id} app={app} cameraContainer={cameraContainer} oreState={ore} isCollecting={targetOreId === ore.id} />)}
           {Array.from(remotePlayers.values()).map((p) => <RemoteShip key={p.id} app={app} cameraContainer={cameraContainer} x={p.x} y={p.y} rotation={p.angle} username={p.username} isMoving={p.thrust} />)}
-          <Ship serverPosition={serverPosition} username={initialPlayerData.username} app={app} cameraContainer={cameraContainer} onStateUpdate={handleShipStateUpdate} targetPosition={targetPosition} onTargetReached={() => useGameStore.getState().setTargetPosition(null)} onEnemyClick={handleEnemyClick} onBonusBoxClick={handleBonusBoxClick} inCombat={!!(inCombat && selectedEnemyId)} isDead={isDead} />
+          <Ship 
+            serverPosition={serverPosition} 
+            username={initialPlayerData.username} 
+            app={app} 
+            cameraContainer={cameraContainer} 
+            onStateUpdate={handleShipStateUpdate} 
+            targetPosition={targetPosition} 
+            onTargetReached={() => useGameStore.getState().setTargetPosition(null)} 
+            inCombat={!!(inCombat && selectedEnemyId)} 
+            isDead={isDead} 
+          />
           {isDead && deathPosition && <ShipExplosion app={app} cameraContainer={cameraContainer} position={deathPosition} active={isDead} onComplete={() => setTimeout(() => useGameStore.getState().setShowDeathWindow(true), 1000)} />}
           {isRepairing && <RepairRobot app={app} cameraContainer={cameraContainer} shipPosition={shipPosition} onRepairComplete={() => { useGameStore.getState().setIsRepairing(false); addMessage('Repair complete', 'success'); }} onHealTick={(amt) => useGameStore.getState().setPlayerHealth(Math.min(SPARROW_SHIP.hitpoints, playerHealth + amt))} playerHealth={playerHealth} maxHealth={SPARROW_SHIP.hitpoints} />}
           <HPBar app={app} cameraContainer={cameraContainer} position={shipPosition} health={playerHealth} maxHealth={SPARROW_SHIP.hitpoints} visible={true} shield={playerShield ?? 0} maxShield={playerMaxShield ?? 0} />
