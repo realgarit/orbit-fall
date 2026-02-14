@@ -53,7 +53,7 @@ export class EntityManager {
       username: username,
       x: Number(dbUser.last_x ?? 1000),
       y: Number(dbUser.last_y ?? 1000),
-      angle: 0,
+      angle: 0, // Default UP
       thrust: false,
       level: dbUser.level ?? 1,
       credits: Number(dbUser.credits ?? 0),
@@ -84,12 +84,11 @@ export class EntityManager {
     if (player) {
       player.lastInputTime = Date.now();
       if (input.thrust !== undefined) {
-        if (player.thrust !== input.thrust) {
-          console.log(`[EntityManager] Player ${player.username} thrust: ${input.thrust}`);
-        }
-        player.thrust = input.thrust;
+        player.thrust = !!input.thrust;
       }
-      if (input.angle !== undefined) player.angle = input.angle;
+      if (input.angle !== undefined && !isNaN(input.angle)) {
+        player.angle = Number(input.angle);
+      }
     }
   }
 
