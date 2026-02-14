@@ -63,20 +63,28 @@ export function createApp() {
 }
 
 export function createDatabasePool(): Pool {
+  const connectionString = process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
+
+  // Parse host for logging, removing credentials
+  const dbHost = connectionString.includes('@')
+    ? connectionString.split('@')[1].split('/')[0]
+    : connectionString.split('//')[1]?.split('/')[0] || 'unknown';
+
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
+    connectionString,
     ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
   });
 
   // Test connection
   pool.query('SELECT NOW()', (err, res) => {
     if (err) {
-      console.error('Database connection error:', err.message);
+      console.error(`Database connection error [Host: ${dbHost}]:`, err.message);
+      if ((err as any).code) console.error(`Error Code: ${(err as any).code}`);
+      if ((err as any).address) console.error(`Address: ${(err as any).address}`);
     } else {
-      console.log('Database connected successfully');
+      console.log(`Database connected successfully to ${dbHost}`);
     }
   });
 
   return pool;
 }
-
