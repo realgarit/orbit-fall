@@ -39,7 +39,7 @@
     "dev": "tsc --watch",
     "clean": "rm -rf dist"
   },
-  "devDependencies": {
+  "dependencies": {
     "typescript": "^5.3.3"
   }
 }

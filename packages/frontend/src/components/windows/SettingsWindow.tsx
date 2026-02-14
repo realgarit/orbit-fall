@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Window } from './Window';
 import { useWindowStore } from '../../stores/windowStore';
 
@@ -18,7 +18,7 @@ const SettingsIcon = () => (
   </svg>
 );
 
-const buttonStyle: React.CSSProperties = {
+const buttonStyle: CSSProperties = {
   padding: '6px 10px',
   background: 'linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%)',
   border: '1px solid #0ea5e9',
@@ -32,7 +32,7 @@ const buttonStyle: React.CSSProperties = {
   minWidth: 0,
 };
 
-const primaryButtonStyle: React.CSSProperties = {
+const primaryButtonStyle: CSSProperties = {
   ...buttonStyle,
   width: '100%',
   padding: '8px 12px',
@@ -60,7 +60,7 @@ export function SettingsWindow({
     window.location.reload();
   };
 
-  const createButton = (label: string, onClick: () => void, style: React.CSSProperties = buttonStyle) => (
+  const createButton = (label: string, onClick: () => void, style: CSSProperties = buttonStyle) => (
     <button
       onClick={onClick}
       style={style}
@@ -69,8 +69,8 @@ export function SettingsWindow({
         e.currentTarget.style.borderColor = '#06b6d4';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = style.background as string;
-        e.currentTarget.style.borderColor = style.border as string;
+        e.currentTarget.style.background = (style as any).background as string;
+        e.currentTarget.style.borderColor = (style as any).border as string;
       }}
     >
       {label}
