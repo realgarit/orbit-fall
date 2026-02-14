@@ -121,6 +121,18 @@ export class SocketHandler {
       this.entityManager.savePlayerToDB(socket.id);
     });
 
+    socket.on('fire_laser', (data: { ammoType: string }) => {
+      if (this.entityManager.consumeAmmo(socket.id, data.ammoType)) {
+        this.entityManager.savePlayerToDB(socket.id);
+      }
+    });
+
+    socket.on('fire_rocket', (data: { rocketType: string }) => {
+      if (this.entityManager.consumeAmmo(socket.id, data.rocketType)) {
+        this.entityManager.savePlayerToDB(socket.id);
+      }
+    });
+
     // 5. Disconnect
     socket.on('disconnect', () => {
       console.log(`[SocketHandler] Disconnect: ${socket.id}`);

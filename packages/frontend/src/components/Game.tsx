@@ -977,11 +977,14 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     const currentQuantity = state.laserAmmo[currentType];
 
     if (state.consumeLaserAmmo()) {
+      // AUTHORITY: Notify server of ammo usage
+      socket.emit('fire_laser', { ammoType: currentType });
+      
       if (currentQuantity === 1) {
         queueMicrotask(() => addMessage(`Laser ammunition ${currentType} depleted!`, 'warning'));
       }
     }
-  }, [addMessage]);
+  }, [addMessage, socket]);
 
   // Helper to consume rocket ammo with messages
   const handleRocketAmmoConsume = useCallback(() => {
@@ -990,11 +993,14 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     const currentQuantity = state.rocketAmmo[currentType];
 
     if (state.consumeRocketAmmo()) {
+      // AUTHORITY: Notify server of rocket usage
+      socket.emit('fire_rocket', { rocketType: currentType });
+
       if (currentQuantity === 1) {
         queueMicrotask(() => addMessage(`Rocket ammunition ${currentType} depleted!`, 'warning'));
       }
     }
-  }, [addMessage]);
+  }, [addMessage, socket]);
 
 
   const inSafetyZone = isInSafetyZone();

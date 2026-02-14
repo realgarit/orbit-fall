@@ -160,6 +160,15 @@ export class EntityManager {
     }
   }
 
+  consumeAmmo(socketId: string, type: string): boolean {
+    const player = this.players.get(socketId);
+    if (player && (player.ammo[type] || 0) > 0) {
+      player.ammo[type]--;
+      return true;
+    }
+    return false;
+  }
+
   updatePlayerInput(socketId: string, input: { thrust?: boolean; angle?: number; targetPosition?: { x: number; y: number } | null }) {
     const player = this.players.get(socketId);
     if (player) {
