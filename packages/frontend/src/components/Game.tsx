@@ -10,6 +10,7 @@ import { RepairRobot } from './RepairRobot';
 import { HPBar } from './HPBar';
 import { CombatSystem } from './CombatSystem';
 import { Shield } from './Shield';
+import { SelectionCircle } from './SelectionCircle';
 import { ShipExplosion } from './ShipExplosion';
 import { DamageNumbers } from './DamageNumbers';
 import { BonusBox } from './BonusBox';
@@ -257,38 +258,44 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     return false;
   }, []);
 
+  // TICKER-BASED COLLECTION (SNAPPY)
   useEffect(() => {
-    const checkCollections = () => {
+    if (!app) return;
+    const tickerCallback = () => {
       const state = useGameStore.getState();
       const shipPos = state.shipPosition;
+      
       state.bonusBoxes.forEach((box) => {
-        if (state.targetBonusBoxId !== box.id) return;
-        if (Math.sqrt(Math.pow(shipPos.x - box.x, 2) + Math.pow(shipPos.y - box.y, 2)) < 55) {
-          const rewardRoll = Math.random() * 100;
-          let currentWeight = 0;
-          let selectedReward: any = BONUS_BOX_CONFIG.REWARDS[0];
-          for (const reward of BONUS_BOX_CONFIG.REWARDS) {
-            currentWeight += reward.weight;
-            if (rewardRoll <= currentWeight) { selectedReward = reward; break; }
+        if (state.targetBonusBoxId === box.id) {
+          if (Math.sqrt(Math.pow(shipPos.x - box.x, 2) + Math.pow(shipPos.y - box.y, 2)) < 55) {
+            const rewardRoll = Math.random() * 100;
+            let currentWeight = 0;
+            let selectedReward: any = BONUS_BOX_CONFIG.REWARDS[0];
+            for (const reward of BONUS_BOX_CONFIG.REWARDS) {
+              currentWeight += reward.weight;
+              if (rewardRoll <= currentWeight) { selectedReward = reward; break; }
+            }
+            const amount = selectedReward.amounts[Math.floor(Math.random() * selectedReward.amounts.length)];
+            socket.emit('collect_bonus_box', { id: box.id, reward: { type: selectedReward.type, amount, ammoType: selectedReward.ammoType } });
+            state.setTargetBonusBoxId(null);
           }
-          const amount = selectedReward.amounts[Math.floor(Math.random() * selectedReward.amounts.length)];
-          socket.emit('collect_bonus_box', { id: box.id, reward: { type: selectedReward.type, amount, ammoType: selectedReward.ammoType } });
-          state.setTargetBonusBoxId(null);
         }
       });
+
       state.ores.forEach((ore) => {
-        if (state.targetOreId !== ore.id) return;
-        if (Math.sqrt(Math.pow(shipPos.x - ore.x, 2) + Math.pow(shipPos.y - ore.y, 2)) < 55) {
-          if (state.collectOre(ore.id)) {
-            socket.emit('collect_ore', { id: ore.id });
+        if (state.targetOreId === ore.id) {
+          if (Math.sqrt(Math.pow(shipPos.x - ore.x, 2) + Math.pow(shipPos.y - ore.y, 2)) < 55) {
+            if (state.collectOre(ore.id)) {
+              socket.emit('collect_ore', { id: ore.id });
+            }
+            state.setTargetOreId(null);
           }
-          state.setTargetOreId(null);
         }
       });
     };
-    const interval = setInterval(checkCollections, 100);
-    return () => clearInterval(interval);
-  }, [socket]);
+    app.ticker.add(tickerCallback);
+    return () => { app.ticker.remove(tickerCallback); };
+  }, [app, socket]);
 
   useEffect(() => {
     if (!app || !cameraContainer) return;
@@ -340,7 +347,6 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const bonusBoxList = useMemo(() => Array.from(bonusBoxes.values()), [bonusBoxes]);
   const oreList = useMemo(() => Array.from(ores.values()), [ores]);
   
-  // FIX: Include selected enemy in engagement list if locally firing
   const engagedEnemyList = useMemo(() => enemyList.filter(([id, e]) => {
     if (deadEnemies.has(id)) return false;
     if (e.health <= 0) return false;
@@ -383,6 +389,34 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
             />
           ))}
           {Array.from(remotePlayers.values()).map((p) => <RemoteShip key={p.id} app={app} cameraContainer={cameraContainer} x={p.x} y={p.y} rotation={p.angle} username={p.username} isMoving={p.thrust} />)}
+          
+          {/* SELECTION UI RESTORED */}
+          {selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId) && (() => {
+            const enemy = enemies.get(selectedEnemyId);
+            if (!enemy || enemy.health <= 0) return null;
+            return (
+              <>
+                <SelectionCircle
+                  app={app}
+                  cameraContainer={cameraContainer}
+                  position={{ x: enemy.x, y: enemy.y }}
+                  selected={true}
+                  inCombat={inCombat}
+                />
+                <HPBar
+                  app={app}
+                  cameraContainer={cameraContainer}
+                  position={{ x: enemy.x, y: enemy.y }}
+                  health={enemy.health}
+                  maxHealth={enemy.maxHealth || 1000}
+                  visible={true}
+                  shield={enemy.shield ?? 0}
+                  maxShield={enemy.maxShield ?? 0}
+                />
+              </>
+            );
+          })()}
+
           <Ship 
             serverPosition={serverPosition} 
             username={initialPlayerData.username} 
