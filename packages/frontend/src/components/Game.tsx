@@ -298,7 +298,6 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       if (target.closest('.game-window')) return;
       const canvas = app.canvas as HTMLCanvasElement;
       if (canvas && (target === canvas || canvas.contains(target))) {
-        // COORDINATE CONVERSION FIX
         const rect = canvas.getBoundingClientRect();
         const screenX = e.clientX - rect.left;
         const screenY = e.clientY - rect.top;
@@ -340,7 +339,13 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const enemyList = useMemo(() => Array.from(enemies.entries()), [enemies]);
   const bonusBoxList = useMemo(() => Array.from(bonusBoxes.values()), [bonusBoxes]);
   const oreList = useMemo(() => Array.from(ores.values()), [ores]);
-  const engagedEnemyList = useMemo(() => enemyList.filter(([id, e]) => !deadEnemies.has(id) && e.health > 0 && e.isEngaged), [enemyList, deadEnemies]);
+  
+  // FIX: Include selected enemy in engagement list if locally firing
+  const engagedEnemyList = useMemo(() => enemyList.filter(([id, e]) => {
+    if (deadEnemies.has(id)) return false;
+    if (e.health <= 0) return false;
+    return e.isEngaged || (id === selectedEnemyId && inCombat);
+  }), [enemyList, deadEnemies, selectedEnemyId, inCombat]);
 
   return (
     <div ref={containerRef} style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
@@ -359,8 +364,24 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           <MarsBackground app={app} cameraContainer={cameraContainer} />
           <Base app={app} cameraContainer={cameraContainer} position={basePosition} />
           {enemyList.map(([id, e]) => <Enemy key={id} app={app} cameraContainer={cameraContainer} enemyState={deadEnemies.has(id) ? null : e} isDead={deadEnemies.has(id)} />)}
-          {bonusBoxList.map((box) => <BonusBox key={box.id} app={app} cameraContainer={cameraContainer} boxState={box} isCollecting={targetBonusBoxId === box.id} />)}
-          {oreList.map((ore) => <ResourceCrystal key={ore.id} app={app} cameraContainer={cameraContainer} oreState={ore} isCollecting={targetOreId === ore.id} />)}
+          {bonusBoxList.map((box) => (
+            <BonusBox 
+              key={box.id} 
+              app={app} 
+              cameraContainer={cameraContainer} 
+              boxState={box} 
+              isCollecting={targetBonusBoxId === box.id && Math.sqrt(Math.pow(shipPosition.x - box.x, 2) + Math.pow(shipPosition.y - box.y, 2)) < 55} 
+            />
+          ))}
+          {oreList.map((ore) => (
+            <ResourceCrystal 
+              key={ore.id} 
+              app={app} 
+              cameraContainer={cameraContainer} 
+              oreState={ore} 
+              isCollecting={targetOreId === ore.id && Math.sqrt(Math.pow(shipPosition.x - ore.x, 2) + Math.pow(shipPosition.y - ore.y, 2)) < 55} 
+            />
+          ))}
           {Array.from(remotePlayers.values()).map((p) => <RemoteShip key={p.id} app={app} cameraContainer={cameraContainer} x={p.x} y={p.y} rotation={p.angle} username={p.username} isMoving={p.thrust} />)}
           <Ship 
             serverPosition={serverPosition} 
