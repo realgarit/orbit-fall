@@ -9,6 +9,8 @@ interface ShipProps {
   onStateUpdate?: (position: { x: number; y: number }, velocity: { vx: number; vy: number }, rotation: number, thrust: boolean, targetPosition: { x: number; y: number } | null) => void;
   targetPosition?: { x: number; y: number } | null;
   onTargetReached?: () => void;
+  onEnemyClick?: (worldX: number, worldY: number) => boolean;
+  onBonusBoxClick?: (worldX: number, worldY: number) => boolean;
   inCombat?: boolean;
   enemyPosition?: { x: number; y: number } | null;
   isDead?: boolean;
@@ -16,7 +18,7 @@ interface ShipProps {
   username?: string;
 }
 
-export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, inCombat, enemyPosition, isDead = false, serverPosition, username }: ShipProps) {
+export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick, onBonusBoxClick, inCombat, enemyPosition, isDead = false, serverPosition, username }: ShipProps) {
   const shipRef = useRef<Container | null>(null);
   const positionRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
   const hasInitializedPosRef = useRef(false);
@@ -28,6 +30,8 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
   const targetPosRef = useRef<{ x: number; y: number } | null>(null);
   const serverPositionRef = useRef<{ x: number; y: number } | null>(null);
   const onTargetReachedRef = useRef<(() => void) | undefined>(undefined);
+  const onEnemyClickRef = useRef<((worldX: number, worldY: number) => boolean) | undefined>(undefined);
+  const onBonusBoxClickRef = useRef<((worldX: number, worldY: number) => boolean) | undefined>(undefined);
   const inCombatPropRef = useRef(inCombat ?? false);
   const enemyPositionPropRef = useRef<{ x: number; y: number } | null>(enemyPosition ?? null);
   const isDeadRef = useRef(isDead);
@@ -43,6 +47,14 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
   useEffect(() => {
     onTargetReachedRef.current = onTargetReached;
   }, [onTargetReached]);
+
+  useEffect(() => {
+    onEnemyClickRef.current = onEnemyClick;
+  }, [onEnemyClick]);
+
+  useEffect(() => {
+    onBonusBoxClickRef.current = onBonusBoxClick;
+  }, [onBonusBoxClick]);
 
   useEffect(() => {
     inCombatPropRef.current = inCombat ?? false;
@@ -110,8 +122,15 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
 
     const handleMouseDown = (e: MouseEvent) => {
       if (isDeadRef.current) return;
+      const canvasPos = getCanvasMousePos(e);
+      const worldPos = screenToWorld(canvasPos.x, canvasPos.y);
+      
+      // CRITICAL: Prevent movement if we clicked an interactive object
+      if (onEnemyClickRef.current && onEnemyClickRef.current(worldPos.x, worldPos.y)) return;
+      if (onBonusBoxClickRef.current && onBonusBoxClickRef.current(worldPos.x, worldPos.y)) return;
+
       isMouseDownRef.current = true;
-      mouseScreenPosRef.current = getCanvasMousePos(e);
+      mouseScreenPosRef.current = canvasPos;
     };
 
     const handleMouseUp = () => {

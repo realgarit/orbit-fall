@@ -69,6 +69,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const targetBonusBoxId = useGameStore((state) => state.targetBonusBoxId);
   const ores = useGameStore((state) => state.ores);
   const targetOreId = useGameStore((state) => state.targetOreId);
+  const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
   const currentLaserAmmoType = useGameStore((state) => state.currentLaserAmmoType);
   const currentRocketType = useGameStore((state) => state.currentRocketType);
   const rocketCooldown = useGameStore((state) => state.rocketCooldown);
@@ -208,21 +209,17 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
         const now = Date.now();
         if (now - lastClickProcessedTimeRef.current < 50) return true;
         lastClickProcessedTimeRef.current = now;
-        
         const isDoubleClick = now - lastClickTimeRef.current < 350 && lastClickEnemyIdRef.current === enemyId;
-        
         if (isDoubleClick) {
           state.setSelectedEnemyId(enemyId);
           if (!isInSafetyZone() && !state.instaShieldActive) {
             state.setInCombat(true);
             state.setPlayerFiring(true);
           }
-          lastClickTimeRef.current = 0;
-          lastClickEnemyIdRef.current = null;
+          lastClickTimeRef.current = 0; lastClickEnemyIdRef.current = null;
         } else {
           state.setSelectedEnemyId(enemyId);
-          lastClickTimeRef.current = now;
-          lastClickEnemyIdRef.current = enemyId;
+          lastClickTimeRef.current = now; lastClickEnemyIdRef.current = enemyId;
         }
         return true;
       }
@@ -235,7 +232,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     for (const box of state.bonusBoxes.values()) {
       const dx = worldX - box.x;
       const dy = worldY - box.y;
-      if (Math.sqrt(dx * dx + dy * dy) < BONUS_BOX_CONFIG.CLICK_RADIUS) {
+      if (Math.sqrt(dx * dx + dy * dy) < 30) {
         state.setTargetPosition({ x: box.x, y: box.y - 25 });
         state.setTargetBonusBoxId(box.id);
         return true;
@@ -258,13 +255,11 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     return false;
   }, []);
 
-  // TICKER-BASED COLLECTION (SNAPPY)
   useEffect(() => {
     if (!app) return;
     const tickerCallback = () => {
       const state = useGameStore.getState();
       const shipPos = state.shipPosition;
-      
       state.bonusBoxes.forEach((box) => {
         if (state.targetBonusBoxId === box.id) {
           if (Math.sqrt(Math.pow(shipPos.x - box.x, 2) + Math.pow(shipPos.y - box.y, 2)) < 55) {
@@ -281,13 +276,10 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           }
         }
       });
-
       state.ores.forEach((ore) => {
         if (state.targetOreId === ore.id) {
           if (Math.sqrt(Math.pow(shipPos.x - ore.x, 2) + Math.pow(shipPos.y - ore.y, 2)) < 55) {
-            if (state.collectOre(ore.id)) {
-              socket.emit('collect_ore', { id: ore.id });
-            }
+            if (state.collectOre(ore.id)) { socket.emit('collect_ore', { id: ore.id }); }
             state.setTargetOreId(null);
           }
         }
@@ -306,21 +298,14 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       const canvas = app.canvas as HTMLCanvasElement;
       if (canvas && (target === canvas || canvas.contains(target))) {
         const rect = canvas.getBoundingClientRect();
-        const screenX = e.clientX - rect.left;
-        const screenY = e.clientY - rect.top;
-        const worldX = screenX - cameraContainer.x;
-        const worldY = screenY - cameraContainer.y;
-
+        const worldX = (e.clientX - rect.left) - cameraContainer.x;
+        const worldY = (e.clientY - rect.top) - cameraContainer.y;
         if (handleEnemyClick(worldX, worldY) || handleBonusBoxClick(worldX, worldY) || handleOreClick(worldX, worldY)) return;
-        
-        state.setTargetBonusBoxId(null); 
-        state.setTargetOreId(null);
-        
-        const now = Date.now();
-        if (now - lastOutsideClickTimeRef.current < 300) {
+        state.setTargetBonusBoxId(null); state.setTargetOreId(null);
+        if (Date.now() - lastOutsideClickTimeRef.current < 300) {
           state.setSelectedEnemyId(null); state.setInCombat(false); state.setPlayerFiring(false);
         }
-        lastOutsideClickTimeRef.current = now;
+        lastOutsideClickTimeRef.current = Date.now();
       }
     };
     window.addEventListener('mousedown', handleCanvasClick);
@@ -346,11 +331,9 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const enemyList = useMemo(() => Array.from(enemies.entries()), [enemies]);
   const bonusBoxList = useMemo(() => Array.from(bonusBoxes.values()), [bonusBoxes]);
   const oreList = useMemo(() => Array.from(ores.values()), [ores]);
-  
   const engagedEnemyList = useMemo(() => enemyList.filter(([id, e]) => {
     if (deadEnemies.has(id)) return false;
     if (e.health <= 0) return false;
-    // CRITICAL: CombatSystem must mount if server says engaged OR if local player is actively attacking
     return e.isEngaged || (id === selectedEnemyId && inCombat);
   }), [enemyList, deadEnemies, selectedEnemyId, inCombat]);
 
@@ -371,75 +354,39 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           <MarsBackground app={app} cameraContainer={cameraContainer} />
           <Base app={app} cameraContainer={cameraContainer} position={basePosition} />
           {enemyList.map(([id, e]) => <Enemy key={id} app={app} cameraContainer={cameraContainer} enemyState={deadEnemies.has(id) ? null : e} isDead={deadEnemies.has(id)} />)}
-          {bonusBoxList.map((box) => (
-            <BonusBox 
-              key={box.id} 
-              app={app} 
-              cameraContainer={cameraContainer} 
-              boxState={box} 
-              isCollecting={targetBonusBoxId === box.id && Math.sqrt(Math.pow(shipPosition.x - box.x, 2) + Math.pow(shipPosition.y - box.y, 2)) < 55} 
-            />
-          ))}
-          {oreList.map((ore) => (
-            <ResourceCrystal 
-              key={ore.id} 
-              app={app} 
-              cameraContainer={cameraContainer} 
-              oreState={ore} 
-              isCollecting={targetOreId === ore.id && Math.sqrt(Math.pow(shipPosition.x - ore.x, 2) + Math.pow(shipPosition.y - ore.y, 2)) < 55} 
-            />
-          ))}
+          {bonusBoxList.map((box) => <BonusBox key={box.id} app={app} cameraContainer={cameraContainer} boxState={box} isCollecting={targetBonusBoxId === box.id && Math.sqrt(Math.pow(shipPosition.x - box.x, 2) + Math.pow(shipPosition.y - box.y, 2)) < 55} />)}
+          {oreList.map((ore) => <ResourceCrystal key={ore.id} app={app} cameraContainer={cameraContainer} oreState={ore} isCollecting={targetOreId === ore.id && Math.sqrt(Math.pow(shipPosition.x - ore.x, 2) + Math.pow(shipPosition.y - ore.y, 2)) < 55} />)}
           {Array.from(remotePlayers.values()).map((p) => <RemoteShip key={p.id} app={app} cameraContainer={cameraContainer} x={p.x} y={p.y} rotation={p.angle} username={p.username} isMoving={p.thrust} />)}
-          
-          {/* SELECTION UI RESTORED */}
           {selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId) && (() => {
             const enemy = enemies.get(selectedEnemyId);
             if (!enemy || enemy.health <= 0) return null;
             return (
               <>
-                <SelectionCircle
-                  app={app}
-                  cameraContainer={cameraContainer}
-                  position={{ x: enemy.x, y: enemy.y }}
-                  selected={true}
-                  inCombat={inCombat}
-                />
-                <HPBar
-                  app={app}
-                  cameraContainer={cameraContainer}
-                  position={{ x: enemy.x, y: enemy.y }}
-                  health={enemy.health}
-                  maxHealth={enemy.maxHealth || 1000}
-                  visible={true}
-                  shield={enemy.shield ?? 0}
-                  maxShield={enemy.maxShield ?? 0}
-                />
+                <SelectionCircle app={app} cameraContainer={cameraContainer} position={{ x: enemy.x, y: enemy.y }} selected={true} inCombat={inCombat} />
+                <HPBar app={app} cameraContainer={cameraContainer} position={{ x: enemy.x, y: enemy.y }} health={enemy.health} maxHealth={enemy.maxHealth || 1000} visible={true} shield={enemy.shield ?? 0} maxShield={enemy.maxShield ?? 0} />
               </>
             );
           })()}
-
           <Ship 
-            serverPosition={serverPosition} 
-            username={initialPlayerData.username} 
-            app={app} 
-            cameraContainer={cameraContainer} 
-            onStateUpdate={handleShipStateUpdate} 
-            targetPosition={targetPosition} 
-            onTargetReached={() => useGameStore.getState().setTargetPosition(null)} 
-            inCombat={!!(inCombat && selectedEnemyId)} 
-            isDead={isDead} 
+            serverPosition={serverPosition} username={initialPlayerData.username} app={app} cameraContainer={cameraContainer} 
+            onStateUpdate={handleShipStateUpdate} targetPosition={targetPosition} onTargetReached={() => useGameStore.getState().setTargetPosition(null)} 
+            onEnemyClick={handleEnemyClick} onBonusBoxClick={handleBonusBoxClick} inCombat={!!(inCombat && selectedEnemyId)} isDead={isDead} 
           />
           {isDead && deathPosition && <ShipExplosion app={app} cameraContainer={cameraContainer} position={deathPosition} active={isDead} onComplete={() => setTimeout(() => useGameStore.getState().setShowDeathWindow(true), 1000)} />}
           {isRepairing && <RepairRobot app={app} cameraContainer={cameraContainer} shipPosition={shipPosition} onRepairComplete={() => { useGameStore.getState().setIsRepairing(false); addMessage('Repair complete', 'success'); }} onHealTick={(amt) => useGameStore.getState().setPlayerHealth(Math.min(SPARROW_SHIP.hitpoints, playerHealth + amt))} playerHealth={playerHealth} maxHealth={SPARROW_SHIP.hitpoints} />}
           <HPBar app={app} cameraContainer={cameraContainer} position={shipPosition} health={playerHealth} maxHealth={SPARROW_SHIP.hitpoints} visible={true} shield={playerShield ?? 0} maxShield={playerMaxShield ?? 0} />
           {instaShieldActive && <Shield app={app} cameraContainer={cameraContainer} position={shipPosition} active={true} />}
-          {engagedEnemyList.map(([id, e]) => <CombatSystem key={id} app={app} cameraContainer={cameraContainer} playerPosition={shipPosition} playerVelocity={shipVelocity} playerRotation={shipRotation} playerHealth={playerHealth} enemyState={e} playerFiring={playerFiring && selectedEnemyId === id} onPlayerHealthChange={(h) => useGameStore.getState().setPlayerHealth(h)} onEnemyHealthChange={(h) => handleEnemyDamage({ id: id, damage: e.health - h, position: { x: e.x, y: e.y } })} isInSafetyZone={isInSafetyZone()} laserAmmo={useGameStore.getState().laserAmmo[currentLaserAmmoType]} onLaserAmmoConsume={() => socket.emit('fire_laser', { ammoType: currentLaserAmmoType })} onPlayerDamage={handlePlayerDamage} onEnemyDamage={(ev) => handleEnemyDamage({ id: id, ...ev })} />)}
+          {engagedEnemyList.map(([id, e]) => (
+            <CombatSystem 
+              key={id} app={app} cameraContainer={cameraContainer} playerPosition={shipPosition} playerVelocity={shipVelocity} playerRotation={shipRotation} playerHealth={playerHealth} 
+              enemyState={e} playerFiring={playerFiring && selectedEnemyId === id} onPlayerHealthChange={(h) => useGameStore.getState().setPlayerHealth(h)} 
+              onEnemyHealthChange={(h) => handleEnemyDamage({ id: id, damage: e.health - h, position: { x: e.x, y: e.y } })} isInSafetyZone={isInSafetyZone()} 
+              laserAmmo={useGameStore.getState().laserAmmo[currentLaserAmmoType]} currentLaserCannon={currentLaserCannon} currentLaserAmmoType={currentLaserAmmoType}
+              onLaserAmmoConsume={() => socket.emit('fire_laser', { ammoType: currentLaserAmmoType })} onPlayerDamage={handlePlayerDamage} onEnemyDamage={(ev) => handleEnemyDamage({ id: id, ...ev })} 
+            />
+          ))}
           <DamageNumbers ref={damageNumbersRef} app={app} cameraContainer={cameraContainer} playerPosition={shipPosition} />
-          {isInSafetyZone() && (
-            <div style={{ position: 'fixed', top: '190px', left: '50%', transform: 'translateX(-50%)', color: '#ffffff', fontFamily: 'monospace', fontSize: '16px', fontWeight: 'bold', zIndex: 1000, pointerEvents: 'none', textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
-              Safety Zone - Combat Disabled
-            </div>
-          )}
+          {isInSafetyZone() && <div style={{ position: 'fixed', top: '190px', left: '50%', transform: 'translateX(-50%)', color: '#ffffff', fontFamily: 'monospace', fontSize: '16px', fontWeight: 'bold', zIndex: 1000, pointerEvents: 'none', textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>Safety Zone - Combat Disabled</div>}
           <ShipWindow /><StatsWindow /><DebugWindow /><BattleWindow /><MinimapWindow onTargetChange={(pos) => useGameStore.getState().setTargetPosition(pos)} /><SettingsWindow /><OreWindow /><TradeWindow />
           {isDead && showDeathWindow && <DeathWindow onRepairOnSpot={handleRepairOnSpot} />}
         </>
