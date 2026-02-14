@@ -2,9 +2,12 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { Pool } from 'pg';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 export function createApp() {
   const app = express();
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const server = createServer(app);
   const io = new Server(server, {
     cors: {
@@ -24,6 +27,9 @@ export function createApp() {
     res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
     next();
   });
+
+  // Serve static files from frontend
+  app.use(express.static(path.join(__dirname, "../../frontend/dist")));
 
   // Health check endpoint
   app.get('/health', (req, res) => {
@@ -48,16 +54,18 @@ export function createApp() {
     });
   });
 
+  // Catch-all to serve frontend index.html
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, "../../frontend/dist/index.html"));
+  });
+
   return { app, server, io };
 }
 
 export function createDatabasePool(): Pool {
   const pool = new Pool({
-    user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'orbit_fall',
-    password: process.env.DB_PASSWORD || 'postgres',
-    port: parseInt(process.env.DB_PORT || '5432', 10),
+    connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
+    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
   });
 
   // Test connection
