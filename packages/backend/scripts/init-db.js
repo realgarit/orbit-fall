@@ -89,6 +89,12 @@ async function initDb() {
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='aetherium') THEN
           ALTER TABLE players ADD COLUMN aetherium BIGINT DEFAULT 0;
         END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='cargo') THEN
+          ALTER TABLE players ADD COLUMN cargo JSONB DEFAULT '{}';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='ammo') THEN
+          ALTER TABLE players ADD COLUMN ammo JSONB DEFAULT '{}';
+        END IF;
       END $$;
     `);
 

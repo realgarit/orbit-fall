@@ -1,6 +1,5 @@
 import { Pool } from 'pg';
 
-// Hardcoded constants to prevent import-related NaN physics bugs
 const MAP_WIDTH = 1200;
 const MAP_HEIGHT = 800;
 const SPARROW_HITPOINTS = 4000;
@@ -9,7 +8,7 @@ const SCALE_FACTOR = 0.01;
 
 function convertSpeed(baseSpeed: number): number {
   const displaySpeed = baseSpeed * SCALE_FACTOR;
-  return displaySpeed * 60; // ~192 units per second
+  return displaySpeed * 60; 
 }
 
 interface PlayerEntity {
@@ -29,6 +28,10 @@ interface PlayerEntity {
   credits: number;
   honor: number;
   aetherium: number;
+  
+  // Inventory (Authoritative)
+  cargo: Record<string, number>;
+  ammo: Record<string, number>;
   
   // Combat Stats (Authoritative)
   health: number;
@@ -85,6 +88,11 @@ export class EntityManager {
       credits: Number(dbUser.credits ?? 0),
       honor: Number(dbUser.honor ?? 0),
       aetherium: Number(dbUser.aetherium ?? 0),
+      
+      // Load Inventory
+      cargo: dbUser.cargo || {},
+      ammo: dbUser.ammo || {},
+      
       health: this.calculateMaxHealth(level),
       maxHealth: this.calculateMaxHealth(level),
       shield: this.calculateMaxShield(level),
@@ -106,10 +114,6 @@ export class EntityManager {
       console.log(`[EntityManager] Player left: ${player.username}`);
       this.players.delete(socketId);
     }
-  }
-
-  getPlayer(socketId: string) {
-    return this.players.get(socketId);
   }
 
   addExperience(socketId: string, amount: number) {
@@ -134,12 +138,26 @@ export class EntityManager {
 
   addHonor(socketId: string, amount: number) {
     const player = this.players.get(socketId);
-    if (player) player.honor += (player.honor || 0) + amount;
+    if (player) player.honor += amount;
   }
 
   addAetherium(socketId: string, amount: number) {
     const player = this.players.get(socketId);
-    if (player) player.aetherium += (player.aetherium || 0) + amount;
+    if (player) player.aetherium += amount;
+  }
+
+  addCargo(socketId: string, type: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) {
+      player.cargo[type] = (player.cargo[type] || 0) + amount;
+    }
+  }
+
+  addAmmo(socketId: string, type: string, amount: number) {
+    const player = this.players.get(socketId);
+    if (player) {
+      player.ammo[type] = (player.ammo[type] || 0) + amount;
+    }
   }
 
   updatePlayerInput(socketId: string, input: { thrust?: boolean; angle?: number; targetPosition?: { x: number; y: number } | null }) {
@@ -193,10 +211,23 @@ export class EntityManager {
     if (!player) return;
     try {
       await this.dbPool.query(
-        'UPDATE players SET last_x = $1, last_y = $2, level = $3, experience = $4, credits = $5, honor = $6, aetherium = $7, updated_at = NOW() WHERE id = $8',
-        [Math.round(player.x), Math.round(player.y), player.level, player.experience, player.credits, player.honor, player.aetherium, player.dbId]
+        'UPDATE players SET last_x = $1, last_y = $2, level = $3, experience = $4, credits = $5, honor = $6, aetherium = $7, cargo = $8, ammo = $9, updated_at = NOW() WHERE id = $10',
+        [
+          Math.round(player.x), 
+          Math.round(player.y), 
+          player.level, 
+          player.experience, 
+          player.credits, 
+          player.honor, 
+          player.aetherium,
+          JSON.stringify(player.cargo),
+          JSON.stringify(player.ammo),
+          player.dbId
+        ]
       );
-    } catch (e) {}
+    } catch (e) {
+      console.error(`[EntityManager] Error saving ${player.username}:`, e);
+    }
   }
 
   async saveAllPlayers() {
@@ -218,6 +249,8 @@ export class EntityManager {
         credits: p.credits,
         honor: p.honor,
         aetherium: p.aetherium,
+        cargo: p.cargo,
+        ammo: p.ammo,
         health: p.health,
         maxHealth: p.maxHealth,
         shield: p.shield,

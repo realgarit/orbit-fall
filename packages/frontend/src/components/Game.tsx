@@ -75,6 +75,18 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           state.setPlayerHealth(p.health);
           state.setPlayerShield(p.shield);
           state.setPlayerMaxShield(p.maxShield);
+
+          // Sync Inventory
+          if (p.cargo) state.setPlayerCargo(p.cargo);
+          if (p.ammo) {
+            const laserAmmoMap = { ...state.laserAmmo };
+            Object.keys(p.ammo).forEach(key => {
+              if (key.startsWith('LC') || key === 'RS-75') {
+                (laserAmmoMap as any)[key] = p.ammo[key];
+              }
+            });
+            state.setLaserAmmo(laserAmmoMap);
+          }
         }
       });
       setRemotePlayers(playersMap);
@@ -493,12 +505,15 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           if (selectedReward.type === 'credits') {
             state.addCredits(amount);
             addMessage(`Bonus Box: +${amount} Credits`, 'success');
+            socket.emit('collect_bonus_box', { reward: { type: 'credits', amount } });
           } else if (selectedReward.type === 'aetherium') {
             state.addAetherium(amount);
             addMessage(`Bonus Box: +${amount} Aetherium`, 'success');
+            socket.emit('collect_bonus_box', { reward: { type: 'aetherium', amount } });
           } else if (selectedReward.type === 'ammo' && selectedReward.ammoType) {
             state.addAmmo(selectedReward.ammoType, amount);
             addMessage(`Bonus Box: +${amount} ${selectedReward.ammoType} Ammo`, 'success');
+            socket.emit('collect_bonus_box', { reward: { type: 'ammo', ammoType: selectedReward.ammoType, amount } });
           }
 
           // Remove box and set respawn timer
@@ -542,6 +557,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
         if (distance < 50) {
           if (state.collectOre(ore.id)) {
             addMessage(`Collected ${ore.type}`, 'success');
+            socket.emit('collect_ore', { type: ore.type });
           } else {
             // Probably cargo full
             if (state.targetOreId === ore.id) {
