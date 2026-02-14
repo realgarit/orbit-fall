@@ -181,10 +181,19 @@ export class EntityManager {
       if (isMoving) {
         const vx = Math.cos(moveAngle - Math.PI / 2) * player.speed;
         const vy = Math.sin(moveAngle - Math.PI / 2) * player.speed;
+        
+        const oldX = player.x;
+        const oldY = player.y;
+        
         player.x += vx * dt;
         player.y += vy * dt;
         player.x = Math.max(0, Math.min(MAP_WIDTH, player.x));
         player.y = Math.max(0, Math.min(MAP_HEIGHT, player.y));
+
+        // Log if movement is significant (for debugging desync)
+        if (Math.abs(player.x - oldX) > 0.01) {
+           // Movement confirmed in memory
+        }
       }
 
       if (now - player.lastDamageTime > 5000 && player.shield < player.maxShield) {
