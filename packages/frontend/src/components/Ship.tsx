@@ -21,6 +21,7 @@ interface ShipProps {
 export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick, onBonusBoxClick, inCombat, enemyPosition, isDead = false, serverPosition, username }: ShipProps) {
   const shipRef = useRef<Container | null>(null);
   const positionRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
+  const hasInitializedPosRef = useRef(false);
   const rotationRef = useRef(0);
   const isMouseDownRef = useRef(false);
   const mouseWorldPosRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
@@ -294,18 +295,30 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
       const delta = ticker.deltaTime;
       // Server reconciliation - be gentle to avoid fighting local movement
       if (serverPosition && !isDeadRef.current) {
+        // Initial spawn sync
+        if (!hasInitializedPosRef.current) {
+          positionRef.current.x = serverPosition.x;
+          positionRef.current.y = serverPosition.y;
+          hasInitializedPosRef.current = true;
+          console.log(`[Ship] Initialized position from server: ${serverPosition.x}, ${serverPosition.y}`);
+        }
+
         const dx = serverPosition.x - positionRef.current.x;
         const dy = serverPosition.y - positionRef.current.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
         
-        // If we are way off (more than 200px), snap immediately
-        if (dist > 200) {
+        // RECONCILIATION LOGIC:
+        // 1. If we are within 100px of server, DO NOTHING (trust local prediction)
+        // 2. If we are 100-400px away, gently pull (high lag correction)
+        // 3. If we are > 400px away, snap instantly (teleport/desync correction)
+        
+        if (dist > 400) {
           positionRef.current.x = serverPosition.x;
           positionRef.current.y = serverPosition.y;
-        } else if (dist > 10) {
-          // Gently pull toward server position (lower factor = less fighting)
-          positionRef.current.x += dx * 0.05;
-          positionRef.current.y += dy * 0.05;
+        } else if (dist > 100) {
+          // Slow pull to server position
+          positionRef.current.x += dx * 0.02;
+          positionRef.current.y += dy * 0.02;
         }
       }
       const pos = positionRef.current;

@@ -79,7 +79,12 @@ export class EntityManager {
     const player = this.players.get(socketId);
     if (player) {
       player.lastInputTime = Date.now();
-      if (input.thrust !== undefined) player.thrust = input.thrust;
+      if (input.thrust !== undefined) {
+        if (player.thrust !== input.thrust) {
+          console.log(`[EntityManager] Player ${player.username} thrust: ${input.thrust}`);
+        }
+        player.thrust = input.thrust;
+      }
       if (input.angle !== undefined) player.angle = input.angle;
     }
   }
