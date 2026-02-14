@@ -23,7 +23,7 @@ async function resolveToIPv4(hostname: string): Promise<string | null> {
   }
 }
 
-export function createApp() {
+export function createApp(dbPool: Pool) {
   const app = express();
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const server = createServer(app);
@@ -35,9 +35,9 @@ export function createApp() {
   });
 
   // --- Game Infrastructure Setup ---
-  const entityManager = new EntityManager();
+  const entityManager = new EntityManager(dbPool);
   const gameLoop = new GameLoop(io, entityManager);
-  const socketHandler = new SocketHandler(io, entityManager);
+  const socketHandler = new SocketHandler(io, entityManager, dbPool);
 
   // Start the Game Loop (60 Hz)
   gameLoop.start();
