@@ -43,10 +43,13 @@ interface WorldEntity {
   type: string;
   x: number;
   y: number;
+  vx?: number;
+  vy?: number;
   health?: number;
   maxHealth?: number;
   shield?: number;
   maxShield?: number;
+  lastPatrolChange?: number;
 }
 
 export class EntityManager {
@@ -68,23 +71,28 @@ export class EntityManager {
         type: 'DRIFTER',
         x: Math.random() * MAP_WIDTH,
         y: Math.random() * MAP_HEIGHT,
+        vx: (Math.random() - 0.5) * 50,
+        vy: (Math.random() - 0.5) * 50,
         health: 1000,
         maxHealth: 1000,
         shield: 600,
-        maxShield: 600
+        maxShield: 600,
+        lastPatrolChange: Date.now()
       });
     }
-    for (let i = 1; i <= 20; i++) {
-      this.ores.set(`ore-${i}`, {
-        id: `ore-${i}`,
+    for (let i = 1; i <= 15; i++) {
+      const id = `ore-${i}`;
+      this.ores.set(id, {
+        id,
         type: Math.random() > 0.8 ? 'Beryl' : 'Pyrite',
         x: Math.random() * MAP_WIDTH,
         y: Math.random() * MAP_HEIGHT
       });
     }
     for (let i = 1; i <= 5; i++) {
-      this.boxes.set(`box-${i}`, {
-        id: `box-${i}`,
+      const id = `box-${i}`;
+      this.boxes.set(id, {
+        id,
         type: 'standard',
         x: Math.random() * MAP_WIDTH,
         y: Math.random() * MAP_HEIGHT
@@ -92,167 +100,140 @@ export class EntityManager {
     }
   }
 
-  private calculateMaxHealth(level: number): number {
-    return SPARROW_HITPOINTS + (level - 1) * 500;
-  }
+  // --- Methods ---
 
-  private calculateMaxShield(level: number): number {
-    return (level - 1) * 250;
-  }
-
-  getPlayer(socketId: string) {
-    return this.players.get(socketId);
-  }
+  getPlayer(socketId: string) { return this.players.get(socketId); }
 
   addPlayer(socketId: string, dbUser: any): PlayerEntity {
     const username = dbUser.username || 'Unknown Pilot';
     const level = Number(dbUser.level ?? 1);
-    const maxH = this.calculateMaxHealth(level);
-    const maxS = this.calculateMaxShield(level);
+    const maxH = SPARROW_HITPOINTS + (level - 1) * 500;
+    const maxS = (level - 1) * 250;
     
     const player: PlayerEntity = {
-      id: socketId,
-      socketId,
-      dbId: dbUser.id,
-      username: username,
-      x: Number(dbUser.last_x ?? 1000),
-      y: Number(dbUser.last_y ?? 1000),
-      angle: 0,
-      thrust: false,
-      targetPosition: null,
-      level: level,
-      experience: Number(dbUser.experience ?? 0),
-      credits: Number(dbUser.credits ?? 0),
-      honor: Number(dbUser.honor ?? 0),
-      aetherium: Number(dbUser.aetherium ?? 0),
-      cargo: dbUser.cargo || {},
-      ammo: dbUser.ammo || {},
-      health: Number(dbUser.current_health ?? maxH),
-      maxHealth: maxH,
-      shield: Number(dbUser.current_shield ?? maxS),
-      maxShield: maxS,
+      id: socketId, socketId, dbId: dbUser.id, username,
+      x: Number(dbUser.last_x ?? 1000), y: Number(dbUser.last_y ?? 1000),
+      angle: 0, thrust: false, targetPosition: null, level,
+      experience: Number(dbUser.experience ?? 0), credits: Number(dbUser.credits ?? 0),
+      honor: Number(dbUser.honor ?? 0), aetherium: Number(dbUser.aetherium ?? 0),
+      cargo: dbUser.cargo || {}, ammo: dbUser.ammo || {},
+      health: Number(dbUser.current_health ?? maxH), maxHealth: maxH,
+      shield: Number(dbUser.current_shield ?? maxS), maxShield: maxS,
       ship_type: dbUser.ship_type || 'Sparrow',
-      lastInputTime: Date.now(),
-      lastDamageTime: 0,
-      speed: convertSpeed(BASE_SPEED),
+      lastInputTime: Date.now(), lastDamageTime: 0,
+      speed: convertSpeed(320)
     };
     this.players.set(socketId, player);
     return player;
   }
 
   async removePlayer(socketId: string) {
-    const player = this.players.get(socketId);
-    if (player) {
-      await this.savePlayerToDB(socketId);
-      this.players.delete(socketId);
-    }
+    const p = this.players.get(socketId);
+    if (p) { await this.savePlayerToDB(socketId); this.players.delete(socketId); }
   }
 
   addExperience(socketId: string, amount: number) {
-    const player = this.players.get(socketId);
-    if (player) {
-      player.experience += amount;
-      const newLevel = Math.max(1, Math.floor(Math.log2(player.experience / 10000) + 2));
-      if (newLevel > player.level) {
-        player.level = newLevel;
-        player.maxHealth = this.calculateMaxHealth(newLevel);
-        player.maxShield = this.calculateMaxShield(newLevel);
-        player.health = player.maxHealth;
-        player.shield = player.maxShield;
+    const p = this.players.get(socketId);
+    if (p) {
+      p.experience += amount;
+      const newLevel = Math.max(1, Math.floor(Math.log2(p.experience / 10000) + 2));
+      if (newLevel > p.level) {
+        p.level = newLevel;
+        p.maxHealth = SPARROW_HITPOINTS + (newLevel - 1) * 500;
+        p.maxShield = (newLevel - 1) * 250;
+        p.health = p.maxHealth; p.shield = p.maxShield;
       }
     }
   }
 
-  addCredits(socketId: string, amount: number) {
-    const player = this.players.get(socketId);
-    if (player) player.credits += amount;
-  }
+  addCredits(socketId: string, amount: number) { const p = this.players.get(socketId); if (p) p.credits += amount; }
+  addHonor(socketId: string, amount: number) { const p = this.players.get(socketId); if (p) p.honor += amount; }
+  addAetherium(socketId: string, amount: number) { const p = this.players.get(socketId); if (p) p.aetherium += amount; }
 
-  addHonor(socketId: string, amount: number) {
-    const player = this.players.get(socketId);
-    if (player) player.honor += amount;
-  }
-
-  addAetherium(socketId: string, amount: number) {
-    const player = this.players.get(socketId);
-    if (player) player.aetherium += amount;
-  }
-
-  addCargo(socketId: string, type: string, amount: number) {
-    const player = this.players.get(socketId);
-    if (player) {
-      player.cargo[type] = (player.cargo[type] || 0) + amount;
-      for (const [id, ore] of this.ores.entries()) {
-        if (ore.type === type) {
-          this.ores.delete(id);
-          setTimeout(() => {
-            this.ores.set(id, { id, type, x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT });
-          }, 30000);
-          break;
-        }
-      }
-    }
-  }
-
-  removeBox(boxId: string) {
-    this.boxes.delete(boxId);
-    setTimeout(() => {
-      this.boxes.set(boxId, { id: boxId, type: 'standard', x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT });
-    }, 10000);
-  }
-
-  addAmmo(socketId: string, type: string, amount: number) {
-    const player = this.players.get(socketId);
-    if (player) player.ammo[type] = (player.ammo[type] || 0) + amount;
-  }
-
-  consumeAmmo(socketId: string, type: string): boolean {
-    const player = this.players.get(socketId);
-    if (player && (player.ammo[type] || 0) > 0) {
-      player.ammo[type]--;
+  collectOre(socketId: string, oreId: string): boolean {
+    const p = this.players.get(socketId);
+    const ore = this.ores.get(oreId);
+    if (p && ore) {
+      p.cargo[ore.type] = (p.cargo[ore.type] || 0) + 1;
+      this.ores.delete(oreId);
+      setTimeout(() => {
+        this.ores.set(oreId, { id: oreId, type: ore.type, x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT });
+      }, 30000);
       return true;
     }
     return false;
   }
 
+  collectBox(socketId: string, boxId: string, reward: any): boolean {
+    const p = this.players.get(socketId);
+    if (p && this.boxes.has(boxId)) {
+      if (reward.type === 'credits') p.credits += reward.amount;
+      else if (reward.type === 'aetherium') p.aetherium += reward.amount;
+      else if (reward.type === 'ammo') p.ammo[reward.ammoType] = (p.ammo[reward.ammoType] || 0) + reward.amount;
+      
+      this.boxes.delete(boxId);
+      setTimeout(() => {
+        this.boxes.set(boxId, { id: boxId, type: 'standard', x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT });
+      }, 15000);
+      return true;
+    }
+    return false;
+  }
+
+  addAmmo(socketId: string, type: string, amount: number) {
+    const p = this.players.get(socketId);
+    if (p) p.ammo[type] = (p.ammo[type] || 0) + amount;
+  }
+
+  consumeAmmo(socketId: string, type: string): boolean {
+    const p = this.players.get(socketId);
+    if (p && (p.ammo[type] || 0) > 0) { p.ammo[type]--; return true; }
+    return false;
+  }
+
   updatePlayerInput(socketId: string, input: any) {
-    const player = this.players.get(socketId);
-    if (player) {
-      player.lastInputTime = Date.now();
-      if (input.thrust !== undefined) player.thrust = !!input.thrust;
-      if (input.angle !== undefined && !isNaN(input.angle)) player.angle = Number(input.angle);
-      if (input.targetPosition !== undefined) player.targetPosition = input.targetPosition;
+    const p = this.players.get(socketId);
+    if (p) {
+      p.lastInputTime = Date.now();
+      if (input.thrust !== undefined) p.thrust = !!input.thrust;
+      if (input.angle !== undefined && !isNaN(input.angle)) p.angle = Number(input.angle);
+      if (input.targetPosition !== undefined) p.targetPosition = input.targetPosition;
     }
   }
 
   update(dt: number) {
     const now = Date.now();
-    this.players.forEach(player => {
+    // 1. Update Players
+    this.players.forEach(p => {
       let isMoving = false;
-      let moveAngle = player.angle;
-      if (player.targetPosition) {
-        const dx = player.targetPosition.x - player.x;
-        const dy = player.targetPosition.y - player.y;
+      let moveAngle = p.angle;
+      if (p.targetPosition) {
+        const dx = p.targetPosition.x - p.x; const dy = p.targetPosition.y - p.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist > 5) {
-          isMoving = true;
-          moveAngle = Math.atan2(dy, dx) + Math.PI/2;
-        } else {
-          player.targetPosition = null;
-        }
-      } else if (player.thrust) {
-        isMoving = true;
-      }
+        if (dist > 5) { isMoving = true; moveAngle = Math.atan2(dy, dx) + Math.PI/2; }
+        else p.targetPosition = null;
+      } else if (p.thrust) isMoving = true;
+
       if (isMoving) {
-        player.x += Math.cos(moveAngle - Math.PI / 2) * player.speed * dt;
-        player.y += Math.sin(moveAngle - Math.PI / 2) * player.speed * dt;
-        player.x = Math.max(0, Math.min(MAP_WIDTH, player.x));
-        player.y = Math.max(0, Math.min(MAP_HEIGHT, player.y));
+        p.x += Math.cos(moveAngle - Math.PI / 2) * p.speed * dt;
+        p.y += Math.sin(moveAngle - Math.PI / 2) * p.speed * dt;
+        p.x = Math.max(0, Math.min(MAP_WIDTH, p.x)); p.y = Math.max(0, Math.min(MAP_HEIGHT, p.y));
       }
-      if (now - player.lastDamageTime > 5000 && player.shield < player.maxShield) {
-        const regenAmount = player.maxShield * 0.05 * dt;
-        player.shield = Math.min(player.maxShield, player.shield + regenAmount);
+      if (now - p.lastDamageTime > 5000 && p.shield < p.maxShield) {
+        p.shield = Math.min(p.maxShield, p.shield + p.maxShield * 0.05 * dt);
       }
+    });
+
+    // 2. Update Enemies (Authoritative AI)
+    this.enemies.forEach(e => {
+      if (now - (e.lastPatrolChange || 0) > 3000 + Math.random() * 2000) {
+        const angle = Math.random() * Math.PI * 2;
+        e.vx = Math.cos(angle) * 40; e.vy = Math.sin(angle) * 40;
+        e.lastPatrolChange = now;
+      }
+      e.x += (e.vx || 0) * dt; e.y += (e.vy || 0) * dt;
+      e.x = Math.max(50, Math.min(MAP_WIDTH - 50, e.x));
+      e.y = Math.max(50, Math.min(MAP_HEIGHT - 50, e.y));
     });
   }
 
@@ -261,19 +242,13 @@ export class EntityManager {
     if (!p) return;
     try {
       await this.dbPool.query(
-        `UPDATE players SET 
-          last_x = $1, last_y = $2, level = $3, experience = $4, 
-          credits = $5, honor = $6, aetherium = $7, cargo = $8, 
-          ammo = $9, current_health = $10, current_shield = $11, 
-          updated_at = NOW() WHERE id = $12`,
+        `UPDATE players SET last_x = $1, last_y = $2, level = $3, experience = $4, credits = $5, honor = $6, aetherium = $7, cargo = $8, ammo = $9, current_health = $10, current_shield = $11, updated_at = NOW() WHERE id = $12`,
         [Math.round(p.x), Math.round(p.y), p.level, p.experience, p.credits, p.honor, p.aetherium, JSON.stringify(p.cargo), JSON.stringify(p.ammo), Math.round(p.health), Math.round(p.shield), p.dbId]
       );
     } catch (e) {}
   }
 
-  async saveAllPlayers() {
-    for (const id of this.players.keys()) await this.savePlayerToDB(id);
-  }
+  async saveAllPlayers() { for (const id of this.players.keys()) await this.savePlayerToDB(id); }
 
   getSnapshot() {
     return {

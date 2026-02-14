@@ -105,20 +105,16 @@ export class SocketHandler {
       this.entityManager.savePlayerToDB(socket.id);
     });
 
-    socket.on('collect_ore', (data: { type: string }) => {
-      this.entityManager.addCargo(socket.id, data.type, 1);
-      this.entityManager.savePlayerToDB(socket.id);
+    socket.on('collect_ore', (data: { id: string }) => {
+      if (this.entityManager.collectOre(socket.id, data.id)) {
+        this.entityManager.savePlayerToDB(socket.id);
+      }
     });
 
-    socket.on('collect_bonus_box', (data: { type: string; reward: any }) => {
-      if (data.reward.type === 'credits') {
-        this.entityManager.addCredits(socket.id, data.reward.amount);
-      } else if (data.reward.type === 'aetherium') {
-        this.entityManager.addAetherium(socket.id, data.reward.amount);
-      } else if (data.reward.type === 'ammo') {
-        this.entityManager.addAmmo(socket.id, data.reward.ammoType, data.reward.amount);
+    socket.on('collect_bonus_box', (data: { id: string; reward: any }) => {
+      if (this.entityManager.collectBox(socket.id, data.id, data.reward)) {
+        this.entityManager.savePlayerToDB(socket.id);
       }
-      this.entityManager.savePlayerToDB(socket.id);
     });
 
     socket.on('fire_laser', (data: { ammoType: string }) => {

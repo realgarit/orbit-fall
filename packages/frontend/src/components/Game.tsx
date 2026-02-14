@@ -293,13 +293,13 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           const amount = selectedReward.amounts[Math.floor(Math.random() * selectedReward.amounts.length)];
           if (selectedReward.type === 'credits') {
             state.addCredits(amount); addMessage(`Bonus Box: +${amount} Credits`, 'success');
-            socket.emit('collect_bonus_box', { reward: { type: 'credits', amount } });
+            socket.emit('collect_bonus_box', { id: box.id, reward: { type: 'credits', amount } });
           } else if (selectedReward.type === 'aetherium') {
             state.addAetherium(amount); addMessage(`Bonus Box: +${amount} Aetherium`, 'success');
-            socket.emit('collect_bonus_box', { reward: { type: 'aetherium', amount } });
+            socket.emit('collect_bonus_box', { id: box.id, reward: { type: 'aetherium', amount } });
           } else if (selectedReward.type === 'ammo' && selectedReward.ammoType) {
             state.addAmmo(selectedReward.ammoType, amount); addMessage(`Bonus Box: +${amount} ${selectedReward.ammoType} Ammo`, 'success');
-            socket.emit('collect_bonus_box', { reward: { type: 'ammo', ammoType: selectedReward.ammoType, amount } });
+            socket.emit('collect_bonus_box', { id: box.id, reward: { type: 'ammo', ammoType: selectedReward.ammoType, amount } });
           }
           state.removeBonusBox(box.id); state.setTargetBonusBoxId(null);
         }
@@ -309,7 +309,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
         if (Math.sqrt(Math.pow(shipPos.x - ore.x, 2) + Math.pow(shipPos.y - ore.y, 2)) < 50) {
           if (state.collectOre(ore.id)) {
             addMessage(`Collected ${ore.type}`, 'success');
-            socket.emit('collect_ore', { type: ore.type });
+            socket.emit('collect_ore', { id: ore.id });
           }
         }
       });
