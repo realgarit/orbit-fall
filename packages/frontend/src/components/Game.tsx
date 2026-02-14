@@ -59,6 +59,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const selectedEnemyId = useGameStore((state) => state.selectedEnemyId);
   const inCombat = useGameStore((state) => state.inCombat);
   const playerFiring = useGameStore((state) => state.playerFiring);
+  const playerFiringRocket = useGameStore((state) => state.playerFiringRocket);
   const isRepairing = useGameStore((state) => state.isRepairing);
   const isDead = useGameStore((state) => state.isDead);
   const deathPosition = useGameStore((state) => state.deathPosition);
@@ -382,7 +383,17 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
               enemyState={e} playerFiring={playerFiring && selectedEnemyId === id} onPlayerHealthChange={(h) => useGameStore.getState().setPlayerHealth(h)} 
               onEnemyHealthChange={(h) => handleEnemyDamage({ id: id, damage: e.health - h, position: { x: e.x, y: e.y } })} isInSafetyZone={isInSafetyZone()} 
               laserAmmo={useGameStore.getState().laserAmmo[currentLaserAmmoType]} currentLaserCannon={currentLaserCannon} currentLaserAmmoType={currentLaserAmmoType}
-              onLaserAmmoConsume={() => socket.emit('fire_laser', { ammoType: currentLaserAmmoType })} onPlayerDamage={handlePlayerDamage} onEnemyDamage={(ev) => handleEnemyDamage({ id: id, ...ev })} 
+              onLaserAmmoConsume={() => socket.emit('fire_laser', { ammoType: currentLaserAmmoType })} 
+              rocketAmmo={useGameStore.getState().rocketAmmo[currentRocketType]} currentRocketType={currentRocketType}
+              onRocketAmmoConsume={() => socket.emit('fire_rocket', { rocketType: currentRocketType })}
+              playerFiringRocket={playerFiringRocket && selectedEnemyId === id}
+              onRocketFired={() => {
+                if (selectedEnemyId === id) {
+                  useGameStore.getState().setPlayerFiringRocket(false);
+                  useGameStore.getState().setPlayerLastRocketFireTime(Date.now());
+                }
+              }}
+              onPlayerDamage={handlePlayerDamage} onEnemyDamage={(ev) => handleEnemyDamage({ id: id, ...ev })} 
             />
           ))}
           <DamageNumbers ref={damageNumbersRef} app={app} cameraContainer={cameraContainer} playerPosition={shipPosition} />

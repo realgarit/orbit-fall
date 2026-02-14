@@ -573,7 +573,7 @@ export function CombatSystem({
       const currentPlayerFiring = playerFiringRef.current;
 
       // Player firing lasers (only if ammo available and enemy is alive)
-      if (currentPlayerFiring && currentEnemyState && currentEnemyState.isEngaged && currentEnemyState.health > 0 && laserAmmoRef.current > 0) {
+      if (currentPlayerFiring && currentEnemyState && currentEnemyState.health > 0 && laserAmmoRef.current > 0) {
         const timeSinceLastFire = (now - playerLastFireTimeRef.current) / 1000;
         if (timeSinceLastFire >= 1 / COMBAT_CONFIG.FIRING_RATE) {
           // Check if enemy is in range (player firing)
