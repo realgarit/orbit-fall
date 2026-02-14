@@ -62,6 +62,7 @@ export class EntityManager {
   }
 
   private initializeWorld() {
+    // Spawn server-side enemies
     for (let i = 1; i <= 5; i++) {
       this.enemies.set(`enemy-${i}`, {
         id: `enemy-${i}`,
@@ -74,6 +75,7 @@ export class EntityManager {
         maxShield: 600
       });
     }
+    // Spawn server-side ores
     for (let i = 1; i <= 20; i++) {
       this.ores.set(`ore-${i}`, {
         id: `ore-${i}`,
@@ -82,15 +84,18 @@ export class EntityManager {
         y: Math.random() * MAP_HEIGHT
       });
     }
+    // Spawn server-side bonus boxes
+    for (let i = 1; i <= 5; i++) {
+      this.boxes.set(`box-${i}`, {
+        id: `box-${i}`,
+        type: 'standard',
+        x: Math.random() * MAP_WIDTH,
+        y: Math.random() * MAP_HEIGHT
+      });
+    }
   }
 
-  private calculateMaxHealth(level: number): number {
-    return SPARROW_HITPOINTS + (level - 1) * 500;
-  }
-
-  private calculateMaxShield(level: number): number {
-    return (level - 1) * 250;
-  }
+  // --- Methods ---
 
   getPlayer(socketId: string) {
     return this.players.get(socketId);
@@ -129,7 +134,6 @@ export class EntityManager {
       speed: convertSpeed(BASE_SPEED),
     };
     this.players.set(socketId, player);
-    console.log(`[EntityManager] Player joined: ${username}`);
     return player;
   }
 
@@ -137,7 +141,6 @@ export class EntityManager {
     const player = this.players.get(socketId);
     if (player) {
       await this.savePlayerToDB(socketId);
-      console.log(`[EntityManager] Player left: ${player.username}`);
       this.players.delete(socketId);
     }
   }
@@ -174,7 +177,28 @@ export class EntityManager {
 
   addCargo(socketId: string, type: string, amount: number) {
     const player = this.players.get(socketId);
-    if (player) player.cargo[type] = (player.cargo[type] || 0) + amount;
+    if (player) {
+      player.cargo[type] = (player.cargo[type] || 0) + amount;
+      // Also remove ore from world
+      for (const [id, ore] of this.ores.entries()) {
+        if (ore.type === type) {
+          // In a real system, we'd match the ID, but for now we remove one of that type
+          this.ores.delete(id);
+          // Respawn after 30s
+          setTimeout(() => {
+            this.ores.set(id, { id, type, x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT });
+          }, 30000);
+          break;
+        }
+      }
+    }
+  }
+
+  removeBox(boxId: string) {
+    this.boxes.delete(boxId);
+    setTimeout(() => {
+      this.boxes.set(boxId, { id: boxId, type: 'standard', x: Math.random() * MAP_WIDTH, y: Math.random() * MAP_HEIGHT });
+    }, 10000);
   }
 
   addAmmo(socketId: string, type: string, amount: number) {
@@ -191,7 +215,7 @@ export class EntityManager {
     return false;
   }
 
-  updatePlayerInput(socketId: string, input: { thrust?: boolean; angle?: number; targetPosition?: { x: number; y: number } | null }) {
+  updatePlayerInput(socketId: string, input: any) {
     const player = this.players.get(socketId);
     if (player) {
       player.lastInputTime = Date.now();
@@ -237,21 +261,10 @@ export class EntityManager {
     if (!p) return;
     try {
       await this.dbPool.query(
-        `UPDATE players SET 
-          last_x = $1, last_y = $2, level = $3, experience = $4, 
-          credits = $5, honor = $6, aetherium = $7, cargo = $8, 
-          ammo = $9, current_health = $10, current_shield = $11, 
-          updated_at = NOW() WHERE id = $12`,
-        [
-          Math.round(p.x), Math.round(p.y), p.level, p.experience, 
-          p.credits, p.honor, p.aetherium, JSON.stringify(p.cargo), 
-          JSON.stringify(p.ammo), Math.round(p.health), Math.round(p.shield), 
-          p.dbId
-        ]
+        `UPDATE players SET last_x = $1, last_y = $2, level = $3, experience = $4, credits = $5, honor = $6, aetherium = $7, cargo = $8, ammo = $9, current_health = $10, current_shield = $11, updated_at = NOW() WHERE id = $12`,
+        [Math.round(p.x), Math.round(p.y), p.level, p.experience, p.credits, p.honor, p.aetherium, JSON.stringify(p.cargo), JSON.stringify(p.ammo), Math.round(p.health), Math.round(p.shield), p.dbId]
       );
-    } catch (e) {
-      console.error('Save error:', e);
-    }
+    } catch (e) {}
   }
 
   async saveAllPlayers() {
@@ -261,11 +274,10 @@ export class EntityManager {
   getSnapshot() {
     return {
       players: Array.from(this.players.values()).map(p => ({
-        id: p.id, username: p.username, x: p.x, y: p.y, angle: p.angle, 
-        thrust: p.thrust, level: p.level, experience: p.experience, 
-        credits: p.credits, honor: p.honor, aetherium: p.aetherium, 
-        cargo: p.cargo, ammo: p.ammo, health: p.health, maxHealth: p.maxHealth, 
-        shield: p.shield, maxShield: p.maxShield, ship_type: p.ship_type
+        id: p.id, username: p.username, x: p.x, y: p.y, angle: p.angle, thrust: p.thrust,
+        level: p.level, experience: p.experience, credits: p.credits, honor: p.honor, 
+        aetherium: p.aetherium, cargo: p.cargo, ammo: p.ammo, health: p.health, 
+        maxHealth: p.maxHealth, shield: p.shield, maxShield: p.maxShield, ship_type: p.ship_type
       })),
       enemies: Array.from(this.enemies.values()),
       ores: Array.from(this.ores.values()),
