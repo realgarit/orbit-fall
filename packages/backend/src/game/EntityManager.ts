@@ -93,6 +93,7 @@ export class EntityManager {
       maxHealth: this.calculateMaxHealth(level),
       shield: this.calculateMaxShield(level),
       maxShield: this.calculateMaxShield(level),
+      ship_type: dbUser.ship_type || 'Sparrow',
       
       lastInputTime: Date.now(),
       lastDamageTime: 0,
