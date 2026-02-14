@@ -6,8 +6,8 @@ import { createApp, createDatabasePool } from './server.js';
 const PORT = process.env.PORT || 3000;
 
 async function startServer() {
-  const { app, server } = createApp();
   const dbPool = await createDatabasePool();
+  const { app, server } = createApp(dbPool);
 
   // Store database pool in app for potential use in routes
   (app as any).dbPool = dbPool;

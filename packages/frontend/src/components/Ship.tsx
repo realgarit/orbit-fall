@@ -1,12 +1,12 @@
 import { useEffect, useRef, memo } from 'react';
-import { Application, Graphics, Container } from 'pixi.js';
+import { Application, Graphics, Container, Text, TextStyle } from 'pixi.js';
 import { MAP_WIDTH, MAP_HEIGHT, SPARROW_SHIP } from '@shared/constants';
 import { convertSpeedToDisplay } from '@shared/utils/speedConversion';
 
 interface ShipProps {
   app: Application;
   cameraContainer: Container;
-  onStateUpdate?: (position: { x: number; y: number }, velocity: { vx: number; vy: number }, rotation?: number) => void;
+  onStateUpdate?: (position: { x: number; y: number }, velocity: { vx: number; vy: number }, rotation: number, thrust: boolean) => void;
   targetPosition?: { x: number; y: number } | null;
   onTargetReached?: () => void;
   onEnemyClick?: (worldX: number, worldY: number) => boolean;
@@ -14,9 +14,11 @@ interface ShipProps {
   inCombat?: boolean;
   enemyPosition?: { x: number; y: number } | null;
   isDead?: boolean;
+  serverPosition?: { x: number; y: number } | null;
+  username?: string;
 }
 
-export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick, onBonusBoxClick, inCombat, enemyPosition, isDead = false }: ShipProps) {
+export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, targetPosition, onTargetReached, onEnemyClick, onBonusBoxClick, inCombat, enemyPosition, isDead = false, serverPosition, username }: ShipProps) {
   const shipRef = useRef<Container | null>(null);
   const positionRef = useRef({ x: MAP_WIDTH / 2, y: MAP_HEIGHT / 2 });
   const rotationRef = useRef(0);
@@ -155,6 +157,19 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
     ship.y = positionRef.current.y;
 
     cameraContainer.addChild(ship);
+    // Add username
+    if (username) {
+      const style = new TextStyle({
+        fontFamily: "monospace",
+        fontSize: 12,
+        fill: 0xffffff,
+        align: "center",
+      });
+      const nameText = new Text({ text: username, style });
+      nameText.anchor.set(0.5);
+      nameText.y = -35;
+      ship.addChild(nameText);
+    }
     shipRef.current = ship;
 
     // Convert screen coordinates to world coordinates
@@ -268,6 +283,19 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
       }
 
       const delta = ticker.deltaTime;
+      // Server reconciliation
+      if (serverPosition && !isDeadRef.current) {
+        const dx = serverPosition.x - positionRef.current.x;
+        const dy = serverPosition.y - positionRef.current.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist > 50) {
+          positionRef.current.x = serverPosition.x;
+          positionRef.current.y = serverPosition.y;
+        } else if (dist > 0.1) {
+          positionRef.current.x += dx * 0.1;
+          positionRef.current.y += dy * 0.1;
+        }
+      }
       const pos = positionRef.current;
       const currentTarget = targetPosRef.current;
 
@@ -437,7 +465,7 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
 
       // Notify parent component of state changes
       if (onStateUpdate) {
-        onStateUpdate({ x: pos.x, y: pos.y }, { vx: velocity.vx, vy: velocity.vy }, rotationRef.current);
+        onStateUpdate({ x: pos.x, y: pos.y }, { vx: velocity.vx, vy: velocity.vy }, rotationRef.current, Math.abs(velocity.vx) > 0.1 || Math.abs(velocity.vy) > 0.1);
       }
     };
 

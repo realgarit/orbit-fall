@@ -1,4 +1,4 @@
-import type { ShipStats } from '../types';
+import type { ShipStats } from '../types.js';
 
 /**
  * Ship data model - database-ready structure

@@ -31,14 +31,39 @@ import { LevelUpAnimation } from './LevelUpAnimation';
 import { OreWindow } from './windows/OreWindow';
 import { TradeWindow } from './windows/TradeWindow';
 import { useGameStore } from '../stores/gameStore';
+import { Socket } from "socket.io-client";
+import { RemoteShip } from "./RemoteShip";
 import { MAP_WIDTH, MAP_HEIGHT, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP, BONUS_BOX_CONFIG, ORE_CONFIG } from '@shared/constants';
 import type { EnemyState, BonusBoxState, OreState } from '@shared/types';
 import { getLevelFromExp } from '@shared/utils/leveling';
 import '../styles/windows.css';
 
-export function Game() {
+export function Game({ socket, initialPlayerData }: { socket: Socket, initialPlayerData: any }) {
   const addMessage = useMessageStore((state) => state.addMessage);
+  // Initialize store from DB data
+  useEffect(() => {
+    const state = useGameStore.getState();
+    state.setShipPosition({ x: initialPlayerData.x, y: initialPlayerData.y });
+    state.setPlayerLevel(initialPlayerData.level);
+    state.setPlayerCredits(initialPlayerData.credits);
+  }, [initialPlayerData]);
   const [app, setApp] = useState<Application | null>(null);
+  const [remotePlayers, setRemotePlayers] = useState<Map<string, any>>(new Map());
+  const [serverPosition, setServerPosition] = useState<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    socket.on("gameState", (data) => {
+      const playersMap = new Map();
+      data.players.forEach((p: any) => {
+        if (p.id !== socket.id) {
+          playersMap.set(p.id, p);
+        } else {
+          setServerPosition({ x: p.x, y: p.y });
+        }
+      });
+      setRemotePlayers(playersMap);
+    });
+    return () => { socket.off("gameState"); };
+  }, [socket]);
   const [cameraContainer, setCameraContainer] = useState<Container | null>(null);
 
   // Double-click detection (keep as local state - UI only)
@@ -244,14 +269,13 @@ export function Game() {
   }, []); // Only run once on mount
 
   // Handle ship state updates
-  const handleShipStateUpdate = useCallback((position: { x: number; y: number }, velocity: { vx: number; vy: number }, rotation?: number) => {
+  const handleShipStateUpdate = useCallback((pos: { x: number; y: number }, vel: { vx: number; vy: number }, rotation: number, thrust: boolean) => {
     const state = useGameStore.getState();
-    state.setShipPosition(position);
-    state.setShipVelocity(velocity);
-    if (rotation !== undefined) {
-      state.setShipRotation(rotation);
-    }
-  }, []);
+    state.setShipPosition(pos);
+    state.setShipVelocity(vel);
+    state.setShipRotation(rotation);
+    socket.emit("player_input", { thrust, angle: rotation });
+  }, [socket]);
 
   // Handle enemy state updates
   const handleEnemyStateUpdate = useCallback((enemyId: string, enemyState: EnemyState) => {
@@ -1039,7 +1063,21 @@ export function Game() {
               isCollecting={targetOreId === ore.id && Math.sqrt(Math.pow(shipPosition.x - ore.x, 2) + Math.pow(shipPosition.y - ore.y, 2)) < 50}
             />
           ))}
+          {Array.from(remotePlayers.values()).map((p) => (
+            <RemoteShip
+              key={p.id}
+              app={app}
+              cameraContainer={cameraContainer}
+              x={p.x}
+              y={p.y}
+              rotation={p.angle}
+              username={p.username}
+              isMoving={p.thrust}
+            />
+          ))}
           <Ship
+            serverPosition={serverPosition}
+            username={initialPlayerData.username}
             app={app}
             cameraContainer={cameraContainer}
             onStateUpdate={handleShipStateUpdate}
@@ -1201,6 +1239,8 @@ export function Game() {
             </div>
           )}
           <ShipWindow />
+            serverPosition={serverPosition}
+            username={initialPlayerData.username}
           <StatsWindow />
           <DebugWindow />
           <BattleWindow />

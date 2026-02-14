@@ -1,8 +1,7 @@
-export * from './constants';
-export * from './types';
-export * from './utils/speedConversion';
-export * from './utils/damageCalculation';
-export * from './utils/leveling';
-export * from './models/PlayerModel';
-export * from './models/ShipModel';
-
+export * from './constants.js';
+export * from './types.js';
+export * from './utils/speedConversion.js';
+export * from './utils/damageCalculation.js';
+export * from './utils/leveling.js';
+export * from './models/PlayerModel.js';
+export * from './models/ShipModel.js';

@@ -1,5 +1,5 @@
-import { LEVELING_CONFIG } from '../constants';
-import type { LevelInfo } from '../types';
+import { LEVELING_CONFIG } from '../constants.js';
+import type { LevelInfo } from '../types.js';
 
 /**
  * Calculates the experience required for a given level
