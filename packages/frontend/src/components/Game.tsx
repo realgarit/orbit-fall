@@ -90,110 +90,30 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
         }
       });
       setRemotePlayers(playersMap);
+
+      // --- SHARED WORLD SYNC ---
+      if (data.enemies) {
+        const enemyMap = new Map();
+        data.enemies.forEach((e: any) => {
+          enemyMap.set(e.id, {
+            ...e,
+            name: '-=[ Drifter ]=-',
+            attitude: 'defensive'
+          });
+        });
+        state.setEnemies(enemyMap);
+      }
+
+      if (data.ores) {
+        const oreMap = new Map();
+        data.ores.forEach((o: any) => {
+          oreMap.set(o.id, o);
+        });
+        state.setOres(oreMap);
+      }
     });
     return () => { socket.off("gameState"); };
   }, [socket, initialPlayerData.username]);
-  const [cameraContainer, setCameraContainer] = useState<Container | null>(null);
-
-  // Double-click detection (keep as local state - UI only)
-  const lastClickTimeRef = useRef(0);
-  const lastClickEnemyIdRef = useRef<string | null>(null);
-  const lastOutsideClickTimeRef = useRef(0);
-
-  // Track previous state for messages (keep as local refs - UI only)
-  const prevSafetyZoneRef = useRef(false);
-  const prevInCombatRef = useRef(false);
-
-  // Debounce ref for click handling
-  const lastClickProcessedTimeRef = useRef(0);
-  const prevIsRepairingRef = useRef(false);
-
-  // Damage numbers ref
-  const damageNumbersRef = useRef<DamageNumbersHandle>(null);
-
-  // Subscribe to state for rendering
-  const shipPosition = useGameStore((state) => state.shipPosition);
-  const shipVelocity = useGameStore((state) => state.shipVelocity);
-  const shipRotation = useGameStore((state) => state.shipRotation);
-  const playerHealth = useGameStore((state) => state.playerHealth);
-  const playerShield = useGameStore((state) => state.playerShield);
-  const playerMaxShield = useGameStore((state) => state.playerMaxShield);
-  const enemies = useGameStore((state) => state.enemies);
-  const enemyPositions = useGameStore((state) => state.enemyPositions);
-  const deadEnemies = useGameStore((state) => state.deadEnemies);
-  const selectedEnemyId = useGameStore((state) => state.selectedEnemyId);
-  const inCombat = useGameStore((state) => state.inCombat);
-  const playerFiring = useGameStore((state) => state.playerFiring);
-  const playerFiringRocket = useGameStore((state) => state.playerFiringRocket);
-  const isRepairing = useGameStore((state) => state.isRepairing);
-  const isDead = useGameStore((state) => state.isDead);
-  const deathPosition = useGameStore((state) => state.deathPosition);
-  const showDeathWindow = useGameStore((state) => state.showDeathWindow);
-  const instaShieldActive = useGameStore((state) => state.instaShieldActive);
-  const targetPosition = useGameStore((state) => state.targetPosition);
-  const bonusBoxes = useGameStore((state) => state.bonusBoxes);
-  const targetBonusBoxId = useGameStore((state) => state.targetBonusBoxId);
-  const ores = useGameStore((state) => state.ores);
-  const targetOreId = useGameStore((state) => state.targetOreId);
-  const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
-  const currentLaserAmmoType = useGameStore((state) => state.currentLaserAmmoType);
-  const currentRocketType = useGameStore((state) => state.currentRocketType);
-  const rocketCooldown = useGameStore((state) => state.rocketCooldown);
-  const repairCooldown = useGameStore((state) => state.repairCooldown);
-
-  // Memoize entity lists to avoid re-calculating every frame
-  const enemyList = useMemo(() => Array.from(enemies.entries()), [enemies]);
-  const bonusBoxList = useMemo(() => Array.from(bonusBoxes.values()), [bonusBoxes]);
-  const oreList = useMemo(() => Array.from(ores.values()), [ores]);
-  const engagedEnemyList = useMemo(() =>
-    enemyList.filter(([enemyId, enemy]) =>
-      !deadEnemies.has(enemyId) && enemy.health > 0 && enemy.isEngaged
-    ), [enemyList, deadEnemies]);
-
-  const { containerRef } = usePixiApp({
-    width: window.innerWidth,
-    height: window.innerHeight,
-    backgroundColor: 0x000000,
-    onAppReady: (app) => {
-      setApp(app);
-      const worldContainer = new Container();
-      app.stage.addChild(worldContainer);
-      setCameraContainer(worldContainer);
-    },
-  });
-
-  // Base position
-  const basePosition = { x: 200, y: 200 };
-
-  // Check if player is in safety zone
-  const isInSafetyZone = () => {
-    const state = useGameStore.getState();
-    const dx = state.shipPosition.x - basePosition.x;
-    const dy = state.shipPosition.y - basePosition.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance < BASE_SAFETY_ZONE.RADIUS;
-  };
-
-  // Check if any enemy is engaged/aggressive
-  const hasAggressiveEnemies = () => {
-    const state = useGameStore.getState();
-    return Array.from(state.enemies.values()).some(
-      (enemy) => enemy.health > 0 && enemy.isEngaged && !state.deadEnemies.has(enemy.id)
-    );
-  };
-
-
-  // Handle window resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (app) {
-        app.renderer.resize(window.innerWidth, window.innerHeight);
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [app]);
 
   // Track FPS
   useEffect(() => {
@@ -213,89 +133,12 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     };
   }, [app]);
 
-  // Initialize 4 enemies on mount
+  // INITIALIZATION - NO LONGER SPAWNS LOCAL ENTITIES
   useEffect(() => {
-    const state = useGameStore.getState();
-    const initialEnemies = new Map<string, EnemyState>();
-    for (let i = 1; i <= 4; i++) {
-      const enemyId = `drifter-${i}`;
-      const angle = Math.random() * Math.PI * 2;
-      const distance = 200 + Math.random() * 200;
-      const spawnX = state.shipPosition.x + Math.cos(angle) * distance;
-      const spawnY = state.shipPosition.y + Math.sin(angle) * distance;
+    // Only initialize local state once here, but NO LONGER spawn enemies or ores.
+    // The server provides them now in the snapshot.
+  }, []); 
 
-      initialEnemies.set(enemyId, {
-        id: enemyId,
-        name: ENEMY_STATS.DRIFTER.NAME,
-        x: Math.max(0, Math.min(MAP_WIDTH, spawnX)),
-        y: Math.max(0, Math.min(MAP_HEIGHT, spawnY)),
-        vx: 0,
-        vy: 0,
-        health: ENEMY_STATS.DRIFTER.MAX_HEALTH,
-        maxHealth: ENEMY_STATS.DRIFTER.MAX_HEALTH,
-        shield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
-        maxShield: ENEMY_STATS.DRIFTER.MAX_SHIELD,
-        rotation: 0,
-        isEngaged: false,
-        lastFireTime: 0,
-        attitude: ENEMY_STATS.DRIFTER.ATTITUDE,
-      });
-    }
-    state.setEnemies(initialEnemies);
-
-    // Initialize Bonus Boxes
-    const initialBoxes = new Map<string, BonusBoxState>();
-    for (let i = 1; i <= BONUS_BOX_CONFIG.COUNT; i++) {
-      const boxId = `box-${i}`;
-      initialBoxes.set(boxId, {
-        id: boxId,
-        type: 'standard',
-        x: Math.random() * MAP_WIDTH,
-        y: Math.random() * MAP_HEIGHT,
-      });
-    }
-    state.setBonusBoxes(initialBoxes);
-
-    // Initialize Ores
-    const initialOres = new Map<string, OreState>();
-    let oreCounter = 1;
-
-    // Spawn Pyrite clusters
-    const clusterCount = 3 + Math.floor(Math.random() * 3);
-    for (let c = 0; c < clusterCount; c++) {
-      const centerX = Math.random() * MAP_WIDTH;
-      const centerY = Math.random() * MAP_HEIGHT;
-      const size = ORE_CONFIG.PYRITE.clusterSize.min + Math.floor(Math.random() * (ORE_CONFIG.PYRITE.clusterSize.max - ORE_CONFIG.PYRITE.clusterSize.min));
-
-      for (let i = 0; i < size; i++) {
-        const oreId = `ore-pyrite-${oreCounter++}`;
-        const offsetAngle = Math.random() * Math.PI * 2;
-        const offsetDist = Math.random() * 80;
-        initialOres.set(oreId, {
-          id: oreId,
-          type: 'Pyrite',
-          size: 'small',
-          x: Math.max(0, Math.min(MAP_WIDTH, centerX + Math.cos(offsetAngle) * offsetDist)),
-          y: Math.max(0, Math.min(MAP_HEIGHT, centerY + Math.sin(offsetAngle) * offsetDist)),
-        });
-      }
-    }
-
-    // Spawn rare Beryl
-    const berylCount = 2 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < berylCount; i++) {
-      const oreId = `ore-beryl-${oreCounter++}`;
-      initialOres.set(oreId, {
-        id: oreId,
-        type: 'Beryl',
-        size: 'small',
-        x: Math.random() * MAP_WIDTH,
-        y: Math.random() * MAP_HEIGHT,
-      });
-    }
-
-    state.setOres(initialOres);
-  }, []); // Only run once on mount
 
   // Handle ship state updates
   const handleShipStateUpdate = useCallback((pos: { x: number; y: number }, vel: { vx: number; vy: number }, rotation: number, thrust: boolean, targetPos: { x: number; y: number } | null) => {

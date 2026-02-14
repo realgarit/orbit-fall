@@ -77,19 +77,22 @@ export const RemoteShip = memo(({ app, cameraContainer, x, y, rotation, username
     drawShipBody(body);
     ship.addChild(body);
 
-    // Username
-    const style = new TextStyle({
-      fontFamily: 'monospace',
-      fontSize: 12,
-      fill: 0xffffff,
-      align: 'center',
-    });
-    const nameText = new Text({ text: username, style });
-    nameText.anchor.set(0.5);
-    nameText.y = -35;
-    ship.addChild(nameText);
-
     cameraContainer.addChild(ship);
+    
+    // Create name text (as world-space sibling, match Ship.tsx)
+    const nameText = new Text({
+      text: username || 'Pilot',
+      style: {
+        fontFamily: 'Verdana, Arial, sans-serif',
+        fontSize: 14,
+        fontWeight: 'bold',
+        fill: 0xffffff,
+        align: 'center',
+      },
+    });
+    nameText.anchor.set(0.5, 0);
+    cameraContainer.addChild(nameText);
+
     shipRef.current = ship;
 
     const tickerCallback = (ticker: any) => {
@@ -98,6 +101,10 @@ export const RemoteShip = memo(({ app, cameraContainer, x, y, rotation, username
       const lerpFactor = 0.15;
       shipRef.current.x += (targetRef.current.x - shipRef.current.x) * lerpFactor * ticker.deltaTime;
       shipRef.current.y += (targetRef.current.y - shipRef.current.y) * lerpFactor * ticker.deltaTime;
+
+      // Update name tag position
+      nameText.x = shipRef.current.x;
+      nameText.y = shipRef.current.y + 35;
 
       let diff = targetRef.current.rotation - shipRef.current.rotation;
       while (diff > Math.PI) diff -= 2 * Math.PI;
