@@ -49,6 +49,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const lastClickProcessedTimeRef = useRef(0);
   const damageNumbersRef = useRef<DamageNumbersHandle>(null);
 
+  // REACTIVE STATE SUBSCRIPTIONS
   const shipPosition = useGameStore((state) => state.shipPosition);
   const shipVelocity = useGameStore((state) => state.shipVelocity);
   const shipRotation = useGameStore((state) => state.shipRotation);
@@ -71,6 +72,9 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const targetBonusBoxId = useGameStore((state) => state.targetBonusBoxId);
   const ores = useGameStore((state) => state.ores);
   const targetOreId = useGameStore((state) => state.targetOreId);
+  
+  const laserAmmo = useGameStore((state) => state.laserAmmo);
+  const rocketAmmo = useGameStore((state) => state.rocketAmmo);
   const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
   const currentLaserAmmoType = useGameStore((state) => state.currentLaserAmmoType);
   const currentRocketType = useGameStore((state) => state.currentRocketType);
@@ -207,7 +211,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       if (state.deadEnemies.has(enemyId)) continue;
       const dx = worldX - enemy.x;
       const dy = worldY - enemy.y;
-      if (Math.sqrt(dx * dx + dy * dy) < 60) { // Hitbox boost
+      if (Math.sqrt(dx * dx + dy * dy) < 60) {
         const now = Date.now();
         if (now - lastClickProcessedTimeRef.current < 50) return true;
         lastClickProcessedTimeRef.current = now;
@@ -217,6 +221,8 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           if (!isInSafetyZone() && !state.instaShieldActive) {
             state.setInCombat(true);
             state.setPlayerFiring(true);
+            // Local engagement override to ensure instant visual feedback
+            state.updateEnemy(enemyId, { ...enemy, isEngaged: true });
           }
           lastClickTimeRef.current = 0; lastClickEnemyIdRef.current = null;
         } else {
@@ -345,8 +351,8 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       <TopBar />
       <MessageSystem />
       <ActionBar 
-        laserAmmo={useGameStore.getState().laserAmmo[currentLaserAmmoType]} 
-        rocketAmmo={useGameStore.getState().rocketAmmo[currentRocketType]}
+        laserAmmo={laserAmmo[currentLaserAmmoType]} 
+        rocketAmmo={rocketAmmo[currentRocketType]}
         rocketCooldown={rocketCooldown} repairCooldown={repairCooldown} isRepairing={isRepairing}
         onRepairClick={() => !inCombat && !hasAggressiveEnemies() && useGameStore.getState().setIsRepairing(true)}
       />
@@ -390,9 +396,9 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
               key={id} app={app} cameraContainer={cameraContainer} playerPosition={shipPosition} playerVelocity={shipVelocity} playerRotation={shipRotation} playerHealth={playerHealth} 
               enemyState={e} playerFiring={playerFiring && selectedEnemyId === id} onPlayerHealthChange={(h) => useGameStore.getState().setPlayerHealth(h)} 
               onEnemyHealthChange={(h) => handleEnemyDamage({ id: id, damage: e.health - h, position: { x: e.x, y: e.y } })} isInSafetyZone={isInSafetyZone()} 
-              laserAmmo={useGameStore.getState().laserAmmo[currentLaserAmmoType]} currentLaserCannon={currentLaserCannon} currentLaserAmmoType={currentLaserAmmoType}
+              laserAmmo={laserAmmo[currentLaserAmmoType]} currentLaserCannon={currentLaserCannon} currentLaserAmmoType={currentLaserAmmoType}
               onLaserAmmoConsume={() => socket.emit('fire_laser', { ammoType: currentLaserAmmoType })} 
-              rocketAmmo={useGameStore.getState().rocketAmmo[currentRocketType]} currentRocketType={currentRocketType}
+              rocketAmmo={rocketAmmo[currentRocketType]} currentRocketType={currentRocketType}
               onRocketAmmoConsume={() => socket.emit('fire_rocket', { rocketType: currentRocketType })}
               playerFiringRocket={playerFiringRocket && selectedEnemyId === id}
               onRocketFired={() => { if (selectedEnemyId === id) { useGameStore.getState().setPlayerFiringRocket(false); useGameStore.getState().setPlayerLastRocketFireTime(Date.now()); } }}
