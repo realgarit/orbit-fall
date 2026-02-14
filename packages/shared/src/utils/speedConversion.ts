@@ -1,4 +1,4 @@
-import { SPEED_SCALE_FACTOR, SPEED_BASE_NORMAL } from '../constants';
+import { SPEED_SCALE_FACTOR, SPEED_BASE_NORMAL } from '../constants.js';
 
 /**
  * Converts base speed (from ship stats) to display speed (pixels per frame)

@@ -1,4 +1,4 @@
-import type { LaserAmmoType, LaserCannonType, RocketType, ShipStats } from '../types';
+import type { LaserAmmoType, LaserCannonType, RocketType, ShipStats } from '../types.js';
 
 /**
  * Player data model - database-ready structure

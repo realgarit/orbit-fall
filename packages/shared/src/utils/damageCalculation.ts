@@ -1,5 +1,5 @@
-import type { LaserAmmoType, LaserCannonType, RocketType } from '../types';
-import { LASER_AMMO, LASER_CANNONS, ROCKETS } from '../constants';
+import type { LaserAmmoType, LaserCannonType, RocketType } from '../types.js';
+import { LASER_AMMO, LASER_CANNONS, ROCKETS } from '../constants.js';
 
 /**
  * Calculates laser damage using the formula:
