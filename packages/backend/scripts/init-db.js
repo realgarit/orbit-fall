@@ -11,12 +11,35 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 const { Pool } = pg;
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-});
+async function resolveToIPv4(hostname) {
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return hostname;
+  try {
+    const { address } = await dns.promises.lookup(hostname, { family: 4 });
+    return address;
+  } catch (error) {
+    return hostname;
+  }
+}
 
 async function initDb() {
+  let connectionString = process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
+
+  const dbHostMatch = connectionString.match(/@([^/]+)/) || connectionString.match(/\/\/([^/]+)/);
+  const dbHost = dbHostMatch ? dbHostMatch[1] : 'unknown';
+  const [hostname] = dbHost.split(':');
+
+  if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    const ipv4 = await resolveToIPv4(hostname);
+    if (ipv4 !== hostname) {
+      connectionString = connectionString.replace(hostname, ipv4);
+    }
+  }
+
+  const pool = new Pool({
+    connectionString,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  });
+
   let client;
   try {
     client = await pool.connect();

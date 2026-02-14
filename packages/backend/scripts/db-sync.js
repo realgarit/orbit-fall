@@ -12,7 +12,28 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 const { Pool } = pg;
 const BACKUP_FILE = path.join(__dirname, '../backup.json');
 
+async function resolveToIPv4(hostname) {
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return hostname;
+  try {
+    const { address } = await dns.promises.lookup(hostname, { family: 4 });
+    return address;
+  } catch (error) {
+    return hostname;
+  }
+}
+
 async function getClient(connectionString) {
+  const dbHostMatch = connectionString.match(/@([^/]+)/) || connectionString.match(/\/\/([^/]+)/);
+  const dbHost = dbHostMatch ? dbHostMatch[1] : 'unknown';
+  const [hostname] = dbHost.split(':');
+
+  if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    const ipv4 = await resolveToIPv4(hostname);
+    if (ipv4 !== hostname) {
+      connectionString = connectionString.replace(hostname, ipv4);
+    }
+  }
+
   const pool = new Pool({
     connectionString,
     ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
@@ -24,7 +45,7 @@ async function exportData() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is missing');
   
-  console.log('📥 Exporting data from:', url.split('@')[1] || 'local');
+  console.log('📥 Exporting data...');
   const { pool, client } = await getClient(url);
   
   try {
@@ -44,7 +65,7 @@ async function importData() {
   if (!fs.existsSync(BACKUP_FILE)) throw new Error('No backup.json found to import');
   const data = JSON.parse(fs.readFileSync(BACKUP_FILE, 'utf8'));
   
-  console.log('📤 Importing data to:', url.split('@')[1] || 'local');
+  console.log('📤 Importing data...');
   const { pool, client } = await getClient(url);
   
   try {
