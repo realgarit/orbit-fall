@@ -96,9 +96,16 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
     const ship = new Container();
     const shipBody = new Graphics();
     const engineGlow = new Graphics();
+    const serverGhost = new Graphics(); // Add debug ghost
 
     ship.addChild(engineGlow);
     ship.addChild(shipBody);
+    
+    // Setup debug ghost (faint circle)
+    serverGhost.circle(0, 0, 20);
+    serverGhost.stroke({ color: 0xffffff, width: 1, alpha: 0.3 });
+    serverGhost.visible = false;
+    cameraContainer.addChild(serverGhost);
 
     const drawShipBody = (g: Graphics) => {
       g.clear();
@@ -300,26 +307,24 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
           positionRef.current.x = serverPosition.x;
           positionRef.current.y = serverPosition.y;
           hasInitializedPosRef.current = true;
-          console.log(`[Ship] Initialized position from server: ${serverPosition.x}, ${serverPosition.y}`);
         }
 
         const dx = serverPosition.x - positionRef.current.x;
         const dy = serverPosition.y - positionRef.current.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
         
-        // RECONCILIATION LOGIC:
-        // 1. If we are within 100px of server, DO NOTHING (trust local prediction)
-        // 2. If we are 100-400px away, gently pull (high lag correction)
-        // 3. If we are > 400px away, snap instantly (teleport/desync correction)
-        
-        if (dist > 400) {
+        // Show server ghost if desync is > 50px
+        serverGhost.x = serverPosition.x;
+        serverGhost.y = serverPosition.y;
+        serverGhost.visible = dist > 50;
+
+        // If we are way off (> 500px), snap immediately
+        if (dist > 500) {
           positionRef.current.x = serverPosition.x;
           positionRef.current.y = serverPosition.y;
-        } else if (dist > 100) {
-          // Slow pull to server position
-          positionRef.current.x += dx * 0.02;
-          positionRef.current.y += dy * 0.02;
         }
+        // NOTE: We removed the "pull" factor entirely because it fights the player.
+        // As long as backend and frontend math match, they will stay close.
       }
       const pos = positionRef.current;
       const currentTarget = targetPosRef.current;

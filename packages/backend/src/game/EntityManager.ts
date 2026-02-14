@@ -3,7 +3,11 @@ import { SPARROW_SHIP, MAP_WIDTH, MAP_HEIGHT, SPEED_SCALE_FACTOR } from '@orbit-
 
 // Helper to convert base speed to game units per second
 function convertSpeed(baseSpeed: number): number {
-  return baseSpeed * SPEED_SCALE_FACTOR * 60; // scale to pixels per second (assuming 60fps base)
+  // Frontend uses speed * delta (usually ~1 at 60fps)
+  // To match that on the server with a dt in seconds, 
+  // we need to scale the display speed.
+  const displaySpeed = baseSpeed * SPEED_SCALE_FACTOR;
+  return displaySpeed * 60; // scale to units per second
 }
 
 interface PlayerEntity {
