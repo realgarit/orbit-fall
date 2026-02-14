@@ -33,7 +33,7 @@ import { LevelUpAnimation } from './LevelUpAnimation';
 import { useGameStore } from '../stores/gameStore';
 import { Socket } from "socket.io-client";
 import { RemoteShip } from "./RemoteShip";
-import { BASE_SAFETY_ZONE, SPARROW_SHIP, BONUS_BOX_CONFIG } from '@shared/constants';
+import { BASE_SAFETY_ZONE, SPARROW_SHIP, BONUS_BOX_CONFIG, ENEMY_STATS } from '@shared/constants';
 import '../styles/windows.css';
 
 export function Game({ socket, initialPlayerData }: { socket: Socket, initialPlayerData: any }) {
@@ -49,7 +49,6 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const lastClickProcessedTimeRef = useRef(0);
   const damageNumbersRef = useRef<DamageNumbersHandle>(null);
 
-  // REACTIVE STATE SUBSCRIPTIONS
   const shipPosition = useGameStore((state) => state.shipPosition);
   const shipVelocity = useGameStore((state) => state.shipVelocity);
   const shipRotation = useGameStore((state) => state.shipRotation);
@@ -72,7 +71,6 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const targetBonusBoxId = useGameStore((state) => state.targetBonusBoxId);
   const ores = useGameStore((state) => state.ores);
   const targetOreId = useGameStore((state) => state.targetOreId);
-  
   const laserAmmo = useGameStore((state) => state.laserAmmo);
   const rocketAmmo = useGameStore((state) => state.rocketAmmo);
   const currentLaserCannon = useGameStore((state) => state.currentLaserCannon);
@@ -191,6 +189,27 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     damageNumbersRef.current?.addDamageNumber(event.damage, event.position, false);
   }, [socket]);
 
+  const handleEnemyHealthChange = useCallback((enemyId: string, health: number) => {
+    const state = useGameStore.getState();
+    const enemy = state.enemies.get(enemyId);
+    if (!enemy) return;
+
+    if (health <= 0 && !state.deadEnemies.has(enemyId)) {
+      state.updateEnemy(enemyId, { ...enemy, health, isEngaged: false });
+      socket.emit('enemy_destroyed', { type: 'DRIFTER' });
+      
+      const reward = ENEMY_STATS.DRIFTER.REWARD;
+      addMessage(`Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits`, 'combat');
+      
+      state.addDeadEnemy(enemyId);
+      if (state.selectedEnemyId === enemyId) {
+        state.setInCombat(false); state.setPlayerFiring(false); state.setSelectedEnemyId(null);
+      }
+    } else {
+      state.updateEnemy(enemyId, { ...enemy, health });
+    }
+  }, [addMessage, socket]);
+
   const handleRepairOnSpot = useCallback(() => {
     const state = useGameStore.getState();
     if (state.deathPosition) {
@@ -217,17 +236,14 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
         lastClickProcessedTimeRef.current = now;
         const isDoubleClick = now - lastClickTimeRef.current < 350 && lastClickEnemyIdRef.current === enemyId;
         if (isDoubleClick) {
-          console.log(`[Game] Double click on ${enemyId}. Starting combat.`);
           state.setSelectedEnemyId(enemyId);
           if (!isInSafetyZone() && !state.instaShieldActive) {
             state.setInCombat(true);
             state.setPlayerFiring(true);
-            // Local engagement override to ensure instant visual feedback
             state.updateEnemy(enemyId, { ...enemy, isEngaged: true });
           }
           lastClickTimeRef.current = 0; lastClickEnemyIdRef.current = null;
         } else {
-          console.log(`[Game] Single click on ${enemyId}. Selecting.`);
           state.setSelectedEnemyId(enemyId);
           lastClickTimeRef.current = now; lastClickEnemyIdRef.current = enemyId;
         }
@@ -282,6 +298,11 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
             }
             const amount = selectedReward.amounts[Math.floor(Math.random() * selectedReward.amounts.length)];
             socket.emit('collect_bonus_box', { id: box.id, reward: { type: selectedReward.type, amount, ammoType: selectedReward.ammoType } });
+            
+            if (selectedReward.type === 'credits') addMessage(`Bonus Box: +${amount} Credits`, 'success');
+            else if (selectedReward.type === 'aetherium') addMessage(`Bonus Box: +${amount} Aetherium`, 'success');
+            else if (selectedReward.type === 'ammo') addMessage(`Bonus Box: +${amount} ${selectedReward.ammoType} Ammo`, 'success');
+            
             state.setTargetBonusBoxId(null);
           }
         }
@@ -289,7 +310,10 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       state.ores.forEach((ore) => {
         if (state.targetOreId === ore.id) {
           if (Math.sqrt(Math.pow(shipPos.x - ore.x, 2) + Math.pow(shipPos.y - ore.y, 2)) < 55) {
-            if (state.collectOre(ore.id)) { socket.emit('collect_ore', { id: ore.id }); }
+            if (state.collectOre(ore.id)) { 
+              socket.emit('collect_ore', { id: ore.id }); 
+              addMessage(`Collected ${ore.type}`, 'success');
+            }
             state.setTargetOreId(null);
           }
         }
@@ -297,7 +321,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     };
     app.ticker.add(tickerCallback);
     return () => { app.ticker.remove(tickerCallback); };
-  }, [app, socket]);
+  }, [app, socket, addMessage]);
 
   useEffect(() => {
     if (!app || !cameraContainer) return;
@@ -397,7 +421,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
             <CombatSystem 
               key={id} app={app} cameraContainer={cameraContainer} playerPosition={shipPosition} playerVelocity={shipVelocity} playerRotation={shipRotation} playerHealth={playerHealth} 
               enemyState={e} playerFiring={playerFiring && selectedEnemyId === id} onPlayerHealthChange={(h) => useGameStore.getState().setPlayerHealth(h)} 
-              onEnemyHealthChange={(h) => handleEnemyDamage({ id: id, damage: e.health - h, position: { x: e.x, y: e.y } })} isInSafetyZone={isInSafetyZone()} 
+              onEnemyHealthChange={(h) => handleEnemyHealthChange(id, h)} isInSafetyZone={isInSafetyZone()} 
               laserAmmo={laserAmmo[currentLaserAmmoType]} currentLaserCannon={currentLaserCannon} currentLaserAmmoType={currentLaserAmmoType}
               onLaserAmmoConsume={() => socket.emit('fire_laser', { ammoType: currentLaserAmmoType })} 
               rocketAmmo={rocketAmmo[currentRocketType]} currentRocketType={currentRocketType}

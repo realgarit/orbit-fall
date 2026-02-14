@@ -395,9 +395,10 @@ export function CombatSystem({
 
       const dx = predictedTarget.x - fromX;
       const dy = predictedTarget.y - fromY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Allow firing even at very close range (minimum distance check removed)
-      // The line-segment collision detection will handle close-range hits properly
+      // SAFETY: Don't fire if too close or coordinates are NaN
+      if (dist < 1 || isNaN(dx) || isNaN(dy)) return;
 
       const angle = Math.atan2(dy, dx);
 
@@ -445,9 +446,10 @@ export function CombatSystem({
 
       const dx = predictedTarget.x - fromX;
       const dy = predictedTarget.y - fromY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
 
-      // Allow firing even at very close range (minimum distance check removed)
-      // The line-segment collision detection will handle close-range hits properly
+      // SAFETY: Don't fire if too close or coordinates are NaN
+      if (dist < 1 || isNaN(dx) || isNaN(dy)) return;
 
       const angle = Math.atan2(dy, dx);
 
