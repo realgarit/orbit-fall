@@ -48,6 +48,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
   const lastOutsideClickTimeRef = useRef(0);
   const lastClickProcessedTimeRef = useRef(0);
   const damageNumbersRef = useRef<DamageNumbersHandle>(null);
+  const collectingIdsRef = useRef<Set<string>>(new Set());
 
   const shipPosition = useGameStore((state) => state.shipPosition);
   const shipVelocity = useGameStore((state) => state.shipVelocity);
@@ -197,10 +198,8 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
     if (health <= 0 && !state.deadEnemies.has(enemyId)) {
       state.updateEnemy(enemyId, { ...enemy, health, isEngaged: false });
       socket.emit('enemy_destroyed', { type: 'DRIFTER' });
-      
       const reward = ENEMY_STATS.DRIFTER.REWARD;
       addMessage(`Enemy destroyed! +${reward.experience} Exp, +${reward.credits} Credits`, 'combat');
-      
       state.addDeadEnemy(enemyId);
       if (state.selectedEnemyId === enemyId) {
         state.setInCombat(false); state.setPlayerFiring(false); state.setSelectedEnemyId(null);
@@ -287,7 +286,7 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
       const state = useGameStore.getState();
       const shipPos = state.shipPosition;
       state.bonusBoxes.forEach((box) => {
-        if (state.targetBonusBoxId === box.id) {
+        if (state.targetBonusBoxId === box.id && !collectingIdsRef.current.has(box.id)) {
           if (Math.sqrt(Math.pow(shipPos.x - box.x, 2) + Math.pow(shipPos.y - box.y, 2)) < 55) {
             const rewardRoll = Math.random() * 100;
             let currentWeight = 0;
@@ -303,18 +302,26 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
             else if (selectedReward.type === 'aetherium') addMessage(`Bonus Box: +${amount} Aetherium`, 'success');
             else if (selectedReward.type === 'ammo') addMessage(`Bonus Box: +${amount} ${selectedReward.ammoType} Ammo`, 'success');
             
-            state.setTargetBonusBoxId(null);
+            collectingIdsRef.current.add(box.id);
+            setTimeout(() => {
+              collectingIdsRef.current.delete(box.id);
+              useGameStore.getState().setTargetBonusBoxId(null);
+            }, 500);
           }
         }
       });
       state.ores.forEach((ore) => {
-        if (state.targetOreId === ore.id) {
+        if (state.targetOreId === ore.id && !collectingIdsRef.current.has(ore.id)) {
           if (Math.sqrt(Math.pow(shipPos.x - ore.x, 2) + Math.pow(shipPos.y - ore.y, 2)) < 55) {
             if (state.collectOre(ore.id)) { 
               socket.emit('collect_ore', { id: ore.id }); 
               addMessage(`Collected ${ore.type}`, 'success');
             }
-            state.setTargetOreId(null);
+            collectingIdsRef.current.add(ore.id);
+            setTimeout(() => {
+              collectingIdsRef.current.delete(ore.id);
+              useGameStore.getState().setTargetOreId(null);
+            }, 500);
           }
         }
       });
@@ -388,8 +395,8 @@ export function Game({ socket, initialPlayerData }: { socket: Socket, initialPla
           <MarsBackground app={app} cameraContainer={cameraContainer} />
           <Base app={app} cameraContainer={cameraContainer} position={basePosition} />
           {enemyList.map(([id, e]) => <Enemy key={id} app={app} cameraContainer={cameraContainer} enemyState={deadEnemies.has(id) ? null : e} isDead={deadEnemies.has(id)} />)}
-          {bonusBoxList.map((box) => <BonusBox key={box.id} app={app} cameraContainer={cameraContainer} boxState={box} isCollecting={targetBonusBoxId === box.id && Math.sqrt(Math.pow(shipPosition.x - box.x, 2) + Math.pow(shipPosition.y - box.y, 2)) < 55} />)}
-          {oreList.map((ore) => <ResourceCrystal key={ore.id} app={app} cameraContainer={cameraContainer} oreState={ore} isCollecting={targetOreId === ore.id && Math.sqrt(Math.pow(shipPosition.x - ore.x, 2) + Math.pow(shipPosition.y - ore.y, 2)) < 55} />)}
+          {bonusBoxList.map((box) => <BonusBox key={box.id} app={app} cameraContainer={cameraContainer} boxState={box} isCollecting={targetBonusBoxId === box.id && collectingIdsRef.current.has(box.id)} />)}
+          {oreList.map((ore) => <ResourceCrystal key={ore.id} app={app} cameraContainer={cameraContainer} oreState={ore} isCollecting={targetOreId === ore.id && collectingIdsRef.current.has(ore.id)} />)}
           {Array.from(remotePlayers.values()).map((p) => <RemoteShip key={p.id} app={app} cameraContainer={cameraContainer} x={p.x} y={p.y} rotation={p.angle} username={p.username} isMoving={p.thrust} />)}
           {selectedEnemyId && enemies.has(selectedEnemyId) && !deadEnemies.has(selectedEnemyId) && (() => {
             const enemy = enemies.get(selectedEnemyId);
