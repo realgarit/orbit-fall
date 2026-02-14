@@ -26,7 +26,7 @@ export function createApp() {
   const server = createServer(app);
   const io = new Server(server, {
     cors: {
-      origin: 'http://localhost:5173',
+      origin: process.env.NODE_ENV === 'production' ? false : 'http://localhost:5173', // In production, same-origin is used
       methods: ['GET', 'POST'],
     },
   });
@@ -35,11 +35,13 @@ export function createApp() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  // CORS for Express routes
+  // CORS for Express routes (API) - Allow dev or same-origin
   app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', 'http://localhost:5173');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    if (process.env.NODE_ENV !== 'production') {
+      res.header('Access-Control-Allow-Origin', 'http://localhost:5173');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    }
     next();
   });
 
@@ -78,67 +80,31 @@ export function createApp() {
 }
 
 export async function createDatabasePool(): Promise<Pool> {
-  let connectionString = process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
-
-  // Parse host for logging, removing credentials
-  const dbHostMatch = connectionString.match(/@([^/]+)/) || connectionString.match(/\/\/([^/]+)/);
-  let dbHost = dbHostMatch ? dbHostMatch[1] : 'unknown';
-
-  // Extract hostname and port
-  const [hostname] = dbHost.split(':');
-
-  if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-    const ipv4 = await resolveToIPv4(hostname);
-    if (ipv4) {
-      if (ipv4 !== hostname) {
-        console.log(`Resolved database host ${hostname} to IPv4: ${ipv4}`);
-        // Replace hostname with IP in connection string
-        connectionString = connectionString.replace(hostname, ipv4);
-      }
-    } else {
-      // IPv4 resolution failed. Check if it's a Supabase direct host.
-      const supabaseMatch = hostname.match(/db\.([^.]+)\.supabase\.co/);
-      if (supabaseMatch) {
-        const projectRef = supabaseMatch[1];
-        const poolerHost = `aws-0-eu-west-1.pooler.supabase.com`;
-        console.warn(`IPv4 resolution failed for Supabase direct host ${hostname}.`);
-        console.log(`Falling back to Supabase Connection Pooler: ${poolerHost}`);
-
-        try {
-          const url = new URL(connectionString);
-          url.hostname = poolerHost;
-          url.port = "6543";
-          if (!url.username.includes(projectRef)) {
-            url.username = `${url.username}.${projectRef}`;
-          }
-          connectionString = url.toString();
-        } catch (e) {
-          // Fallback to manual replacement if URL parsing fails
-          connectionString = connectionString.replace(hostname, poolerHost);
-          if (!connectionString.includes(`postgres.${projectRef}`)) {
-            connectionString = connectionString.replace("://postgres:", `://postgres.${projectRef}:`);
-          }
-        }
-        dbHost = `${poolerHost} (Fallback from ${hostname})`;
-      } else {
-        console.warn(`IPv4 resolution failed for ${hostname}, falling back to original hostname.`);
-      }
-    }
+  const connectionString = process.env.DATABASE_URL;
+  
+  if (!connectionString) {
+    console.warn('⚠️ DATABASE_URL not found. Database connection might fail.');
+  } else {
+    // Log connection attempt (hiding password)
+    const maskedUrl = connectionString.replace(/:([^:@]+)@/, ':****@');
+    console.log(`🔌 Connecting to database: ${maskedUrl}`);
   }
 
   const pool = new Pool({
-    connectionString,
+    connectionString: connectionString || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
     ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 5000,
   });
 
   // Test connection
   try {
     await pool.query('SELECT NOW()');
-    console.log(`Database connected successfully to ${dbHost}`);
+    console.log(`✅ Database connected successfully`);
   } catch (err) {
-    console.error(`Database connection error [Host: ${dbHost}]:`, (err as Error).message);
-    if ((err as any).code) console.error(`Error Code: ${(err as any).code}`);
-    if ((err as any).address) console.error(`Address: ${(err as any).address}`);
+    console.error(`❌ Database connection error:`, (err as Error).message);
+    if ((err as Error).message.includes('getaddrinfo') || (err as Error).message.includes('connect ETIMEDOUT')) {
+      console.error('💡 HINT: If you are on Render, ensure you are using the Supabase "Transaction Pooler" connection string (port 6543).');
+    }
   }
 
   return pool;
