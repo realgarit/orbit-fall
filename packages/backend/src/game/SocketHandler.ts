@@ -7,11 +7,13 @@ export class SocketHandler {
   private io: Server;
   private entityManager: EntityManager;
   private authService: AuthService;
+  private dbPool: Pool;
   private activeIps: Map<string, string> = new Map(); // ip -> socketId
 
   constructor(io: Server, entityManager: EntityManager, dbPool: Pool) {
     this.io = io;
     this.entityManager = entityManager;
+    this.dbPool = dbPool;
     this.authService = new AuthService(dbPool);
   }
 
