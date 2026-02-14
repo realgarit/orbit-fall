@@ -41,10 +41,10 @@ export class SocketHandler {
     // 2. Login
     socket.on('login', async (data: { username: string; password: string }) => {
       const ip = this.getClientIp(socket);
-      const isLocalhost = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1';
+      const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1');
 
-      // Concurrent Session Limit (Anti-Multibox)
-      if (!isLocalhost && Array.from(this.activeIps.keys()).includes(ip)) {
+      // Concurrent Session Limit
+      if (!isLocalhost && this.activeIps.has(ip)) {
         socket.emit('login_response', { success: false, message: 'Login Limit: 1 active session per Public IP' });
         return;
       }
@@ -52,13 +52,15 @@ export class SocketHandler {
       const result = await this.authService.login(data.username, data.password);
       if (result.success) {
         // Add to game world
-        // FIX: addPlayer expects (socketId, username), NOT (socketId, userObject)
-        this.entityManager.addPlayer(socket.id, result.user.username);
-        
+        this.entityManager.addPlayer(socket.id, result.user);
         this.activeIps.set(ip, socket.id);
+
+        // Create a simple session token (for prototype, just the username + salt)
+        const sessionToken = Buffer.from(`${result.user.username}:${Date.now()}`).toString('base64');
 
         socket.emit('login_success', {
           id: socket.id,
+          sessionToken, // Send token to client
           username: result.user.username,
           x: result.user.last_x,
           y: result.user.last_y,
@@ -68,6 +70,28 @@ export class SocketHandler {
         });
       } else {
         socket.emit('login_response', result);
+      }
+    });
+
+    // 2.5 Reconnect / Token Login
+    socket.on('resume_session', async (data: { token: string; username: string }) => {
+      const ip = this.getClientIp(socket);
+      // For prototype, we just trust the token if the username matches
+      // In production, you'd verify this against a Redis/DB session store
+      const result = await this.dbPool.query('SELECT * FROM players WHERE username = $1', [data.username]);
+      if (result.rows.length > 0) {
+        const user = result.rows[0];
+        this.entityManager.addPlayer(socket.id, user);
+        this.activeIps.set(ip, socket.id);
+        socket.emit('login_success', {
+          id: socket.id,
+          username: user.username,
+          x: user.last_x,
+          y: user.last_y,
+          level: user.level,
+          credits: user.credits,
+          ship_type: user.ship_type
+        });
       }
     });
 

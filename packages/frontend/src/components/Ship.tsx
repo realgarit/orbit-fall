@@ -157,19 +157,23 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
     ship.y = positionRef.current.y;
 
     cameraContainer.addChild(ship);
-    // Add username
-    if (username) {
-      const style = new TextStyle({
-        fontFamily: "monospace",
-        fontSize: 12,
-        fill: 0xffffff,
-        align: "center",
-      });
-      const nameText = new Text({ text: username, style });
-      nameText.anchor.set(0.5);
-      nameText.y = -35;
-      ship.addChild(nameText);
-    }
+    
+    // Create name text (as world-space sibling, not child, to match Enemy.tsx logic)
+    const nameText = new Text({
+      text: username || 'Pilot',
+      style: {
+        fontFamily: 'Verdana, Arial, sans-serif',
+        fontSize: 14,
+        fontWeight: 'bold',
+        fill: 0xffffff, // White for player/friendly
+        align: 'center',
+      },
+    });
+    nameText.anchor.set(0.5, 0);
+    nameText.x = ship.x;
+    nameText.y = ship.y + 35; // Position below ship, matching Drifter
+    cameraContainer.addChild(nameText);
+
     shipRef.current = ship;
 
     // Convert screen coordinates to world coordinates
@@ -255,6 +259,11 @@ export const Ship = memo(function Ship({ app, cameraContainer, onStateUpdate, ta
     const tickerCallback = (ticker: any) => {
       const ship = shipRef.current;
       if (!ship) return;
+
+      // Update name tag position to follow ship
+      nameText.x = ship.x;
+      nameText.y = ship.y + 35;
+      nameText.visible = ship.visible && !isDeadRef.current;
 
       const engineGlow = ship.children[0] as Graphics;
       const velocity = velocityRef.current;

@@ -41,13 +41,14 @@ export class EntityManager {
   // --- Player Management ---
 
   addPlayer(socketId: string, dbUser: any): PlayerEntity {
+    const username = dbUser.username || 'Unknown Pilot';
     const player: PlayerEntity = {
       id: socketId,
       socketId,
       dbId: dbUser.id,
-      username: dbUser.username,
-      x: dbUser.last_x ?? 1000,
-      y: dbUser.last_y ?? 1000,
+      username: username,
+      x: Number(dbUser.last_x ?? 1000),
+      y: Number(dbUser.last_y ?? 1000),
       angle: 0,
       thrust: false,
       level: dbUser.level ?? 1,
@@ -57,7 +58,7 @@ export class EntityManager {
       speed: convertSpeed(SPARROW_SHIP.baseSpeed),
     };
     this.players.set(socketId, player);
-    console.log(`[EntityManager] Player joined: ${player.username} (${socketId})`);
+    console.log(`[EntityManager] Player joined: ${username} (${socketId})`);
     return player;
   }
 
@@ -87,6 +88,7 @@ export class EntityManager {
     // dt is in seconds
     this.players.forEach(player => {
       if (player.thrust) {
+        // Ship faces UP at 0 radians, so we subtract PI/2 to align with PIXI coordinate system
         const vx = Math.cos(player.angle - Math.PI / 2) * player.speed;
         const vy = Math.sin(player.angle - Math.PI / 2) * player.speed;
 
