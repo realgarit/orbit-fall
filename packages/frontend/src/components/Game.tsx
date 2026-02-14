@@ -35,7 +35,6 @@ import { Socket } from "socket.io-client";
 import { RemoteShip } from "./RemoteShip";
 import { MAP_WIDTH, MAP_HEIGHT, BASE_SAFETY_ZONE, ROCKET_CONFIG, ENEMY_STATS, SPARROW_SHIP, BONUS_BOX_CONFIG, ORE_CONFIG } from '@shared/constants';
 import type { EnemyState, BonusBoxState, OreState } from '@shared/types';
-import { getLevelFromExp } from '@shared/utils/leveling';
 import '../styles/windows.css';
 
 export function Game({ socket, initialPlayerData }: { socket: Socket, initialPlayerData: any }) {
