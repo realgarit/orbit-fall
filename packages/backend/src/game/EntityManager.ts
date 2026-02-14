@@ -1,10 +1,15 @@
 import { Pool } from 'pg';
-import { SPARROW_SHIP, MAP_WIDTH, MAP_HEIGHT, SPEED_SCALE_FACTOR } from '@orbit-fall/shared';
 
-// Helper to convert base speed to game units per second
+// Hardcoded constants to prevent import-related NaN physics bugs
+const MAP_WIDTH = 1200;
+const MAP_HEIGHT = 800;
+const SPARROW_HITPOINTS = 4000;
+const BASE_SPEED = 320;
+const SCALE_FACTOR = 0.01;
+
 function convertSpeed(baseSpeed: number): number {
-  const displaySpeed = baseSpeed * SPEED_SCALE_FACTOR;
-  return displaySpeed * 60; // scale to units per second
+  const displaySpeed = baseSpeed * SCALE_FACTOR;
+  return displaySpeed * 60; // ~192 units per second
 }
 
 interface PlayerEntity {
@@ -33,7 +38,7 @@ interface PlayerEntity {
   ship_type: string;
   
   lastInputTime: number;
-  lastDamageTime: number; // For shield regeneration
+  lastDamageTime: number; 
   speed: number;
 }
 
@@ -53,17 +58,13 @@ export class EntityManager {
     this.dbPool = dbPool;
   }
 
-  // --- Stat Calculation (The Engine) ---
-
   private calculateMaxHealth(level: number): number {
-    return SPARROW_SHIP.hitpoints + (level - 1) * 500;
+    return SPARROW_HITPOINTS + (level - 1) * 500;
   }
 
   private calculateMaxShield(level: number): number {
     return (level - 1) * 250;
   }
-
-  // --- Player Management ---
 
   addPlayer(socketId: string, dbUser: any): PlayerEntity {
     const username = dbUser.username || 'Unknown Pilot';
@@ -79,27 +80,22 @@ export class EntityManager {
       angle: 0,
       thrust: false,
       targetPosition: null,
-      
-      // Progression (from DB)
       level: level,
       experience: Number(dbUser.experience ?? 0),
       credits: Number(dbUser.credits ?? 0),
       honor: Number(dbUser.honor ?? 0),
       aetherium: Number(dbUser.aetherium ?? 0),
-      
-      // Combat Stats (Calculated)
       health: this.calculateMaxHealth(level),
       maxHealth: this.calculateMaxHealth(level),
       shield: this.calculateMaxShield(level),
       maxShield: this.calculateMaxShield(level),
       ship_type: dbUser.ship_type || 'Sparrow',
-      
       lastInputTime: Date.now(),
       lastDamageTime: 0,
-      speed: convertSpeed(SPARROW_SHIP.baseSpeed),
+      speed: convertSpeed(BASE_SPEED),
     };
     this.players.set(socketId, player);
-    console.log(`[EntityManager] Player joined: ${username} (Lvl ${level})`);
+    console.log(`[EntityManager] Player joined: ${username} at (${player.x}, ${player.y})`);
     return player;
   }
 
@@ -107,7 +103,6 @@ export class EntityManager {
     const player = this.players.get(socketId);
     if (player) {
       await this.savePlayerToDB(socketId);
-      console.log(`[EntityManager] Player removed & saved: ${player.username}`);
       this.players.delete(socketId);
     }
   }
@@ -156,40 +151,30 @@ export class EntityManager {
     const player = this.players.get(socketId);
     if (player) {
       player.lastInputTime = Date.now();
-      if (input.thrust !== undefined) {
-        player.thrust = !!input.thrust;
-      }
-      if (input.angle !== undefined && !isNaN(input.angle)) {
-        player.angle = Number(input.angle);
-      }
-      if (input.targetPosition !== undefined) {
-        player.targetPosition = input.targetPosition;
-      }
+      if (input.thrust !== undefined) player.thrust = !!input.thrust;
+      if (input.angle !== undefined && !isNaN(input.angle)) player.angle = Number(input.angle);
+      if (input.targetPosition !== undefined) player.targetPosition = input.targetPosition;
     }
   }
 
   update(dt: number) {
     const now = Date.now();
     this.players.forEach(player => {
-      // 1. Movement Logic
       let isMoving = false;
       let moveAngle = player.angle;
 
-      // Click-to-move (Highest priority)
       if (player.targetPosition) {
         const dx = player.targetPosition.x - player.x;
         const dy = player.targetPosition.y - player.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
 
-        if (dist > 10) {
+        if (dist > 5) {
           isMoving = true;
           moveAngle = Math.atan2(dy, dx) + Math.PI/2;
         } else {
           player.targetPosition = null;
         }
-      } 
-      // Manual Thrust
-      else if (player.thrust) {
+      } else if (player.thrust) {
         isMoving = true;
       }
 
@@ -202,7 +187,6 @@ export class EntityManager {
         player.y = Math.max(0, Math.min(MAP_HEIGHT, player.y));
       }
 
-      // 2. Shield Regeneration
       if (now - player.lastDamageTime > 5000 && player.shield < player.maxShield) {
         const regenAmount = player.maxShield * 0.05 * dt;
         player.shield = Math.min(player.maxShield, player.shield + regenAmount);
@@ -213,19 +197,16 @@ export class EntityManager {
   async savePlayerToDB(socketId: string) {
     const player = this.players.get(socketId);
     if (!player) return;
-
     try {
       await this.dbPool.query(
         'UPDATE players SET last_x = $1, last_y = $2, level = $3, experience = $4, credits = $5, honor = $6, aetherium = $7, updated_at = NOW() WHERE id = $8',
         [Math.round(player.x), Math.round(player.y), player.level, player.experience, player.credits, player.honor, player.aetherium, player.dbId]
       );
-    } catch (error) {
-      console.error(`[EntityManager] Error saving player ${player.username}:`, error);
-    }
+    } catch (e) {}
   }
 
   async saveAllPlayers() {
-    const savePromises = Array.from(this.players.keys()).map(socketId => this.savePlayerToDB(socketId));
+    const savePromises = Array.from(this.players.keys()).map(id => this.savePlayerToDB(id));
     await Promise.all(savePromises);
   }
 
