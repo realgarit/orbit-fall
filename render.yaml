@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: orbit-fall
+    name: orbitfall
     runtime: node
     plan: free
     region: frankfurt
