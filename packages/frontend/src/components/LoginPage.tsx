@@ -13,6 +13,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isRegistering, setIsRegistering] = useState(false);
+  const [usernameFocused, setUsernameFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [toggleHovered, setToggleHovered] = useState(false);
 
   useEffect(() => {
     const newSocket = io(window.location.origin);
@@ -142,71 +145,79 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
         <form onSubmit={isRegistering ? handleRegister : handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            <label style={{ fontSize: '0.8em', color: '#888' }}>USERNAME</label>
+            <label htmlFor="username" style={{ fontSize: '0.8em', color: '#888', cursor: 'pointer' }}>USERNAME</label>
             <input
+              id="username"
               type="text"
+              required
+              autoFocus
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              onFocus={() => setUsernameFocused(true)}
+              onBlur={() => setUsernameFocused(false)}
+              aria-invalid={!!error}
+              aria-describedby={error ? 'login-feedback' : undefined}
               style={{ 
                 padding: '10px', 
                 background: '#1a1a2a', 
-                border: '1px solid #00d4ff', 
+                border: `1px solid ${usernameFocused ? '#fff' : '#00d4ff'}`,
                 color: '#fff',
                 borderRadius: '4px',
-                outline: 'none'
+                outline: 'none',
+                boxShadow: usernameFocused ? '0 0 8px rgba(0, 212, 255, 0.5)' : 'none',
+                transition: 'all 0.2s ease'
               }}
               placeholder="Enter callsign"
             />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-            <label style={{ fontSize: '0.8em', color: '#888' }}>PASSWORD</label>
+            <label htmlFor="password" style={{ fontSize: '0.8em', color: '#888', cursor: 'pointer' }}>PASSWORD</label>
             <input
+              id="password"
               type="password"
+              required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onFocus={() => setPasswordFocused(true)}
+              onBlur={() => setPasswordFocused(false)}
+              aria-invalid={!!error}
+              aria-describedby={error ? 'login-feedback' : undefined}
               style={{ 
                 padding: '10px', 
                 background: '#1a1a2a', 
-                border: '1px solid #00d4ff', 
+                border: `1px solid ${passwordFocused ? '#fff' : '#00d4ff'}`,
                 color: '#fff',
                 borderRadius: '4px',
-                outline: 'none'
+                outline: 'none',
+                boxShadow: passwordFocused ? '0 0 8px rgba(0, 212, 255, 0.5)' : 'none',
+                transition: 'all 0.2s ease'
               }}
               placeholder="Enter secure code"
             />
           </div>
 
-          {error && (
-            <div style={{ 
-              color: '#ff4444', 
-              fontSize: '0.9em', 
-              textAlign: 'center',
-              padding: '8px',
-              background: 'rgba(255, 68, 68, 0.1)',
-              borderRadius: '4px',
-              border: '1px solid rgba(255, 68, 68, 0.3)'
-            }}>
-              {error}
-            </div>
-          )}
-
-          {successMessage && (
-            <div style={{ 
-              color: '#44ff44', 
-              fontSize: '0.9em', 
-              textAlign: 'center',
-              padding: '8px',
-              background: 'rgba(68, 255, 68, 0.1)',
-              borderRadius: '4px',
-              border: '1px solid rgba(68, 255, 68, 0.3)'
-            }}>
-              {successMessage}
+          {(error || successMessage) && (
+            <div
+              id="login-feedback"
+              aria-live="polite"
+              style={{
+                color: error ? '#ff4444' : '#44ff44',
+                fontSize: '0.9em',
+                textAlign: 'center',
+                padding: '8px',
+                background: error ? 'rgba(255, 68, 68, 0.1)' : 'rgba(68, 255, 68, 0.1)',
+                borderRadius: '4px',
+                border: `1px solid ${error ? 'rgba(255, 68, 68, 0.3)' : 'rgba(68, 255, 68, 0.3)'}`
+              }}
+            >
+              {error || successMessage}
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading}
+            aria-busy={loading}
             style={{
               padding: '12px',
               background: '#00d4ff',
@@ -218,7 +229,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               opacity: loading ? 0.7 : 1,
               marginTop: '10px',
               fontSize: '1em',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
             }}
           >
             {loading ? 'PROCESSING...' : (isRegistering ? 'REGISTER' : 'LOGIN')}
@@ -231,15 +243,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           </span>
           <button
             onClick={toggleMode}
+            onMouseEnter={() => setToggleHovered(true)}
+            onMouseLeave={() => setToggleHovered(false)}
+            onFocus={() => setToggleHovered(true)}
+            onBlur={() => setToggleHovered(false)}
+            aria-label={isRegistering ? 'Switch to login' : 'Switch to registration'}
             style={{
               background: 'none',
               border: 'none',
               color: '#00d4ff',
               cursor: 'pointer',
-              textDecoration: 'underline',
-              padding: 0,
+              textDecoration: toggleHovered ? 'none' : 'underline',
+              padding: '2px 4px',
               fontFamily: 'inherit',
-              fontSize: 'inherit'
+              fontSize: 'inherit',
+              transition: 'all 0.2s ease',
+              borderRadius: '4px',
+              outline: toggleHovered ? '1px solid #00d4ff' : 'none'
             }}
           >
             {isRegistering ? 'Login here' : 'Register here'}
