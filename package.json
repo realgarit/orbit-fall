@@ -12,7 +12,8 @@
     "build": "npm run build:shared && npm run build:frontend && npm run build:backend",
     "build:shared": "npm run build --workspace=packages/shared",
     "build:frontend": "npm run build --workspace=packages/frontend",
-    "build:backend": "npm run build --workspace=packages/backend"
+    "build:backend": "npm run build --workspace=packages/backend",
+    "start": "npm run start --workspace=packages/backend"
   },
   "dependencies": {
     "typescript": "^5.3.3",
