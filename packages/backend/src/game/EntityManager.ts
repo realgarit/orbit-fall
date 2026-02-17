@@ -60,12 +60,24 @@ export class EntityManager {
     const level = Number(dbUser.level ?? 1);
     const maxH = this.calculateMaxHealth(level);
     const maxS = this.calculateMaxShield(level);
+
+    // Parse JSON fields from SQL Server if they are strings
+    let cargo = dbUser.cargo || {};
+    if (typeof cargo === 'string') {
+      try { cargo = JSON.parse(cargo); } catch (e) { cargo = {}; }
+    }
+
+    let ammo = dbUser.ammo || {};
+    if (typeof ammo === 'string') {
+      try { ammo = JSON.parse(ammo); } catch (e) { ammo = {}; }
+    }
+
     const player: PlayerEntity = {
       id: socketId, socketId, dbId: dbUser.id, username: dbUser.username || 'Unknown Pilot',
       x: Number(dbUser.last_x ?? 1000), y: Number(dbUser.last_y ?? 1000),
       angle: 0, thrust: false, targetPosition: null, level, experience: Number(dbUser.experience ?? 0),
       credits: Number(dbUser.credits ?? 0), honor: Number(dbUser.honor ?? 0), aetherium: Number(dbUser.aetherium ?? 0),
-      cargo: dbUser.cargo || {}, ammo: dbUser.ammo || {}, health: Number(dbUser.current_health ?? maxH),
+      cargo, ammo, health: Number(dbUser.current_health ?? maxH),
       maxHealth: maxH, shield: Number(dbUser.current_shield ?? maxS), maxShield: maxS, ship_type: dbUser.ship_type || 'Sparrow',
       lastInputTime: Date.now(), lastDamageTime: 0, speed: convertSpeed(320)
     };
