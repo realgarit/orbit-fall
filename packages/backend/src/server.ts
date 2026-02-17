@@ -9,20 +9,6 @@ import { GameLoop } from './game/GameLoop.js';
 import { SocketHandler } from './game/SocketHandler.js';
 import { db } from './db.js';
 
-/**
- * Resolves a hostname to an IPv4 address.
- * This is useful on Render where IPv6 might be preferred by default but fails with ENETUNREACH.
- */
-async function resolveToIPv4(hostname: string): Promise<string | null> {
-  if (hostname === 'localhost' || hostname === '127.0.0.1') return hostname;
-  try {
-    const { address } = await dns.promises.lookup(hostname, { family: 4 });
-    return address;
-  } catch (error) {
-    return null;
-  }
-}
-
 export function createApp() {
   const app = express();
   const __dirname = path.dirname(fileURLToPath(import.meta.url));

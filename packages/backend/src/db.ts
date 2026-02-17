@@ -55,7 +55,7 @@ const dbConfig: any = {
 // mssql bug where @ symbol in username gets incorrectly parsed
 console.log(`🔌 Connecting to database: Server=${DB_HOST};Database=${DB_NAME};User Id=${DB_USER};Password=****`);
 
-// Create a simple wrapper that provides pg-like API
+// Create a simple wrapper for database interactions
 class Database {
   private pool: any = null;
 
@@ -75,26 +75,13 @@ class Database {
     
     const request = this.pool.request();
     
-    // Convert PostgreSQL $1, $2 params to SQL Server @p1, @p2
     if (params && params.length > 0) {
       params.forEach((param, index) => {
         request.input(`p${index + 1}`, param);
       });
-      
-      // Replace $1, $2, etc. with @p1, @p2
-      let mssqlQuery = sql;
-      let paramIndex = 1;
-      mssqlQuery = mssqlQuery.replace(/\$(\d+)/g, () => {
-        return `@p${paramIndex++}`;
-      });
-      
-      const result = await request.query(mssqlQuery);
-      return result.recordset;
     }
     
-    // Handle NOW() function
-    const mssqlQuery = sql.replace(/NOW\(\)/g, 'GETDATE()');
-    const result = await request.query(mssqlQuery);
+    const result = await request.query(sql);
     return result.recordset;
   }
 

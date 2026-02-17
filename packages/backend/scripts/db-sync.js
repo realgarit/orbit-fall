@@ -1,6 +1,6 @@
 import dns from "dns";
 dns.setDefaultResultOrder("ipv4first");
-import pg from 'pg';
+import sql from 'mssql';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
@@ -9,116 +9,81 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 
-const { Pool } = pg;
 const BACKUP_FILE = path.join(__dirname, '../backup.json');
 
-async function resolveToIPv4(hostname) {
-  if (hostname === 'localhost' || hostname === '127.0.0.1') return hostname;
-  try {
-    const { address } = await dns.promises.lookup(hostname, { family: 4 });
-    return address;
-  } catch (error) {
-    return null;
-  }
-}
-
-async function getClient(connectionString) {
-  const dbHostMatch = connectionString.match(/@([^/]+)/) || connectionString.match(/\/\/([^/]+)/);
-  const dbHost = dbHostMatch ? dbHostMatch[1] : 'unknown';
-  const [hostname] = dbHost.split(':');
-
-  if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-    const ipv4 = await resolveToIPv4(hostname);
-    if (ipv4) {
-      if (ipv4 !== hostname) {
-        connectionString = connectionString.replace(hostname, ipv4);
-      }
-    } else {
-      // IPv4 resolution failed. Check if it's a Supabase direct host.
-      const supabaseMatch = hostname.match(/db\.([^.]+)\.supabase\.co/);
-      if (supabaseMatch) {
-        const projectRef = supabaseMatch[1];
-        const poolerHost = `aws-0-eu-west-1.pooler.supabase.com`;
-        console.warn(`⚠️ IPv4 resolution failed for Supabase direct host ${hostname}.`);
-        console.log(`🔄 Falling back to Supabase Connection Pooler: ${poolerHost}`);
-
-        try {
-          const url = new URL(connectionString);
-          url.hostname = poolerHost;
-          url.port = "6543";
-          if (!url.username.includes(projectRef)) {
-            url.username = `${url.username}.${projectRef}`;
-          }
-          connectionString = url.toString();
-        } catch (e) {
-          // Fallback to manual replacement if URL parsing fails
-          connectionString = connectionString.replace(hostname, poolerHost);
-          if (!connectionString.includes(`postgres.${projectRef}`)) {
-            connectionString = connectionString.replace("://postgres:", `://postgres.${projectRef}:`);
-          }
-        }
-      }
-    }
-  }
-
-  const pool = new Pool({
+async function getPool() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error('DATABASE_URL is missing');
+  
+  const config = {
     connectionString,
-    ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false }
-  });
-  return { pool, client: await pool.connect() };
+    options: {
+      encrypt: true,
+      trustServerCertificate: false
+    }
+  };
+  return await sql.connect(connectionString);
 }
 
 async function exportData() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL is missing');
-  
   console.log('📥 Exporting data...');
-  const { pool, client } = await getClient(url);
+  const pool = await getPool();
   
   try {
-    const players = (await client.query('SELECT * FROM players')).rows;
+    const result = await pool.request().query('SELECT * FROM players');
+    const players = result.recordset;
     fs.writeFileSync(BACKUP_FILE, JSON.stringify({ players }, null, 2));
     console.log(`✅ Success! ${players.length} players saved to ${BACKUP_FILE}`);
   } finally {
-    client.release();
-    await pool.end();
+    await pool.close();
   }
 }
 
 async function importData() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL is missing');
-  
   if (!fs.existsSync(BACKUP_FILE)) throw new Error('No backup.json found to import');
   const data = JSON.parse(fs.readFileSync(BACKUP_FILE, 'utf8'));
   
   console.log('📤 Importing data...');
-  const { pool, client } = await getClient(url);
+  const pool = await getPool();
   
   try {
-    await client.query('BEGIN');
     for (const p of data.players) {
+      const request = pool.request();
       const keys = Object.keys(p);
       const values = Object.values(p);
-      const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-      const columns = keys.join(', ');
       
-      await client.query(`
-        INSERT INTO players (${columns}) VALUES (${placeholders})
-        ON CONFLICT (id) DO UPDATE SET 
-        username = EXCLUDED.username, 
-        updated_at = NOW()
-      `, values);
+      // Build the UPSERT for MSSQL (MERGE or simple check)
+      // For simplicity in this script, we'll do a DELETE and INSERT or just INSERT
+      // Since it's a sync script, we'll use a simple MERGE-like approach
+      
+      let setClause = keys.map((k, i) => `target.[${k}] = source.[${k}]`).join(', ');
+      let columns = keys.map(k => `[${k}]`).join(', ');
+      let sourceColumns = keys.map(k => `@p${k}`).join(', ');
+
+      keys.forEach((k, i) => {
+        let val = p[k];
+        if (typeof val === 'object' && val !== null) val = JSON.stringify(val);
+        request.input(`p${k}`, val);
+      });
+
+      const mergeSql = `
+        MERGE INTO players AS target
+        USING (SELECT ${keys.map(k => `@p${k} AS [${k}]`).join(', ')}) AS source
+        ON (target.id = source.id)
+        WHEN MATCHED THEN
+          UPDATE SET ${setClause}, updated_at = GETDATE()
+        WHEN NOT MATCHED THEN
+          INSERT (${columns}, updated_at) VALUES (${keys.map(k => `source.[${k}]`).join(', ')}, GETDATE());
+      `;
+      
+      await request.query(mergeSql);
     }
-    await client.query(`SELECT setval('players_id_seq', (SELECT MAX(id) FROM players))`);
-    await client.query('COMMIT');
     console.log(`✅ Success! ${data.players.length} players imported.`);
   } catch (e) {
-    await client.query('ROLLBACK');
+    console.error('❌ Import failed:', e);
     throw e;
   } finally {
-    client.release();
-    await pool.end();
+    await pool.close();
   }
 }
 

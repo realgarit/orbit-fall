@@ -17,12 +17,12 @@ This document outlines technical improvements to consider as Orbit Fall grows. T
 ## 🔴 Redis for Real-Time Game State
 
 ### Current State
-- PostgreSQL stores persistent data (player profiles, inventory, progression)
+- Azure SQL stores persistent data (player profiles, inventory, progression)
 - Socket.IO handles real-time communication
 - Game state is managed client-side with Zustand
 
 ### Why Redis?
-PostgreSQL is excellent for persistent data but not optimized for:
+Azure SQL is excellent for persistent data but not optimized for:
 - **High-frequency reads/writes** (player positions, health updates)
 - **Session management** (active players, temporary state)
 - **Caching** (frequently accessed data)
@@ -73,13 +73,13 @@ redis.publish('game:events', JSON.stringify({
 ### Benefits
 - ⚡ Faster reads/writes for real-time data
 - 🔄 Better session management
-- 📊 Reduced PostgreSQL load
+- 📊 Reduced Azure SQL load
 - 🌐 Easier horizontal scaling
 
 ### Trade-offs
 - 📦 Additional infrastructure dependency
 - 💰 Additional hosting costs
-- 🔧 More complex deployment (Redis + PostgreSQL)
+- 🔧 More complex deployment (Redis + Azure SQL)
 
 ---
 
