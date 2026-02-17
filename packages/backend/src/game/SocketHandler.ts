@@ -1,21 +1,19 @@
 import { Server, Socket } from 'socket.io';
 import { EntityManager } from './EntityManager.js';
 import { AuthService } from './AuthService.js';
-import { Pool } from 'pg';
+import { db } from '../db.js';
 import { ENEMY_STATS } from '@orbit-fall/shared';
 
 export class SocketHandler {
   private io: Server;
   private entityManager: EntityManager;
   private authService: AuthService;
-  private dbPool: Pool;
   private activeIps: Map<string, string> = new Map(); // ip -> socketId
 
-  constructor(io: Server, entityManager: EntityManager, dbPool: Pool) {
+  constructor(io: Server, entityManager: EntityManager) {
     this.io = io;
     this.entityManager = entityManager;
-    this.dbPool = dbPool;
-    this.authService = new AuthService(dbPool);
+    this.authService = new AuthService();
   }
 
   handleConnection(socket: Socket) {
@@ -73,9 +71,9 @@ export class SocketHandler {
     socket.on('resume_session', async (data: { token: string; username: string }) => {
       const ip = this.getClientIp(socket);
       // For prototype, we just trust the token if the username matches
-      const result = await this.dbPool.query('SELECT * FROM players WHERE username = $1', [data.username]);
-      if (result.rows.length > 0) {
-        const user = result.rows[0];
+      const result = await db.query('SELECT * FROM players WHERE username = @p1', [data.username]);
+      if (result.length > 0) {
+        const user = result[0];
         this.entityManager.addPlayer(socket.id, user);
         this.activeIps.set(ip, socket.id);
         socket.emit('login_success', {

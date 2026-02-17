@@ -1,13 +1,13 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { Pool } from 'pg';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dns from 'dns';
 import { EntityManager } from './game/EntityManager.js';
 import { GameLoop } from './game/GameLoop.js';
 import { SocketHandler } from './game/SocketHandler.js';
+import { db } from './db.js';
 
 /**
  * Resolves a hostname to an IPv4 address.
@@ -23,7 +23,7 @@ async function resolveToIPv4(hostname: string): Promise<string | null> {
   }
 }
 
-export function createApp(dbPool: Pool) {
+export function createApp() {
   const app = express();
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const server = createServer(app);
@@ -35,9 +35,9 @@ export function createApp(dbPool: Pool) {
   });
 
   // --- Game Infrastructure Setup ---
-  const entityManager = new EntityManager(dbPool);
+  const entityManager = new EntityManager();
   const gameLoop = new GameLoop(io, entityManager);
-  const socketHandler = new SocketHandler(io, entityManager, dbPool);
+  const socketHandler = new SocketHandler(io, entityManager);
 
   // Start the Game Loop (60 Hz)
   gameLoop.start();
@@ -77,33 +77,4 @@ export function createApp(dbPool: Pool) {
   return { app, server, io };
 }
 
-export async function createDatabasePool(): Promise<Pool> {
-  const connectionString = process.env.DATABASE_URL;
-  
-  if (!connectionString) {
-    console.warn('⚠️ No database connection string found (DATABASE_URL).');
-  } else {
-    // Log connection (safely)
-    const maskedUrl = connectionString.replace(/:([^:@]+)@/, ':****@');
-    console.log(`🔌 Connecting to database: ${maskedUrl}`);
-  }
 
-  const pool = new Pool({
-    connectionString: connectionString || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
-    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
-    connectionTimeoutMillis: 5000,
-  });
-
-  // Test connection
-  try {
-    await pool.query('SELECT NOW()');
-    console.log(`✅ Database connected successfully`);
-  } catch (err) {
-    console.error(`❌ Database connection error:`, (err as Error).message);
-    if ((err as Error).message.includes('getaddrinfo') || (err as Error).message.includes('connect ETIMEDOUT')) {
-      console.error('💡 HINT: If you are on Render, ensure you are using the Supabase "Transaction Pooler" connection string (port 6543).');
-    }
-  }
-
-  return pool;
-}

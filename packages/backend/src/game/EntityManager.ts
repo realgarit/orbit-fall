@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { db } from '../db.js';
 import { ORE_CONFIG, ORE_REFINING_RECIPES } from '@orbit-fall/shared';
 
 const MAP_WIDTH = 1200;
@@ -32,9 +32,8 @@ export class EntityManager {
   public enemies: Map<string, WorldEntity> = new Map();
   public ores: Map<string, WorldEntity> = new Map();
   public boxes: Map<string, WorldEntity> = new Map();
-  private dbPool: Pool;
 
-  constructor(dbPool: Pool) { this.dbPool = dbPool; this.initializeWorld(); }
+  constructor() { this.initializeWorld(); }
 
   private initializeWorld() {
     for (let i = 1; i <= 5; i++) {
@@ -211,8 +210,8 @@ export class EntityManager {
     const p = this.players.get(socketId);
     if (!p) return;
     try {
-      await this.dbPool.query(
-        `UPDATE players SET last_x = $1, last_y = $2, level = $3, experience = $4, credits = $5, honor = $6, aetherium = $7, cargo = $8, ammo = $9, current_health = $10, current_shield = $11, updated_at = NOW() WHERE id = $12`,
+      await db.query(
+        `UPDATE players SET last_x = @p1, last_y = @p2, level = @p3, experience = @p4, credits = @p5, honor = @p6, aetherium = @p7, cargo = @p8, ammo = @p9, current_health = @p10, current_shield = @p11, updated_at = GETDATE() WHERE id = @p12`,
         [Math.round(p.x), Math.round(p.y), p.level, p.experience, p.credits, p.honor, p.aetherium, JSON.stringify(p.cargo), JSON.stringify(p.ammo), Math.round(p.health), Math.round(p.shield), p.dbId]
       );
     } catch (e) {}

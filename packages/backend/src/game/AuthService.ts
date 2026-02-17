@@ -1,13 +1,7 @@
-import { Pool } from 'pg';
+import { db } from '../db.js';
 import bcrypt from 'bcrypt';
 
 export class AuthService {
-  private dbPool: Pool;
-
-  constructor(dbPool: Pool) {
-    this.dbPool = dbPool;
-  }
-
   async register(username: string, password: string, ip: string): Promise<{ success: boolean; message: string }> {
     if (!username || username.trim().length === 0) {
       return { success: false, message: 'Username cannot be empty' };
@@ -17,35 +11,30 @@ export class AuthService {
     }
 
     try {
-      const client = await this.dbPool.connect();
-      try {
-        // 1. Check IP limit (Skip for localhost)
-        const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1');
-        if (!isLocalhost) {
-          const ipCheck = await client.query('SELECT COUNT(*) FROM players WHERE registration_ip = $1', [ip]);
-          if (parseInt(ipCheck.rows[0].count) >= 1) {
-            return { success: false, message: 'Registration failed. Please contact the administrator.' };
-          }
+      // 1. Check IP limit (Skip for localhost)
+      const isLocalhost = ip === '127.0.0.1' || ip === '::1' || ip.includes('127.0.0.1');
+      if (!isLocalhost) {
+        const ipCheck = await db.query('SELECT COUNT(*) as count FROM players WHERE registration_ip = @p1', [ip]);
+        if (ipCheck.length > 0 && ipCheck[0].count >= 1) {
+          return { success: false, message: 'Registration failed. Please contact the administrator.' };
         }
-
-        // 2. Check if user already exists
-        const existingUser = await client.query('SELECT id FROM players WHERE username = $1', [username]);
-        if (existingUser.rows.length > 0) {
-          return { success: false, message: 'Username already exists' };
-        }
-
-        const saltRounds = 10;
-        const passwordHash = await bcrypt.hash(password, saltRounds);
-
-        await client.query(
-          'INSERT INTO players (username, password_hash, registration_ip) VALUES ($1, $2, $3)',
-          [username, passwordHash, ip]
-        );
-
-        return { success: true, message: 'Registration successful' };
-      } finally {
-        client.release();
       }
+
+      // 2. Check if user already exists
+      const existingUser = await db.query('SELECT id FROM players WHERE username = @p1', [username]);
+      if (existingUser.length > 0) {
+        return { success: false, message: 'Username already exists' };
+      }
+
+      const saltRounds = 10;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+
+      await db.query(
+        'INSERT INTO players (username, password_hash, registration_ip) VALUES (@p1, @p2, @p3)',
+        [username, passwordHash, ip]
+      );
+
+      return { success: true, message: 'Registration successful' };
     } catch (error) {
       console.error('[AuthService] Registration error:', error);
       return { success: false, message: 'An error occurred during registration' };
@@ -54,12 +43,12 @@ export class AuthService {
 
   async login(username: string, password: string): Promise<{ success: boolean; message: string; user?: any }> {
     try {
-      const result = await this.dbPool.query('SELECT * FROM players WHERE username = $1', [username]);
-      if (result.rows.length === 0) {
+      const result = await db.query('SELECT * FROM players WHERE username = @p1', [username]);
+      if (result.length === 0) {
         return { success: false, message: 'Invalid username or password' };
       }
 
-      const user = result.rows[0];
+      const user = result[0];
       const match = await bcrypt.compare(password, user.password_hash);
 
       if (!match) {
