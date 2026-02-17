@@ -1,7 +1,7 @@
-import mssql, { Pool, IResult } from 'mssql';
+import mssql from 'mssql';
 
-// Database configuration
-const config: mssql.IConfig = {
+// Database configuration - use any to avoid type issues with mssql v10
+const dbConfig: any = {
   server: process.env.DB_HOST || 'orbitfall-sql-server.database.windows.net',
   database: process.env.DB_NAME || 'orbitfall-db',
   user: process.env.DB_USER || 'orbitfalladmin',
@@ -21,20 +21,20 @@ const config: mssql.IConfig = {
 // Override with DATABASE_URL if provided
 const connectionString = process.env.DATABASE_URL;
 if (connectionString) {
-  config.connectionString = connectionString;
+  dbConfig.connectionString = connectionString;
   const maskedUrl = connectionString.replace(/:([^:@]+)@/, ':****@');
   console.log(`🔌 Connecting to database: ${maskedUrl}`);
 } else if (process.env.DB_HOST) {
-  config.connectionString = `Server=${config.server};Database=${config.database};User Id=${config.user};Password=${config.password};Encrypt=true;TrustServerCertificate=false;`;
+  dbConfig.connectionString = `Server=${dbConfig.server};Database=${dbConfig.database};User Id=${dbConfig.user};Password=${dbConfig.password};Encrypt=true;TrustServerCertificate=false;`;
 }
 
 // Create a simple wrapper that provides pg-like API
 class Database {
-  private pool: Pool | null = null;
+  private pool: any = null;
 
   async connect(): Promise<void> {
     try {
-      this.pool = await mssql.connect(config);
+      this.pool = await mssql.connect(dbConfig);
       await this.pool.query('SELECT 1');
       console.log('✅ Database connected successfully');
     } catch (err) {
@@ -78,7 +78,7 @@ class Database {
     }
   }
 
-  getPool(): Pool | null {
+  getPool(): any {
     return this.pool;
   }
 }
@@ -87,4 +87,4 @@ class Database {
 export const db = new Database();
 
 // Export for type compatibility with existing code
-export type Pool = mssql.Pool;
+export type Pool = any;
