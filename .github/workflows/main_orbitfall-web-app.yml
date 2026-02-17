@@ -62,4 +62,4 @@ jobs:
           app-name: 'orbitfall-web-app'
           slot-name: 'Production'
           package: .
-          app-command-line: 'node packages/backend/dist/index.js'          
+          startup-command: 'node packages/backend/dist/index.js'          
