@@ -3,9 +3,12 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Load environment variables
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+// Load environment variables - don't fail if .env is missing
+try {
+  dotenv.config({ path: '.env' });
+} catch (e) {
+  // Ignore errors - we'll use environment variables from Azure
+}
 
 // Database configuration
 const config = {

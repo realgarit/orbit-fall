@@ -1,6 +1,16 @@
 import dns from "dns";
 dns.setDefaultResultOrder("ipv4first");
-import 'dotenv/config';
+
+// Load environment variables - don't fail if .env is missing
+import dotenv from 'dotenv';
+// Try to load .env file if it exists, otherwise rely on environment variables
+try {
+  dotenv.config({ path: '.env' });
+} catch (e) {
+  // Ignore errors - we'll use environment variables from Azure
+  console.log('Note: Using environment variables (no .env file found)');
+}
+
 import { createApp } from './server.js';
 import { db } from './db.js';
 
