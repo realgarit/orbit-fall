@@ -50,14 +50,10 @@ const dbConfig: any = {
   }
 };
 
-// Build connection string for logging and verify config
-// Azure SQL requires 'User Id' (with space) in connection string
-const connectionString = `Server=${DB_HOST};Database=${DB_NAME};User Id=${DB_USER};Password=${DB_PASSWORD};Encrypt=true;TrustServerCertificate=false;`;
-dbConfig.connectionString = connectionString;
-
 // Log connection info (mask password)
-const maskedConnectionString = connectionString.replace(/Password=[^;]+/, 'Password=****');
-console.log(`🔌 Connecting to database: ${maskedConnectionString}`);
+// Note: Using config object directly instead of connection string to avoid
+// mssql bug where @ symbol in username gets incorrectly parsed
+console.log(`🔌 Connecting to database: Server=${DB_HOST};Database=${DB_NAME};User Id=${DB_USER};Password=****`);
 
 // Create a simple wrapper that provides pg-like API
 class Database {
