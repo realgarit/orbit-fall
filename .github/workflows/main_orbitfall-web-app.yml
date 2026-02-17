@@ -51,9 +51,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_3D76E50F9A6F4AD8A8EA0DBE582BB215 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B3E274859A8E49DA9810CF5F52D4D35D }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C161D31A164F47B18C92F68A0D2B36A9 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_D6FC37A77F4546E38769B5CE80AF95BA }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_25EC57754D344AA68D04CD5F6B3824B7 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8B7FB8C6C0444A7A9FD69445B6B7C795 }}
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
@@ -62,4 +62,4 @@ jobs:
           app-name: 'orbitfall-web-app'
           slot-name: 'Production'
           package: .
-          startup-command: 'node packages/backend/dist/index.js'          
+          
