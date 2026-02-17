@@ -1,7 +1,8 @@
 import dns from "dns";
 dns.setDefaultResultOrder("ipv4first");
 
-// Load environment variables - don't fail if .env is missing
+// Load environment variables
+// Note: Ensure DATABASE_URL is set in Azure App Settings
 import dotenv from 'dotenv';
 // Try to load .env file if it exists, otherwise rely on environment variables
 try {
