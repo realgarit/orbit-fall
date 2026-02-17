@@ -58,7 +58,3 @@ npm run dev:backend   # Backend on http://localhost:3000
 - `npm run build:shared` - Build shared package
 - `npm run build:frontend` - Build frontend
 - `npm run build:backend` - Build backend
-
-## License
-
-MIT
