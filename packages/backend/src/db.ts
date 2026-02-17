@@ -1,11 +1,43 @@
 import mssql from 'mssql';
 
-// Database configuration - use any to avoid type issues with mssql v10
+// Database configuration - all values must be provided by Azure environment variables
+// No defaults - the app should fail fast if environment variables are missing
+const DB_HOST = process.env.DB_HOST;
+const DB_NAME = process.env.DB_NAME;
+const DB_USER = process.env.DB_USER;
+const DB_PASSWORD = process.env.DB_PASSWORD;
+
+// Validate required environment variables at startup
+const requiredVars = [
+  { name: 'DB_HOST', value: DB_HOST },
+  { name: 'DB_NAME', value: DB_NAME },
+  { name: 'DB_USER', value: DB_USER },
+  { name: 'DB_PASSWORD', value: DB_PASSWORD }
+];
+
+console.log('📋 Database environment configuration:');
+requiredVars.forEach(({ name, value }) => {
+  const isSet = value !== undefined && value !== null;
+  console.log(`  ${name}: ${isSet ? (name === 'DB_PASSWORD' ? '***(set)' : value) : '❌ NOT SET'}`);
+});
+
+// Check for missing required variables
+const missingVars = requiredVars
+  .filter(({ value }) => value === undefined || value === null)
+  .map(({ name }) => name);
+
+if (missingVars.length > 0) {
+  console.error(`❌ Missing required environment variables: ${missingVars.join(', ')}`);
+  console.error('   These must be provided by Azure App Service configuration.');
+  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+}
+
+// Database configuration for mssql
 const dbConfig: any = {
-  server: process.env.DB_HOST || 'orbitfall-sql-server.database.windows.net',
-  database: process.env.DB_NAME || 'orbitfall-db',
-  user: process.env.DB_USER || 'orbitfalladmin',
-  password: process.env.DB_PASSWORD || '',
+  server: DB_HOST,
+  database: DB_NAME,
+  user: DB_USER,
+  password: DB_PASSWORD,
   options: {
     encrypt: true,
     trustServerCertificate: false,
@@ -18,15 +50,14 @@ const dbConfig: any = {
   }
 };
 
-// Override with DATABASE_URL if provided
-const connectionString = process.env.DATABASE_URL;
-if (connectionString) {
-  dbConfig.connectionString = connectionString;
-  const maskedUrl = connectionString.replace(/:([^:@]+)@/, ':****@');
-  console.log(`🔌 Connecting to database: ${maskedUrl}`);
-} else if (process.env.DB_HOST) {
-  dbConfig.connectionString = `Server=${dbConfig.server};Database=${dbConfig.database};User Id=${dbConfig.user};Password=${dbConfig.password};Encrypt=true;TrustServerCertificate=false;`;
-}
+// Build connection string for logging and verify config
+// Azure SQL requires 'User Id' (with space) in connection string
+const connectionString = `Server=${DB_HOST};Database=${DB_NAME};User Id=${DB_USER};Password=${DB_PASSWORD};Encrypt=true;TrustServerCertificate=false;`;
+dbConfig.connectionString = connectionString;
+
+// Log connection info (mask password)
+const maskedConnectionString = connectionString.replace(/Password=[^;]+/, 'Password=****');
+console.log(`🔌 Connecting to database: ${maskedConnectionString}`);
 
 // Create a simple wrapper that provides pg-like API
 class Database {
